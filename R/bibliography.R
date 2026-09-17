@@ -78,7 +78,11 @@ parse_bibtex_text <- function(x) {
     stop("`ref` does not contain a keyed BibTeX entry.", call. = FALSE)
   }
   if (anyDuplicated(tolower(keys))) {
-    stop("`ref` contains duplicate citation keys.", call. = FALSE)
+    stop(
+      "`ref` contains duplicate citation key(s): ",
+      paste(duplicate_pairs(tolower(keys), keys), collapse = ", "),
+      ".", call. = FALSE
+    )
   }
 
   path <- tempfile(fileext = ".bib")
@@ -113,8 +117,8 @@ bibtex_keys <- function(x) {
 assert_unique_bibliography <- function(x) {
   entries <- unclass(x)
   keys <- vapply(entries, function(entry) attr(entry, "key"), character(1L))
-  duplicate_keys <- unique(keys[duplicated(tolower(keys))])
-  if (length(duplicate_keys) > 0L) {
+  duplicate_keys <- duplicate_pairs(tolower(keys), keys)
+  if (length(duplicate_keys)) {
     stop(
       "Duplicate BibTeX citation key(s): ",
       paste(duplicate_keys, collapse = ", "),
@@ -124,8 +128,8 @@ assert_unique_bibliography <- function(x) {
   }
 
   fingerprints <- vapply(entries, bibentry_fingerprint, character(1L))
-  duplicate_entries <- unique(keys[duplicated(fingerprints)])
-  if (length(duplicate_entries) > 0L) {
+  duplicate_entries <- duplicate_pairs(fingerprints, keys)
+  if (length(duplicate_entries)) {
     stop(
       "Duplicate BibTeX entry or entries found at key(s): ",
       paste(duplicate_entries, collapse = ", "),
@@ -134,6 +138,17 @@ assert_unique_bibliography <- function(x) {
     )
   }
   invisible(TRUE)
+}
+
+duplicate_pairs <- function(values, keys) {
+  later <- which(duplicated(values))
+  if (!length(later)) {
+    return(character())
+  }
+  vapply(later, function(i) {
+    first <- match(values[i], values)
+    paste0("`", keys[first], "` and `", keys[i], "`")
+  }, character(1L))
 }
 
 bibentry_fingerprint <- function(entry) {

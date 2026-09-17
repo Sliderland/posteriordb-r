@@ -55,10 +55,28 @@ test_that("append_reference rejects duplicate keys and entries without writing",
   on.exit(unlink(pdb$cache_path, recursive = TRUE), add = TRUE)
 
   duplicate_key <- sub("original", "ORIGINAL", original, fixed = TRUE)
-  expect_error(append_reference(duplicate_key, pdb), "Duplicate.*key")
+  expect_error(append_reference(duplicate_key, pdb), "`original` and `ORIGINAL`")
   expect_identical(readLines(reference_path), original)
 
   duplicate_entry <- sub("original", "another-key", original, fixed = TRUE)
-  expect_error(append_reference(duplicate_entry, pdb), "Duplicate BibTeX entry")
+  expect_error(append_reference(duplicate_entry, pdb), "`original` and `another-key`")
   expect_identical(readLines(reference_path), original)
+})
+
+test_that("append_reference identifies duplicates within supplied references", {
+  root <- tempfile("pdb-bibliography-")
+  dir.create(file.path(root, "bibliography"), recursive = TRUE)
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  reference_path <- file.path(root, "bibliography", "references.bib")
+  writeLines(character(), reference_path)
+  pdb <- structure(
+    list(pdb_local_endpoint = root, cache_path = tempdir()),
+    class = c("pdb_local", "pdb")
+  )
+  refs <- c(
+    utils::bibentry("Misc", key = "first", title = "Same", year = "2020"),
+    utils::bibentry("Misc", key = "second", title = "Same", year = "2020")
+  )
+  expect_error(append_reference(refs, pdb), "`first` and `second`")
+  expect_identical(readLines(reference_path), character())
 })
