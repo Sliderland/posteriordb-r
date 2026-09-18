@@ -97,7 +97,9 @@ read_reference_posterior_draws <- function(x, pdb, ...) {
   rpd <- lapply(rpd, FUN = function(X) lapply(X, as.numeric))
   rpd <- posterior::as_draws_list(rpd)
   names(rpd) <- NULL
-  info(rpd) <- reference_posterior_draws_info(x, pdb)
+  # A reference-posterior name need not also be a posterior name while an
+  # imported fit is being staged, so read its info directly.
+  info(rpd) <- read_reference_posterior_info(x, type = "draws", pdb = pdb)
   pdb(rpd) <- pdb
   class(rpd) <- c("pdb_reference_posterior_draws", class(rpd))
   assert_reference_posterior_draws(rpd)
@@ -244,7 +246,7 @@ assert_reference_posterior_info <- function(x){
   checkmate::assert_string(x$added_by)
   checkmate::assert_date(x$added_date)
   if(!is.null(x$versions)){
-    checkmate::assert_names(names(x$versions), subset.of = c("rstan_version", "cmdstan_version", "r_Makevars", "r_version", "r_session", "r_summary_statistic"))
+    checkmate::assert_names(names(x$versions), subset.of = c("rstan_version", "cmdstan_version", "stan_version", "posterior_version", "r_Makevars", "r_version", "r_session", "r_summary_statistic"))
     if(!is.null(x$versions$rstan_version)){
       checkmate::assert_names(names(x$versions), must.include = c("rstan_version", "r_Makevars", "r_version", "r_session"))
     } else if(!is.null(x$versions$cmdstan_version)){

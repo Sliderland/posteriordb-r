@@ -75,7 +75,13 @@ as.reference_posterior_draws.stanfit <- function(
 #'
 #' @keywords internal
 #' @noRd
-compute_stan_sampling_diagnostics <- function(x, keep_dimensions) {
+compute_stan_sampling_diagnostics <- function(
+  x,
+  keep_dimensions,
+  sampler_diagnostics = NULL,
+  expected_fraction_of_missing_information = NULL,
+  max_treedepth = NULL
+) {
   checkmate::assert_character(keep_dimensions)
 
   d <- list()
@@ -115,16 +121,71 @@ compute_stan_sampling_diagnostics <- function(x, keep_dimensions) {
   # of the reference-draw acceptance policy.
   d$mean_lag1_ac <- mean_lag1_ac(pd)
 
-  # divergent_transitions
-  hmc_params <- rstan::get_sampler_params(x, inc_warmup = FALSE)
-  d$divergent_transitions <- unlist(lapply(hmc_params, function(x) {
-    sum(x[, "divergent__"])
-  }))
+  # Sampler diagnostics are extracted at the external-fit boundary.  The
+  # fallback keeps the existing internally-sampled workflow unchanged.
+  if (is.null(sampler_diagnostics)) {
+    sampler_diagnostics <- sampler_params_to_draws_array(
+      rstan::get_sampler_params(x, inc_warmup = FALSE)
+    )
+  }
+
+  if (!is.null(sampler_diagnostics)) {
+    sampler_variables <- posterior::variables(sampler_diagnostics)
+    if ("divergent__" %in% sampler_variables) {
+      d$divergent_transitions <- vapply(seq_len(posterior::nchains(sampler_diagnostics)), function(i) {
+        sum(sampler_diagnostics[, i, "divergent__"])
+      }, numeric(1))
+    }
+
+    if ("treedepth__" %in% sampler_variables && !is.null(max_treedepth)) {
+      d$max_treedepth_exceeded <- vapply(seq_len(posterior::nchains(sampler_diagnostics)), function(i) {
+        sum(sampler_diagnostics[, i, "treedepth__"] >= max_treedepth)
+      }, numeric(1))
+    }
+
+    sampler_summary <- posterior::summarise_draws(sampler_diagnostics)
+    d$sampler_parameter_summaries <- lapply(seq_len(nrow(sampler_summary)), function(i) {
+      row <- sampler_summary[i, , drop = FALSE]
+      as.list(row)
+    })
+    names(d$sampler_parameter_summaries) <- sampler_summary$variable
+  }
 
   # expected_fraction_of_missing_information
-  d$expected_fraction_of_missing_information <- rstan::get_bfmi(x)
+  if (is.null(expected_fraction_of_missing_information)) {
+    expected_fraction_of_missing_information <- rstan::get_bfmi(x)
+  }
+  d$expected_fraction_of_missing_information <- expected_fraction_of_missing_information
 
   d
+}
+
+# Convert rstan's list of per-chain sampler parameter matrices to a posterior
+# draws object.  Keeping this conversion here gives future fit extractors a
+# stable, posterior-compatible boundary for sampler diagnostics.
+sampler_params_to_draws_array <- function(sampler_params) {
+  if (is.null(sampler_params) || length(sampler_params) == 0L) return(NULL)
+  if (!all(vapply(sampler_params, is.matrix, logical(1)))) return(NULL)
+
+  n_draws <- unique(vapply(sampler_params, nrow, integer(1)))
+  variable_names <- unique(lapply(sampler_params, colnames))
+  if (length(n_draws) != 1L || length(variable_names) != 1L) return(NULL)
+  variable_names <- variable_names[[1L]]
+  if (is.null(variable_names)) return(NULL)
+
+  values <- array(
+    NA_real_,
+    dim = c(n_draws, length(sampler_params), length(variable_names)),
+    dimnames = list(
+      iteration = NULL,
+      chain = as.character(seq_along(sampler_params)),
+      variable = variable_names
+    )
+  )
+  for (chain_index in seq_along(sampler_params)) {
+    values[, chain_index, ] <- sampler_params[[chain_index]]
+  }
+  posterior::as_draws_array(values)
 }
 
 
