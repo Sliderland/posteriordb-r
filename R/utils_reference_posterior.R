@@ -41,11 +41,11 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
     checkmate::assert_true(rpi$diagnostics$nchains >= 4)
     tst$nchains_is_gte_4 <- TRUE
 
-    # Assert the effective sample size is correct/within bounds
-    ess_bnds <- ess_bounds(x)
-    checkmate::assert_numeric(rpi$diagnostics$effective_sample_size_bulk, lower = ess_bnds$ess_bulk[2], upper = ess_bnds$ess_bulk[1])
-    checkmate::assert_numeric(rpi$diagnostics$effective_sample_size_tail, lower = ess_bnds$ess_tail[2], upper = ess_bnds$ess_tail[1])
-    tst$ess_within_bounds <- TRUE
+    # Assert that mean absolute lag-1 autocorrelation is below 0.05.
+    lag1 <- rpi$diagnostics$mean_lag1_ac
+    if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
+    checkmate::assert_numeric(abs(lag1), upper = 0.05)
+    tst$abs_mean_lag1_ac_below_0_05 <- TRUE
 
     # Assert all Rhat < 1.01
     checkmate::assert_numeric(rpi$diagnostics$r_hat, upper = 1.01)
@@ -114,11 +114,11 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...
     checkmate::assert_true(rpi$diagnostics$nchains >= 4)
     tst$nchains_is_gte_4 <- TRUE
 
-    # Assert the effective sample size is correct/within bounds
-    ess_bnds <- ess_bounds(x)
-    checkmate::assert_numeric(rpi$diagnostics$effective_sample_size_bulk, lower = ess_bnds$ess_bulk[2], upper = ess_bnds$ess_bulk[1])
-    checkmate::assert_numeric(rpi$diagnostics$effective_sample_size_tail, lower = ess_bnds$ess_tail[2], upper = ess_bnds$ess_tail[1])
-    tst$ess_within_bounds <- TRUE
+    # Assert that mean absolute lag-1 autocorrelation is below 0.05.
+    lag1 <- rpi$diagnostics$mean_lag1_ac
+    if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
+    checkmate::assert_numeric(abs(lag1), upper = 0.05)
+    tst$abs_mean_lag1_ac_below_0_05 <- TRUE
 
     # Assert all Rhat < 1.01
     checkmate::assert_numeric(rpi$diagnostics$r_hat, upper = 1.01)
@@ -141,6 +141,32 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
   invisible(x)
+}
+
+# Compute the mean absolute lag-1 autocorrelation across chains for every
+# retained variable. `posterior::autocorrelation()` returns zero for a
+# constant chain, which is appropriate for this acceptance diagnostic.
+mean_lag1_ac <- function(x){
+  x <- posterior::as_draws_array(x)
+  n_chains <- dim(x)[2]
+  n_variables <- dim(x)[3]
+  variable_names <- posterior::variables(x)
+
+  out <- stats::setNames(numeric(n_variables), variable_names)
+  for (variable_index in seq_len(n_variables)) {
+    by_chain <- vapply(seq_len(n_chains), function(chain_index) {
+      z <- x[, chain_index, variable_index]
+      posterior::autocorrelation(z)[2]
+    }, numeric(1))
+    if (anyNA(by_chain) || any(!is.finite(by_chain))) {
+      stop(
+        "Lag-1 autocorrelation was undefined for a retained variable.",
+        call. = FALSE
+      )
+    }
+    out[variable_index] <- mean(abs(by_chain))
+  }
+  out
 }
 
 #' Compute ESS tail and bulk bounds
