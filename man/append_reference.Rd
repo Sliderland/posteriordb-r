@@ -13,8 +13,8 @@ append_reference(ref, pdb, ...)
 \method{append_reference}{bibentry}(ref, pdb, ...)
 }
 \arguments{
-\item{ref}{a character string containing one BibTeX entry, or a `bibentry`
-object containing one or more entries}
+\item{ref}{a character string containing one BibTeX entry, a path to a
+`.bib` file, or a `bibentry` object containing one or more entries}
 
 \item{pdb}{a local posterior database connection}
 
@@ -24,10 +24,11 @@ object containing one or more entries}
 Invisibly, `TRUE`.
 }
 \description{
-Add a BibTeX reference supplied either as a character string or as a
-`bibentry` object. A character string must contain exactly one keyed entry;
-a `bibentry` object may contain one or more entries. Before writing, the
-complete bibliography is checked for duplicate citation keys (ignoring
-case) and duplicate entries. If validation fails, the bibliography is left
-unchanged. Only local posterior database connections can be modified.
+Add BibTeX references supplied as a character string, a path to a `.bib`
+file, or a `bibentry` object. A character string of BibTeX text must contain
+exactly one keyed entry; a `.bib` file or `bibentry` object may contain
+multiple entries. Before writing, the complete bibliography is checked for
+duplicate citation keys (ignoring case) and duplicate entries. If validation
+fails, the bibliography is left unchanged. Only local posterior database
+connections can be modified.
 }

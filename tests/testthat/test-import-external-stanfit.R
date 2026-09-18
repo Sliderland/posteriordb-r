@@ -1,11 +1,50 @@
 context("test-import-external-stanfit")
 
 empty_local_pdb <- function() {
-  root <- file.path(tempdir(), paste0("posteriordb-import-", as.integer(Sys.time()), "-", sample.int(1e6, 1)))
+  root <- tempfile("posteriordb-import-")
   dir.create(file.path(root, "data"), recursive = TRUE)
   dir.create(file.path(root, "models"), recursive = TRUE)
   dir.create(file.path(root, "posteriors"), recursive = TRUE)
-  pdb_local(root)
+  dir.create(file.path(root, "cache"))
+  pdb_local(root, cache_path = file.path(root, "cache"))
+}
+
+linked_local_pdb <- function() {
+  pdb <- empty_local_pdb()
+  root <- pdb$pdb_local_endpoint
+  dir.create(file.path(root, "alias"))
+  writeLines("{}", file.path(root, "alias", "posteriors.json"))
+  dir.create(file.path(root, "data", "info"), recursive = TRUE)
+  dir.create(file.path(root, "models", "info"), recursive = TRUE)
+  jsonlite::write_json(list(
+    name = "external-data",
+    data_file = "data/data/external-data.json",
+    title = "External test data",
+    added_by = "testthat",
+    added_date = as.character(Sys.Date())
+  ), file.path(root, "data", "info", "external-data.info.json"),
+  auto_unbox = TRUE, null = "null")
+  jsonlite::write_json(list(
+    name = "external-model",
+    model_implementations = list(stan = list(
+      model_code = "models/stan/external-model.stan"
+    )),
+    title = "External test model",
+    added_by = "testthat",
+    added_date = as.character(Sys.Date())
+  ), file.path(root, "models", "info", "external-model.info.json"),
+  auto_unbox = TRUE, null = "null")
+  jsonlite::write_json(list(
+    name = "external-data-external-model",
+    model_name = "external-model",
+    data_name = "external-data",
+    reference_posterior_name = NULL,
+    dimensions = list(alpha = 1L, beta = 1L),
+    added_by = "testthat",
+    added_date = as.character(Sys.Date())
+  ), file.path(root, "posteriors", "external-data-external-model.json"),
+  auto_unbox = TRUE, null = "null")
+  pdb
 }
 
 external_fit_fixture <- local({
@@ -94,7 +133,34 @@ test_that("matrix dimensions are explicit and missing declarations fail", {
       pdb = empty_local_pdb(),
       dimensions = list(A = c(2, 2), missing = 1)
     ),
-    "missing declared posterior variables"
+    "disagree with the posterior's declared dimensions"
+  )
+  expect_error(
+    as_reference_posterior_draws(
+      fit,
+      po,
+      pdb = empty_local_pdb(),
+      dimensions = list(declared = integer())
+    ),
+    "disagree with the posterior's declared dimensions"
+  )
+})
+
+test_that("unsupported import options are rejected before conversion", {
+  fit <- external_fit_fixture()
+  po <- external_posterior_fixture()
+  pdb <- empty_local_pdb()
+  expect_error(
+    as_reference_posterior_draws(fit, po, pdb = pdb, policy = list(min_ess = 100)),
+    "Custom diagnostic policies are not implemented"
+  )
+  expect_error(
+    as_reference_posterior_draws(fit, po, pdb = pdb, commments = "typo"),
+    "accepts only named"
+  )
+  expect_error(
+    as_reference_posterior_draws(fit, po, pdb = pdb, sampling_timestamp = c("a", "b")),
+    "length 1"
   )
 })
 
@@ -150,15 +216,42 @@ test_that("failed checks do not write partial reference-posterior files", {
   expect_false(dir.exists(file.path(pdb$pdb_local_endpoint, "reference_posteriors")))
 })
 
-test_that("the transactional writer round trips checked draws and honors overwrite", {
-  skip_if_not(nzchar(Sys.getenv("PDB_PATH")), "requires the PosteriorDB fixture")
-  source_draws <- reference_posterior_draws(
-    "eight_schools-eight_schools_noncentered",
-    pdb_local()
+checked_import_fixture <- function(seed) {
+  set.seed(seed)
+  values <- array(
+    stats::rnorm(2500L * 4L * 2L),
+    dim = c(2500L, 4L, 2L),
+    dimnames = list(NULL, NULL, c("alpha", "beta"))
   )
-  draw_info <- info(source_draws)
-  draw_info$name <- "external-import-round-trip"
-  info(source_draws) <- draw_info
+  draws <- posterior::as_draws_list(posterior::as_draws_array(values))
+  summaries <- posterior::summarise_draws(draws)
+  diagnostics <- list(
+    ndraws = 10000L,
+    nchains = 4L,
+    effective_sample_size_bulk = stats::setNames(summaries$ess_bulk, summaries$variable),
+    effective_sample_size_tail = stats::setNames(summaries$ess_tail, summaries$variable),
+    r_hat = stats::setNames(summaries$rhat, summaries$variable),
+    mean_lag1_ac = posteriordb:::mean_lag1_ac(draws),
+    divergent_transitions = rep(0, 4L),
+    expected_fraction_of_missing_information = rep(1, 4L)
+  )
+  draw_info <- as.reference_posterior_info(list(
+    name = "external-import-round-trip",
+    inference = list(method = "stan_sampling", method_arguments = list()),
+    diagnostics = diagnostics,
+    checks_made = NULL,
+    comments = "Synthetic writer test",
+    added_by = "testthat",
+    added_date = Sys.Date(),
+    versions = NULL
+  ))
+  check_reference_posterior_draws(
+    as.reference_posterior_draws(draws, info = draw_info)
+  )
+}
+
+test_that("the transactional writer round trips checked draws and refreshes the cache", {
+  source_draws <- checked_import_fixture(123)
   pdb <- empty_local_pdb()
 
   expect_silent(posteriordb:::write_imported_reference_posterior_draws(
@@ -174,8 +267,12 @@ test_that("the transactional writer round trips checked draws and honors overwri
     ),
     "already exist"
   )
+  old_round_trip <- posteriordb:::read_reference_posterior_draws(
+    "external-import-round-trip", pdb = pdb
+  )
+  replacement <- checked_import_fixture(456)
   expect_silent(posteriordb:::write_imported_reference_posterior_draws(
-    source_draws,
+    replacement,
     pdb = pdb,
     overwrite = TRUE
   ))
@@ -184,8 +281,94 @@ test_that("the transactional writer round trips checked draws and honors overwri
     "external-import-round-trip",
     pdb = pdb
   )
-  expect_equal(posterior::variables(round_trip), posterior::variables(source_draws))
-  expect_equal(posterior::ndraws(round_trip), posterior::ndraws(source_draws))
-  expect_equal(posterior::nchains(round_trip), posterior::nchains(source_draws))
+  expect_equal(posterior::variables(round_trip), posterior::variables(replacement))
+  expect_equal(posterior::ndraws(round_trip), posterior::ndraws(replacement))
+  expect_equal(posterior::nchains(round_trip), posterior::nchains(replacement))
+  expect_false(identical(as.numeric(round_trip[[1L]]$alpha),
+                         as.numeric(old_round_trip[[1L]]$alpha)))
+  expect_equal(as.numeric(round_trip[[1L]]$alpha),
+               as.numeric(replacement[[1L]]$alpha))
   expect_silent(check_reference_posterior_draws(round_trip))
+})
+
+test_that("public import links new reference draws to the existing posterior", {
+  pdb <- linked_local_pdb()
+  posterior_name <- "external-data-external-model"
+  expect_null(posterior(posterior_name, pdb)$reference_posterior_name)
+  source_draws <- checked_import_fixture(123)
+  testthat::local_mocked_bindings(
+    as_reference_posterior_draws = function(...) source_draws,
+    .package = "posteriordb"
+  )
+  expect_silent(import_reference_posterior_draws(
+    fit = NULL, posterior = posterior_name, pdb = pdb, write = TRUE
+  ))
+  linked <- posterior(posterior_name, pdb)
+  expect_identical(linked$reference_posterior_name, "external-import-round-trip")
+  expect_equal(
+    as.numeric(reference_posterior_draws(linked)[[1L]]$alpha),
+    as.numeric(source_draws[[1L]]$alpha)
+  )
+  expect_silent(posteriordb:::check_pdb_all_reference_posteriors_have_posterior(pdb))
+})
+
+test_that("a failed final verification restores both existing files", {
+  source_draws <- checked_import_fixture(123)
+  pdb <- empty_local_pdb()
+  posteriordb:::write_imported_reference_posterior_draws(
+    source_draws, pdb = pdb, overwrite = FALSE
+  )
+  info_file <- file.path(pdb$pdb_local_endpoint, "reference_posteriors", "draws",
+                         "info", "external-import-round-trip.info.json")
+  draw_file <- file.path(pdb$pdb_local_endpoint, "reference_posteriors", "draws",
+                         "draws", "external-import-round-trip.json.zip")
+  original_info <- readBin(info_file, "raw", n = file.info(info_file)$size)
+  original_draws <- readBin(draw_file, "raw", n = file.info(draw_file)$size)
+  original_verifier <- posteriordb:::verify_imported_reference_posterior
+  testthat::local_mocked_bindings(
+    verify_imported_reference_posterior = function(pdb, expected, fresh_cache = FALSE) {
+      if (fresh_cache) stop("injected final verification failure")
+      original_verifier(pdb, expected, fresh_cache = fresh_cache)
+    },
+    .package = "posteriordb"
+  )
+  expect_error(
+    posteriordb:::write_imported_reference_posterior_draws(
+      checked_import_fixture(456), pdb = pdb, overwrite = TRUE
+    ),
+    "injected final verification failure"
+  )
+  expect_identical(readBin(info_file, "raw", n = file.info(info_file)$size), original_info)
+  expect_identical(readBin(draw_file, "raw", n = file.info(draw_file)$size), original_draws)
+})
+
+test_that("a failed linked import restores the posterior record", {
+  pdb <- linked_local_pdb()
+  source_draws <- checked_import_fixture(123)
+  post_name <- "external-data-external-model"
+  original_posterior <- posterior(post_name, pdb)
+  post_file <- file.path(pdb$pdb_local_endpoint, "posteriors",
+                         paste0(post_name, ".json"))
+  original_record <- readBin(post_file, "raw", n = file.info(post_file)$size)
+  posteriordb:::write_imported_reference_posterior_draws(
+    source_draws, pdb = pdb, overwrite = FALSE
+  )
+  original_verifier <- posteriordb:::verify_imported_reference_posterior
+  testthat::local_mocked_bindings(
+    verify_imported_reference_posterior = function(pdb, expected, fresh_cache = FALSE) {
+      if (fresh_cache) stop("injected final verification failure")
+      original_verifier(pdb, expected, fresh_cache = fresh_cache)
+    },
+    .package = "posteriordb"
+  )
+  expect_error(
+    posteriordb:::write_imported_reference_posterior_draws(
+      source_draws, pdb = pdb, overwrite = TRUE,
+      linked_posterior = original_posterior
+    ),
+    "injected final verification failure"
+  )
+  expect_identical(readBin(post_file, "raw", n = file.info(post_file)$size),
+                   original_record)
+  expect_null(jsonlite::read_json(post_file)$reference_posterior_name)
 })

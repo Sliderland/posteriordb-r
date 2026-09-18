@@ -19,11 +19,14 @@ Encoding: UTF-8
 Depends:
   R (>= 3.5.0)
 Imports:
+  bibtex,
   checkmate,
   gh,
-  jsonlite
+  jsonlite,
+  methods,
+  posterior,
+  tibble
 Suggests:
-    bibtex,
     BH,
     covr,
     digest,
@@ -31,13 +34,11 @@ Suggests:
     dotenv,
     httr,
     git2r,
-    posterior,
     remotes,
     rmarkdown,
     rstan,
     RcppEigen,
     testthat,
-    tibble,
     yaml,
     knitr
 VignetteBuilder: knitr

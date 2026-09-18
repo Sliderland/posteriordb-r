@@ -29,6 +29,7 @@ assert_checked_reference_posterior_draws.pdb_reference_posterior_info <- functio
   checkmate::assert_true(x$checks_made$abs_mean_lag1_ac_below_0_05)
   checkmate::assert_true(x$checks_made$r_hat_below_1_01)
   checkmate::assert_true(x$checks_made$efmi_above_0_2)
+  checkmate::assert_true(x$checks_made$no_divergent_transitions)
 }
 
 
@@ -60,4 +61,5 @@ assert_checked_summary_statistics_draws.pdb_reference_posterior_info <- function
   checkmate::assert_true(x$checks_made$abs_mean_lag1_ac_below_0_05)
   checkmate::assert_true(x$checks_made$r_hat_below_1_01)
   checkmate::assert_true(x$checks_made$efmi_above_0_2)
+  checkmate::assert_true(x$checks_made$no_divergent_transitions)
 }

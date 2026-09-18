@@ -71,7 +71,7 @@ as.reference_posterior_draws.stanfit <- function(
 #' The function extracts and computes the relevant diagnostics
 #'
 #' @param x a [stanfit] object.
-#' @param keep_dimensions a regular expression to choose dimensions to keep
+#' @param keep_dimensions exact names of retained posterior variables
 #'
 #' @keywords internal
 #' @noRd
@@ -191,10 +191,16 @@ sampler_params_to_draws_array <- function(sampler_params) {
 
 #' Construct dimension names from a posterior dimension list
 #'
-#' @param x a dimensions slot from a [pdb_posterior]
+#' Scalars may be represented by `integer(0)` or `1`; vectors with more than
+#' one element and higher-dimensional arrays use Stan's indexed variable
+#' names. The first index varies fastest. A one-element vector cannot be
+#' distinguished from a scalar in the current PosteriorDB dimension format.
+#'
+#' @param x a named dimensions slot from a [pdb_posterior]
 posterior_dimension_names <- function(x) {
-  checkmate::assert_list(x)
+  checkmate::assert_list(x, min.len = 1L)
   checkmate::assert_named(x)
+  checkmate::assert_character(names(x), min.chars = 1L, unique = TRUE)
 
   dn <- Map(
     function(parameter, dims) {
@@ -206,6 +212,7 @@ posterior_dimension_names <- function(x) {
       checkmate::assert_integerish(
         dims,
         lower = 1,
+        upper = .Machine$integer.max,
         min.len = 1,
         any.missing = FALSE
       )

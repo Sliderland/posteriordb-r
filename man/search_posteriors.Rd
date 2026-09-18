@@ -30,6 +30,6 @@ A tibble with one row per matching posterior and columns
 \description{
 Search the keyword metadata attached to posteriors, their data, and their
 models. The search is case-insensitive and uses fixed-string matching.
-Metadata files are loaded as needed; data archives, model code, and
-reference draws are not loaded.
+Only data and model metadata linked to a posterior are read. Data archives,
+model code, and reference draws are not loaded.
 }

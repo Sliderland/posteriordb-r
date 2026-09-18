@@ -40,8 +40,9 @@ pdb_github(
 \arguments{
 \item{path}{a local path to a posterior database. Defaults to `pdb_path` option or PDB_PATH environment variable.}
 
-\item{cache_path}{The path to the pdb cache. Default is R temporary directory.
-This is used to store files locally and without affecting the database.}
+\item{cache_path}{The path to the pdb cache. By default each database uses
+its own directory under the R temporary directory. An explicitly supplied
+path is used as given. Cached files do not affect the database.}
 
 \item{x}{an object to access a pdb for, if character this is how to identify the pdb (path for local pdb, repo for github pdb)}
 

@@ -22,8 +22,8 @@ filter_posteriors <- function(pdb = pdb_default(), ...){
 #' @details
 #' Search the keyword metadata attached to posteriors, their data, and their
 #' models. The search is case-insensitive and uses fixed-string matching.
-#' Metadata files are loaded as needed; data archives, model code, and
-#' reference draws are not loaded.
+#' Only data and model metadata linked to a posterior are read. Data archives,
+#' model code, and reference draws are not loaded.
 #'
 #' @param pdb a \code{pdb} object.
 #' @param query a non-empty search string.
@@ -52,25 +52,51 @@ search_posteriors <- function(
   )
   match <- match.arg(match)
 
-  posterior_tbl <- posteriors_tbl_df(pdb)
-  checkmate::assert_names(
-    names(posterior_tbl),
-    must.include = c("name", "data_name", "model_name")
+  pdb_cache_dir(pdb, "posteriors")
+  posterior_files <- pdb_list_files_in_cache(pdb, "posteriors")
+  posterior_files <- posterior_files[grepl("\\.json$", posterior_files)]
+  source_names <- posterior_names(pdb)
+  posterior_files <- posterior_files[
+    sub("\\.json$", "", posterior_files) %in% source_names
+  ]
+  posterior_records <- lapply(
+    sub("\\.json$", "", posterior_files),
+    read_info_json,
+    path = "posteriors",
+    pdb = pdb
   )
-  posterior_rows <- unique(
-    as.data.frame(
-      posterior_tbl[c("name", "data_name", "model_name")],
-      stringsAsFactors = FALSE
+  empty_result <- function() {
+    tibble::tibble(
+      posterior_name = character(),
+      data_name = character(),
+      model_name = character(),
+      matched_in = character(),
+      matched_keywords = character()
     )
+  }
+  if (!length(posterior_records)) {
+    return(empty_result())
+  }
+  for (record in posterior_records) {
+    checkmate::assert_names(
+      names(record),
+      must.include = c("name", "data_name", "model_name")
+    )
+  }
+  posterior_ids <- vapply(
+    posterior_records, `[[`, character(1), "name"
+  )
+  data_ids <- vapply(
+    posterior_records, `[[`, character(1), "data_name"
+  )
+  model_ids <- vapply(
+    posterior_records, `[[`, character(1), "model_name"
   )
 
   keyword_matches <- list()
   if ("posterior" %in% fields) {
-    posterior_keywords <- split(
-      posterior_tbl$keywords,
-      posterior_tbl$name,
-      drop = TRUE
-    )
+    posterior_keywords <- lapply(posterior_records, `[[`, "keywords")
+    names(posterior_keywords) <- posterior_ids
     keyword_matches$posterior <- pdb_search_keyword_values(
       posterior_keywords,
       query
@@ -78,25 +104,23 @@ search_posteriors <- function(
   }
   if ("data" %in% fields) {
     keyword_matches$data <- pdb_search_keyword_info(
-      pdb,
-      data_names(pdb),
+      unique(data_ids),
       function(name) data_info(name, pdb),
       query
     )
   }
   if ("model" %in% fields) {
     keyword_matches$model <- pdb_search_keyword_info(
-      pdb,
-      model_names(pdb),
+      unique(model_ids),
       function(name) model_info(name, pdb),
       query
     )
   }
 
-  result <- lapply(seq_len(nrow(posterior_rows)), function(i) {
-    posterior_name <- as.character(posterior_rows$name[[i]])
-    data_name <- as.character(posterior_rows$data_name[[i]])
-    model_name <- as.character(posterior_rows$model_name[[i]])
+  result <- lapply(seq_along(posterior_records), function(i) {
+    posterior_name <- posterior_ids[[i]]
+    data_name <- data_ids[[i]]
+    model_name <- model_ids[[i]]
 
     hits <- lapply(fields, function(field) {
       key <- switch(
@@ -131,13 +155,7 @@ search_posteriors <- function(
   result <- result[!vapply(result, is.null, logical(1))]
 
   if (!length(result)) {
-    return(tibble::tibble(
-      posterior_name = character(),
-      data_name = character(),
-      model_name = character(),
-      matched_in = character(),
-      matched_keywords = character()
-    ))
+    return(empty_result())
   }
 
   tibble::as_tibble(do.call(rbind, result))
@@ -145,9 +163,10 @@ search_posteriors <- function(
 
 #' @keywords internal
 pdb_search_keyword_values <- function(values, query) {
-  matches <- lapply(names(values), function(name) {
+  matches <- lapply(seq_along(values), function(i) {
+    name <- names(values)[[i]]
     keywords <- as.character(unlist(
-      values[[name]],
+      values[[i]],
       recursive = TRUE,
       use.names = FALSE
     ))
@@ -178,7 +197,7 @@ pdb_search_keyword_values <- function(values, query) {
 }
 
 #' @keywords internal
-pdb_search_keyword_info <- function(pdb, names, info_fun, query) {
+pdb_search_keyword_info <- function(names, info_fun, query) {
   values <- lapply(names, info_fun)
   names(values) <- names
   values <- lapply(values, function(info) info$keywords)

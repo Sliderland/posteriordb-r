@@ -12,8 +12,9 @@
 #' setup a pdb. If no local pdb is found, [pdb_github()] is used.
 #'
 #'
-#' @param cache_path The path to the pdb cache. Default is R temporary directory.
-#' This is used to store files locally and without affecting the database.
+#' @param cache_path The path to the pdb cache. By default each database uses
+#'   its own directory under the R temporary directory. An explicitly supplied
+#'   path is used as given. Cached files do not affect the database.
 #' @param x an object to access a pdb for, if character this is how to identify the pdb (path for local pdb, repo for github pdb)
 #' @param pdb_type Type of posterior database connection. Either \code{local} or \code{github}.
 #' @param path a local path to a posterior database. Defaults to `pdb_path` option or PDB_PATH environment variable.
@@ -67,20 +68,35 @@ pdb.pdb_model_code <- function(x, ...){
 pdb.character <- function(x, pdb_type = "local", cache_path = tempdir(), ...) {
   checkmate::assert_directory(cache_path, "w")
   checkmate::assert_choice(pdb_type, supported_pdb_types())
-  if(cache_path == tempdir()){
-    # To ensure no duplicate temp file names from R session.
-    cache_path <- file.path(cache_path, "posteriordb_cache")
-  }
-  if(!dir.exists(cache_path)) dir.create(cache_path)
+  default_cache <- identical(cache_path, tempdir())
   pdb <- list(
     pdb_id = x,
     cache_path = cache_path
   )
   class(pdb) <- c(paste0("pdb_", pdb_type), "pdb")
   pdb <- setup_pdb(pdb, ...)
+  if (default_cache) {
+    # Encode the resolved endpoint exactly, so separate databases cannot
+    # return one another's cached files during the same R session.
+    pdb$cache_path <- file.path(
+      tempdir(), "posteriordb_cache", pdb_cache_namespace(pdb)
+    )
+  }
+  if (!dir.exists(pdb$cache_path)) {
+    dir.create(pdb$cache_path, recursive = TRUE)
+  }
   pdb$version <- pdb_version(pdb)
   assert_pdb(pdb)
   pdb
+}
+
+pdb_cache_namespace <- function(pdb) {
+  identity <- paste0(pdb_type(pdb), ":", pdb$pdb_id)
+  encoded <- paste(sprintf("%02x", as.integer(charToRaw(enc2utf8(identity)))),
+                   collapse = "")
+  starts <- seq.int(1L, nchar(encoded), by = 100L)
+  chunks <- substring(encoded, starts, pmin(starts + 99L, nchar(encoded)))
+  do.call(file.path, as.list(chunks))
 }
 
 assert_pdb <- function(x){
@@ -599,6 +615,7 @@ read_json_from_pdb <- function(fn, path, pdb, ...){
 #' @rdname read_info_json
 #' @noRd
 #' @keywords internal
+#' @export
 read_info_json.character <- function(x, path, pdb, ...){
   checkmate::assert_class(pdb, "pdb")
   fn <- x
@@ -617,6 +634,7 @@ read_info_json.character <- function(x, path, pdb, ...){
 #' @rdname read_info_json
 #' @noRd
 #' @keywords internal
+#' @export
 read_info_json.pdb_posterior <- function(x, path, pdb = NULL, ...){
   if(path == "posteriors"){
     nm <- x$name

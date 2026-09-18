@@ -1,6 +1,13 @@
 #' Check that reference posterior draws follows the
 #' reference posterior summary definition.
 #'
+#' @details Requires at least 10,000 retained draws. For Stan sampling,
+#'   the recorded diagnostics must describe the draws and show at least four
+#'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
+#'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
+#'   chain, and no divergent transitions. ESS bounds are recorded but do not
+#'   determine acceptance.
+#'
 #' @param x a posterior name, posterior object or reference_posterior_draws object
 #' @param ... currently not used.
 #'
@@ -29,6 +36,7 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
   assert_reference_posterior_draws(x)
   rpi <- info(x)
   assert_reference_posterior_info(rpi)
+  assert_diagnostic_draw_counts(x, rpi)
 
   tst <- list()
 
@@ -37,28 +45,7 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
   tst$ndraws_is_gte_10k <- TRUE
 
   if(rpi$inference$method == "stan_sampling"){
-    # Assert that at least 4 chains has been used
-    checkmate::assert_true(rpi$diagnostics$nchains >= 4)
-    tst$nchains_is_gte_4 <- TRUE
-
-    # Record ESS as an informational diagnostic without using it as an
-    # acceptance criterion.
-    tst$ess_within_bounds <- ess_within_bounds(x, rpi)
-
-    # Assert that mean absolute lag-1 autocorrelation is below 0.05.
-    lag1 <- rpi$diagnostics$mean_lag1_ac
-    if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
-    checkmate::assert_numeric(abs(lag1), upper = 0.05)
-    tst$abs_mean_lag1_ac_below_0_05 <- TRUE
-
-    # Assert all Rhat < 1.01
-    checkmate::assert_numeric(rpi$diagnostics$r_hat, upper = 1.01)
-    tst$r_hat_below_1_01 <- TRUE
-
-    # Assert that the EFMI is larger than 0.2
-    checkmate::assert_numeric(rpi$diagnostics$expected_fraction_of_missing_information, lower = 0.2)
-    tst$efmi_above_0_2 <- TRUE
-
+    tst <- c(tst, check_stan_sampling_quality(x, rpi))
   }
 
   # Add checks made to reference posterior
@@ -77,6 +64,13 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
 
 #' Check that reference posterior draws follows the
 #' reference posterior draws definition.
+#'
+#' @details Requires exactly 10,000 retained draws. For Stan sampling,
+#'   the recorded diagnostics must describe the draws and show at least four
+#'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
+#'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
+#'   chain, and no divergent transitions. ESS bounds are recorded but do not
+#'   determine acceptance.
 #'
 #' @param x a posterior name, posterior object or reference_posterior_draws object
 #' @param ... currently not used.
@@ -106,6 +100,7 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...
   assert_reference_posterior_draws(x)
   rpi <- info(x)
   assert_reference_posterior_info(rpi)
+  assert_diagnostic_draw_counts(x, rpi)
 
   tst <- list()
 
@@ -114,28 +109,7 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...
   tst$ndraws_is_10k <- TRUE
 
   if(rpi$inference$method == "stan_sampling"){
-    # Assert that at least 4 chains has been used
-    checkmate::assert_true(rpi$diagnostics$nchains >= 4)
-    tst$nchains_is_gte_4 <- TRUE
-
-    # Record ESS as an informational diagnostic without using it as an
-    # acceptance criterion.
-    tst$ess_within_bounds <- ess_within_bounds(x, rpi)
-
-    # Assert that mean absolute lag-1 autocorrelation is below 0.05.
-    lag1 <- rpi$diagnostics$mean_lag1_ac
-    if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
-    checkmate::assert_numeric(abs(lag1), upper = 0.05)
-    tst$abs_mean_lag1_ac_below_0_05 <- TRUE
-
-    # Assert all Rhat < 1.01
-    checkmate::assert_numeric(rpi$diagnostics$r_hat, upper = 1.01)
-    tst$r_hat_below_1_01 <- TRUE
-
-    # Assert that the EFMI is larger than 0.2
-    checkmate::assert_numeric(rpi$diagnostics$expected_fraction_of_missing_information, lower = 0.2)
-    tst$efmi_above_0_2 <- TRUE
-
+    tst <- c(tst, check_stan_sampling_quality(x, rpi))
   }
 
   # Add checks made to reference posterior
@@ -151,11 +125,78 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...
   invisible(x)
 }
 
+# Recorded counts must describe the retained draws being checked.
+assert_diagnostic_draw_counts <- function(x, rpi) {
+  diagnostics <- rpi$diagnostics
+  if (posterior::nvariables(x) == 0L) {
+    stop("Reference-posterior draws must include at least one variable.",
+         call. = FALSE)
+  }
+  if (!isTRUE(diagnostics$ndraws == posterior::ndraws(x))) {
+    stop("Recorded ndraws does not match the reference-posterior draws.",
+         call. = FALSE)
+  }
+  if (!is.null(diagnostics$nchains) &&
+      !isTRUE(diagnostics$nchains == posterior::nchains(x))) {
+    stop("Recorded nchains does not match the reference-posterior draws.",
+         call. = FALSE)
+  }
+  invisible(NULL)
+}
+
+# Check the Stan diagnostics shared by the draws and summary-statistic gates.
+# ESS is recorded for information, while the other checks are required.
+check_stan_sampling_quality <- function(x, rpi) {
+  diagnostics <- rpi$diagnostics
+  checkmate::assert_true(diagnostics$nchains >= 4)
+  checks <- list(nchains_is_gte_4 = TRUE)
+  checks$ess_within_bounds <- ess_within_bounds(x, rpi)
+
+  lag1 <- diagnostics$mean_lag1_ac
+  if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
+  assert_finite_diagnostic(
+    abs(lag1), posterior::nvariables(x), upper = 0.05,
+    name = "mean_lag1_ac"
+  )
+  checks$abs_mean_lag1_ac_below_0_05 <- TRUE
+
+  assert_finite_diagnostic(
+    diagnostics$r_hat, posterior::nvariables(x), upper = 1.01,
+    name = "r_hat"
+  )
+  checks$r_hat_below_1_01 <- TRUE
+
+  assert_finite_diagnostic(
+    diagnostics$expected_fraction_of_missing_information,
+    diagnostics$nchains, lower = 0.2,
+    name = "expected_fraction_of_missing_information"
+  )
+  checks$efmi_above_0_2 <- TRUE
+
+  assert_finite_diagnostic(
+    diagnostics$divergent_transitions, diagnostics$nchains,
+    lower = 0, upper = 0, name = "divergent_transitions"
+  )
+  checks$no_divergent_transitions <- TRUE
+  checks
+}
+
+assert_finite_diagnostic <- function(values, expected_length, lower = -Inf,
+                                     upper = Inf, name) {
+  checkmate::assert_numeric(
+    values, lower = lower, upper = upper, finite = TRUE,
+    any.missing = FALSE, len = expected_length, .var.name = name
+  )
+}
+
 # Compute the mean absolute lag-1 autocorrelation across chains for every
-# retained variable. `posterior::autocorrelation()` returns zero for a
-# constant chain, which is appropriate for this acceptance diagnostic.
+# retained variable. Constant chains have undefined autocorrelation and fail.
 mean_lag1_ac <- function(x){
   x <- posterior::as_draws_array(x)
+  if (dim(x)[1L] < 2L) {
+    stop("At least two iterations are required for lag-1 autocorrelation.",
+         call. = FALSE)
+  }
   n_chains <- dim(x)[2]
   n_variables <- dim(x)[3]
   variable_names <- posterior::variables(x)
@@ -164,7 +205,9 @@ mean_lag1_ac <- function(x){
   for (variable_index in seq_len(n_variables)) {
     by_chain <- vapply(seq_len(n_chains), function(chain_index) {
       z <- x[, chain_index, variable_index]
-      posterior::autocorrelation(z)[2]
+      centered <- z - mean(z)
+      sum(centered[-length(centered)] * centered[-1L]) /
+        sum(centered^2)
     }, numeric(1))
     if (anyNA(by_chain) || any(!is.finite(by_chain))) {
       stop(
@@ -206,8 +249,10 @@ ess_bounds <- function(x){
 # reference-posterior metadata, but it is not part of the acceptance gate.
 ess_within_bounds <- function(x, rpi){
   bounds <- ess_bounds(x)
+  n_variables <- posterior::nvariables(x)
   within <- function(values, limits) {
-    length(values) > 0L &&
+    is.numeric(values) &&
+      length(values) == n_variables && n_variables > 0L &&
       all(is.finite(values)) &&
       all(values >= min(limits)) &&
       all(values <= max(limits))
