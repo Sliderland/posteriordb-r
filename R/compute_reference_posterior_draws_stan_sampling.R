@@ -79,14 +79,15 @@ compute_stan_sampling_diagnostics <- function(x, keep_dimensions) {
   checkmate::assert_character(keep_dimensions)
 
   d <- list()
-  pd <- posterior::as_draws(x)
+  pd <- posterior::subset_draws(
+    posterior::as_draws(x),
+    variable = keep_dimensions
+  )
   pds <- posterior::summarise_draws(pd)
-  checkmate::assert_subset(keep_dimensions, pds$variable)
-
-  keep_idx <- pds$variable %in% keep_dimensions
+  checkmate::assert_set_equal(keep_dimensions, pds$variable)
 
   # diagnostic_information
-  d$diagnostic_information <- list(names = pds$variable[keep_idx])
+  d$diagnostic_information <- list(names = pds$variable)
 
   # ndraws
   d$ndraws <- posterior::ndraws(pd)
@@ -95,19 +96,24 @@ compute_stan_sampling_diagnostics <- function(x, keep_dimensions) {
   d$nchains <- posterior::nchains(pd)
 
   # ESS bulk
-  d$effective_sample_size_bulk <- pds$ess_bulk[keep_idx]
+  d$effective_sample_size_bulk <- stats::setNames(
+    pds$ess_bulk,
+    pds$variable
+  )
 
   # ESS tail
-  d$effective_sample_size_tail <- pds$ess_tail[keep_idx]
+  d$effective_sample_size_tail <- stats::setNames(
+    pds$ess_tail,
+    pds$variable
+  )
 
   # r_hat
-  d$r_hat <- pds$rhat[keep_idx]
+  d$r_hat <- stats::setNames(pds$rhat, pds$variable)
 
   # Mean absolute lag-1 autocorrelation across chains. This is kept as a
   # separate diagnostic from ESS because ESS is informative but is not part
   # of the reference-draw acceptance policy.
-  pd_keep <- posterior::subset_draws(pd, variable = keep_dimensions)
-  d$mean_lag1_ac <- mean_lag1_ac(pd_keep)
+  d$mean_lag1_ac <- mean_lag1_ac(pd)
 
   # divergent_transitions
   hmc_params <- rstan::get_sampler_params(x, inc_warmup = FALSE)
