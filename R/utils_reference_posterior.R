@@ -41,6 +41,10 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
     checkmate::assert_true(rpi$diagnostics$nchains >= 4)
     tst$nchains_is_gte_4 <- TRUE
 
+    # Record ESS as an informational diagnostic without using it as an
+    # acceptance criterion.
+    tst$ess_within_bounds <- ess_within_bounds(x, rpi)
+
     # Assert that mean absolute lag-1 autocorrelation is below 0.05.
     lag1 <- rpi$diagnostics$mean_lag1_ac
     if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
@@ -113,6 +117,10 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...
     # Assert that at least 4 chains has been used
     checkmate::assert_true(rpi$diagnostics$nchains >= 4)
     tst$nchains_is_gte_4 <- TRUE
+
+    # Record ESS as an informational diagnostic without using it as an
+    # acceptance criterion.
+    tst$ess_within_bounds <- ess_within_bounds(x, rpi)
 
     # Assert that mean absolute lag-1 autocorrelation is below 0.05.
     lag1 <- rpi$diagnostics$mean_lag1_ac
@@ -192,4 +200,25 @@ ess_bounds <- function(x){
   list(ess_bulk = bnds,
        ess_tail = bnds)
 
+}
+
+# Evaluate ESS bounds without throwing an error. ESS is retained in the
+# reference-posterior metadata, but it is not part of the acceptance gate.
+ess_within_bounds <- function(x, rpi){
+  bounds <- ess_bounds(x)
+  within <- function(values, limits) {
+    length(values) > 0L &&
+      all(is.finite(values)) &&
+      all(values >= min(limits)) &&
+      all(values <= max(limits))
+  }
+
+  within(
+    rpi$diagnostics$effective_sample_size_bulk,
+    bounds$ess_bulk
+  ) &&
+    within(
+      rpi$diagnostics$effective_sample_size_tail,
+      bounds$ess_tail
+    )
 }
