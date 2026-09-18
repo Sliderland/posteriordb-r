@@ -83,8 +83,9 @@ append_reference.bibentry <- function(ref, pdb, ...) {
   assert_unique_bibliography(combined)
 
   separator <- if (file.info(reference_path)$size > 0L) "\n\n" else ""
-  cat(separator, serialized, "\n",
-    file = reference_path, append = TRUE, sep = ""
+  append_bibliography_atomically(
+    reference_path,
+    paste0(separator, serialized, "\n")
   )
 
   cache_path <- file.path(pdb$cache_path, "bibliography", "references.bib")
@@ -94,6 +95,41 @@ append_reference.bibentry <- function(ref, pdb, ...) {
       call. = FALSE
     )
   }
+  invisible(TRUE)
+}
+
+append_bibliography_atomically <- function(path, suffix) {
+  size <- file.info(path)$size
+  original <- if (isTRUE(size > 0L)) {
+    rawToChar(readBin(path, what = "raw", n = size))
+  } else {
+    ""
+  }
+  replacement <- tempfile("references-bib-", tmpdir = dirname(path))
+  backup <- tempfile("references-bib-backup-", tmpdir = dirname(path))
+  committed <- FALSE
+  on.exit({
+    if (file.exists(replacement)) unlink(replacement)
+    if (!committed && file.exists(backup) && !file.exists(path)) {
+      file.rename(backup, path)
+    }
+    if (file.exists(backup)) unlink(backup)
+  }, add = TRUE)
+
+  con <- file(replacement, open = "wb")
+  on.exit(if (!is.null(con)) try(close(con), silent = TRUE), add = TRUE)
+  writeChar(paste0(original, suffix), con, eos = NULL, useBytes = TRUE)
+  close(con)
+  con <- NULL
+
+  if (!file.rename(path, backup)) {
+    stop("Could not stage the existing bibliography for replacement.", call. = FALSE)
+  }
+  if (!file.rename(replacement, path)) {
+    file.rename(backup, path)
+    stop("Could not commit the updated bibliography.", call. = FALSE)
+  }
+  committed <- TRUE
   invisible(TRUE)
 }
 
