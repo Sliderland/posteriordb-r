@@ -372,3 +372,66 @@ test_that("a failed linked import restores the posterior record", {
                    original_record)
   expect_null(jsonlite::read_json(post_file)$reference_posterior_name)
 })
+
+cmdstanr_fit_fixture <- function(iterations = 40L, chains = 2L) {
+  set.seed(2026)
+  draws <- array(
+    rnorm(iterations * chains * 2L),
+    dim = c(iterations, chains, 2L),
+    dimnames = list(
+      iteration = as.character(seq_len(iterations)),
+      chain = as.character(seq_len(chains)),
+      variable = c("alpha", "undeclared")
+    )
+  )
+  sampler <- array(
+    0,
+    dim = c(iterations, chains, 3L),
+    dimnames = list(
+      iteration = as.character(seq_len(iterations)),
+      chain = as.character(seq_len(chains)),
+      variable = c("divergent__", "treedepth__", "energy__")
+    )
+  )
+  sampler[, , "treedepth__"] <- 3
+  sampler[, , "energy__"] <- abs(rnorm(iterations * chains, 10, 1))
+  fit <- new.env(parent = emptyenv())
+  fit$draws <- function(inc_warmup = FALSE, format = "draws_array", ...) {
+    posterior::as_draws_array(draws)
+  }
+  fit$sampler_diagnostics <- function(inc_warmup = FALSE, format = "draws_array", ...) {
+    posterior::as_draws_array(sampler)
+  }
+  fit$metadata <- function() list(
+    num_chains = chains,
+    iter_sampling = iterations,
+    iter_warmup = 10L,
+    thin = 1L,
+    model_name = "cmdstanr-fixture",
+    max_depth = 10L,
+    stan_version_major = 2L,
+    stan_version_minor = 37L,
+    stan_version_patch = 0L
+  )
+  class(fit) <- c("CmdStanMCMC", "CmdStanFit", "R6")
+  fit
+}
+
+test_that("CmdStanR MCMC fits are imported through their CSV-backed methods", {
+  skip_if_not_installed("cmdstanr")
+  fit <- cmdstanr_fit_fixture()
+  posterior <- external_posterior_fixture()
+  posterior$dimensions <- list(alpha = 1L)
+  rpd <- as_reference_posterior_draws_from_cmdstanr(
+    fit, posterior, pdb = empty_local_pdb()
+  )
+  expect_s3_class(rpd, "pdb_reference_posterior_draws")
+  expect_equal(posterior::variables(rpd), "alpha")
+  expect_equal(info(rpd)$inference$method_arguments$iter, 50L)
+  expect_equal(info(rpd)$inference$method_arguments$warmup, 10L)
+  expect_true("expected_fraction_of_missing_information" %in%
+              names(info(rpd)$diagnostics))
+  expect_match(info(rpd)$comments, "cmdstanr::CmdStanMCMC")
+  expect_equal(attr(rpd, "sampling_metadata")$cmdstanr_version,
+               paste("cmdstanr", utils::packageVersion("cmdstanr")))
+})

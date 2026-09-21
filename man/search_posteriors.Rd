@@ -24,10 +24,13 @@ selected scopes.}
 }
 \value{
 A tibble with one row per matching posterior and columns
-\code{posterior_name}, \code{data_name}, \code{model_name},
-\code{matched_in}, and \code{matched_keywords}.
+  \code{posterior_name}, \code{data_name}, \code{model_name},
+  \code{matched_in}, and \code{matched_keywords}.
 }
 \description{
+Search posterior metadata
+}
+\details{
 Search the keyword metadata attached to posteriors, their data, and their
 models. The search is case-insensitive and uses fixed-string matching.
 Only data and model metadata linked to a posterior are read. Data archives,

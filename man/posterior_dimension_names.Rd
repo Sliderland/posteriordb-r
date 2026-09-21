@@ -11,10 +11,7 @@ posterior_dimension_names(x)
 \item{x}{a named dimensions slot from a [pdb_posterior]}
 }
 \description{
-Construct dimension names from a posterior dimension list
-}
-\details{
-Scalars may be represented by \code{integer(0)} or \code{1}; vectors with more than
+Scalars may be represented by `integer(0)` or `1`; vectors with more than
 one element and higher-dimensional arrays use Stan's indexed variable
 names. The first index varies fastest. A one-element vector cannot be
 distinguished from a scalar in the current PosteriorDB dimension format.

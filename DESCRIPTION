@@ -14,7 +14,6 @@ Authors@R: c(person("Mans", "Magnusson", email = "mans.magnusson@statistik.uu.se
 Maintainer: Mans Magnusson <mans.magnusson@gmail.com>
 Description: R functionality of easy handling of the posteriordb posteriors.
 License: BSD_3_clause + file LICENSE
-RoxygenNote: 7.3.1
 Encoding: UTF-8
 Depends:
   R (>= 3.5.0)
@@ -29,6 +28,7 @@ Imports:
 Suggests:
     BH,
     covr,
+    cmdstanr,
     digest,
     dplyr,
     dotenv,
@@ -42,3 +42,4 @@ Suggests:
     yaml,
     knitr
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

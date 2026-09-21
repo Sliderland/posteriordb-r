@@ -1,12 +1,13 @@
-#' Convert an externally sampled rstan fit to reference-posterior draws
+#' Convert an externally sampled Stan fit to reference-posterior draws
 #'
-#' `rstan` sampling is deliberately kept outside this package.  This function
-#' accepts a completed post-warmup [rstan::stanfit] object, keeps only the
-#' variables declared by the PosteriorDB posterior, computes the usual
-#' reference-posterior diagnostics, and returns the in-memory object without
-#' writing to a database.
+#' Sampling is deliberately kept outside this package. This function accepts a
+#' completed post-warmup `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object,
+#' keeps only the variables declared by the PosteriorDB posterior, computes the
+#' usual reference-posterior diagnostics, and returns the in-memory object
+#' without writing to a database. For CmdStanR, calling this function reads the
+#' draws and sampler diagnostics from the fit's CSV output files.
 #'
-#' @param fit a completed `rstan::stanfit` object.
+#' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
 #' @param pdb a local or remote PosteriorDB connection used to resolve a name.
 #' @param dimensions optional named PosteriorDB dimension list. When omitted,
@@ -39,6 +40,34 @@ as_reference_posterior_draws.stanfit <- function(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  ...
+) {
+  as_reference_posterior_draws_external(
+    fit, posterior, pdb, dimensions, policy, ...
+  )
+}
+
+#' @rdname as_reference_posterior_draws
+#' @export
+as_reference_posterior_draws.CmdStanMCMC <- function(
+  fit,
+  posterior,
+  pdb = pdb_default(),
+  dimensions = NULL,
+  policy = NULL,
+  ...
+) {
+  as_reference_posterior_draws_external(
+    fit, posterior, pdb, dimensions, policy, ...
+  )
+}
+
+as_reference_posterior_draws_external <- function(
+  fit,
+  posterior,
+  pdb,
+  dimensions,
+  policy,
   ...
 ) {
   checkmate::assert_class(pdb, "pdb")
@@ -122,7 +151,7 @@ as_reference_posterior_draws.stanfit <- function(
 
 as_reference_posterior_draws.default <- function(fit, ...) {
   stop(
-    "Unsupported Stan fit object; expected a completed rstan::stanfit object.",
+    "Unsupported Stan fit object; expected a completed rstan::stanfit or cmdstanr::CmdStanMCMC object.",
     call. = FALSE
   )
 }
@@ -147,16 +176,36 @@ as_reference_posterior_draws_from_stanfit <- function(
   )
 }
 
+#' @rdname as_reference_posterior_draws
+#' @export
+as_reference_posterior_draws_from_cmdstanr <- function(
+  fit,
+  posterior,
+  pdb = pdb_default(),
+  dimensions = NULL,
+  policy = NULL,
+  ...
+) {
+  as_reference_posterior_draws(
+    fit = fit,
+    posterior = posterior,
+    pdb = pdb,
+    dimensions = dimensions,
+    policy = policy,
+    ...
+  )
+}
+
 #' Import externally sampled Stan draws into a local PosteriorDB
 #'
 #' This is the writing wrapper around
-#' [as_reference_posterior_draws_from_stanfit()]. Sampling is never performed
+#' [as_reference_posterior_draws()]. Sampling is never performed
 #' by this function. With `write = FALSE` (the default), the validated or
 #' diagnostically failed in-memory object is returned. With `write = TRUE`,
 #' required checks must pass and the metadata JSON and draw ZIP are written
 #' transactionally after a round-trip verification.
 #'
-#' @param fit a completed `rstan::stanfit` object.
+#' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
 #' @param pdb a local PosteriorDB object.
 #' @param dimensions optional named PosteriorDB dimension list.
@@ -223,11 +272,154 @@ extract_external_stan_fit.stanfit <- function(fit, ...) {
   extract_rstan_fit(fit, ...)
 }
 
+extract_external_stan_fit.CmdStanMCMC <- function(fit, ...) {
+  extract_cmdstanr_fit(fit, ...)
+}
+
 extract_external_stan_fit.default <- function(fit, ...) {
   stop(
-    "Unsupported Stan fit object; expected a completed rstan::stanfit object.",
+    "Unsupported Stan fit object; expected a completed rstan::stanfit or cmdstanr::CmdStanMCMC object.",
     call. = FALSE
   )
+}
+
+extract_cmdstanr_fit <- function(fit, ...) {
+  draws <- tryCatch(
+    fit$draws(inc_warmup = FALSE, format = "draws_array"),
+    error = function(error) {
+      stop(
+        "Could not read posterior draws from the cmdstanr fit's CSV files: ",
+        conditionMessage(error), call. = FALSE
+      )
+    }
+  )
+  draws <- tryCatch(posterior::as_draws_array(draws), error = function(error) {
+    stop("Could not convert cmdstanr draws to a posterior draws_array: ",
+         conditionMessage(error), call. = FALSE)
+  })
+  sampler_diagnostics <- tryCatch(
+    fit$sampler_diagnostics(inc_warmup = FALSE, format = "draws_array"),
+    error = function(error) {
+      stop(
+        "Could not read sampler diagnostics from the cmdstanr fit's CSV files: ",
+        conditionMessage(error), call. = FALSE
+      )
+    }
+  )
+  sampler_diagnostics <- tryCatch(
+    posterior::as_draws_array(sampler_diagnostics),
+    error = function(error) {
+      stop("Could not convert cmdstanr sampler diagnostics: ",
+           conditionMessage(error), call. = FALSE)
+    }
+  )
+  if (is.null(sampler_diagnostics) ||
+      posterior::nchains(sampler_diagnostics) != posterior::nchains(draws) ||
+      dim(sampler_diagnostics)[1L] != dim(draws)[1L] ||
+      !"divergent__" %in% posterior::variables(sampler_diagnostics)) {
+    stop("The cmdstanr fit has incomplete or inconsistent post-warmup sampler diagnostics.",
+         call. = FALSE)
+  }
+  metadata <- tryCatch(fit$metadata(), error = function(error) {
+    stop("Could not read metadata from the cmdstanr fit's CSV files: ",
+         conditionMessage(error), call. = FALSE)
+  })
+  if (!is.list(metadata)) {
+    stop("The cmdstanr fit returned invalid CSV metadata.", call. = FALSE)
+  }
+  nchains <- posterior::nchains(draws)
+  retained_iterations <- dim(draws)[1L]
+  retained_draws <- posterior::ndraws(draws)
+  iter_sampling <- cmdstanr_metadata_value(
+    metadata, c("iter_sampling", "iterations_sampling"), retained_iterations
+  )
+  warmup <- cmdstanr_metadata_value(
+    metadata, c("iter_warmup", "warmup", "num_warmup"), 0L
+  )
+  thin <- cmdstanr_metadata_value(metadata, "thin", 1L)
+  max_treedepth <- cmdstanr_metadata_value(
+    metadata, c("max_depth", "max_treedepth"), 10
+  )
+  bfmi <- cmdstanr_bfmi(sampler_diagnostics, nchains)
+  metadata <- list(
+    nchains = as.integer(nchains),
+    chains = as.integer(nchains),
+    total_iterations = as_integer_or_null(as.numeric(iter_sampling) + as.numeric(warmup)),
+    iter = as_integer_or_null(as.numeric(iter_sampling) + as.numeric(warmup)),
+    warmup_iterations = as_integer_or_null(warmup),
+    warmup = as_integer_or_null(warmup),
+    retained_iterations = as.integer(retained_iterations),
+    retained_draws = as.integer(retained_draws),
+    ndraws = as.integer(retained_draws),
+    thin = as_integer_or_null(thin),
+    sampler_arguments = cmdstanr_sampler_arguments(metadata),
+    model_name = cmdstanr_metadata_value(metadata, "model_name", NULL),
+    stan_version = cmdstanr_stan_version(metadata),
+    cmdstanr_version = paste("cmdstanr", utils::packageVersion("cmdstanr")),
+    cmdstan_version = cmdstanr_metadata_value(metadata, "cmdstan_version", NULL),
+    posterior_version = paste("posterior", utils::packageVersion("posterior")),
+    r_version = R.version$version.string,
+    sampling_timestamp = cmdstanr_metadata_value(
+      metadata, c("start_datetime", "start_time"), NULL
+    ),
+    max_treedepth = as.numeric(max_treedepth),
+    expected_fraction_of_missing_information = bfmi
+  )
+  metadata <- drop_null_list_elements(metadata)
+  metadata$method_arguments <- cmdstanr_method_arguments(metadata)
+  list(draws = draws, sampler_diagnostics = sampler_diagnostics, metadata = metadata)
+}
+
+cmdstanr_metadata_value <- function(metadata, names, default = NULL) {
+  names <- as.character(names)
+  for (name in names) {
+    value <- metadata[[name]]
+    if (!is.null(value) && length(value) > 0L && !all(is.na(value))) {
+      return(value[[1L]])
+    }
+  }
+  default
+}
+
+cmdstanr_stan_version <- function(metadata) {
+  parts <- vapply(c("stan_version_major", "stan_version_minor", "stan_version_patch"),
+                  function(name) as.character(cmdstanr_metadata_value(metadata, name, NA_character_)),
+                  character(1))
+  if (anyNA(parts)) return(cmdstanr_metadata_value(metadata, "stan_version", NULL))
+  paste("Stan", paste(parts, collapse = "."))
+}
+
+cmdstanr_bfmi <- function(sampler_diagnostics, nchains) {
+  if (!"energy__" %in% posterior::variables(sampler_diagnostics)) {
+    stop("The cmdstanr fit has no energy__ sampler diagnostic for BFMI.", call. = FALSE)
+  }
+  bfmi <- vapply(seq_len(nchains), function(chain) {
+    energy <- sampler_diagnostics[, chain, "energy__"]
+    denominator <- stats::var(energy)
+    if (length(energy) < 2L || !is.finite(denominator) || denominator <= 0) return(NA_real_)
+    mean(diff(energy)^2) / denominator
+  }, numeric(1))
+  if (anyNA(bfmi) || any(!is.finite(bfmi))) {
+    stop("The cmdstanr fit has missing or invalid per-chain BFMI values.", call. = FALSE)
+  }
+  bfmi
+}
+
+cmdstanr_sampler_arguments <- function(metadata) {
+  args <- metadata[intersect(names(metadata), c(
+    "num_chains", "iter_sampling", "iter_warmup", "thin", "save_warmup",
+    "seed", "algorithm", "method", "max_depth", "refresh", "parallel_chains"
+  ))]
+  args <- lapply(args, sanitize_metadata_value)
+  args <- drop_null_list_elements(args)
+  if (!length(args)) NULL else args
+}
+
+cmdstanr_method_arguments <- function(metadata) {
+  keep <- c("chains", "iter", "warmup", "thin", "sampling_timestamp")
+  args <- metadata[intersect(keep, names(metadata))]
+  if (!is.null(metadata$sampler_arguments)) args$sampler_arguments <- metadata$sampler_arguments
+  args
 }
 
 extract_rstan_fit <- function(fit, ...) {
@@ -398,7 +590,10 @@ new_import_reference_posterior_info <- function(
     ),
     diagnostics = diagnostics,
     checks_made = NULL,
-    comments = dots$comments %||% "Imported from an externally sampled rstan::stanfit.",
+    comments = dots$comments %||% paste0(
+      "Imported from an externally sampled ",
+      if (!is.null(metadata$cmdstanr_version)) "cmdstanr::CmdStanMCMC." else "rstan::stanfit."
+    ),
     added_by = added_by,
     added_date = added_date,
     versions = imported_reference_posterior_versions(metadata)
@@ -410,6 +605,9 @@ imported_reference_posterior_versions <- function(metadata) {
   versions <- pdb_stan_sampling_versions()
   versions$posterior_version <- metadata$posterior_version
   versions$stan_version <- metadata$stan_version
+  if (!is.null(metadata$rstan_version)) versions$rstan_version <- metadata$rstan_version
+  if (!is.null(metadata$cmdstanr_version)) versions$cmdstanr_version <- metadata$cmdstanr_version
+  if (!is.null(metadata$cmdstan_version)) versions$cmdstan_version <- metadata$cmdstan_version
   versions
 }
 

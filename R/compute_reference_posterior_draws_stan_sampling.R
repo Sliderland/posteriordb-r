@@ -259,8 +259,7 @@ pdb_stan_sampling_versions <- function() {
   } else {
     "[Could not find Makevar file]"
   }
-  list(
-    rstan_version = paste("rstan", utils::packageVersion("rstan")),
+  versions <- list(
     r_Makevars = paste(Mfile, collapse = "\n"),
     r_version = R.version$version.string,
     r_session = paste(
@@ -268,4 +267,8 @@ pdb_stan_sampling_versions <- function() {
       collapse = "\n"
     )
   )
+  if (requireNamespace("rstan", quietly = TRUE)) {
+    versions$rstan_version <- paste("rstan", utils::packageVersion("rstan"))
+  }
+  versions
 }

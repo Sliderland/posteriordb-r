@@ -5,8 +5,8 @@
 \alias{rename_pdb.character}
 \alias{rename_pdb.pdb_data}
 \alias{rename_pdb.pdb_data_info}
-\alias{rename_pdb.pdb_model_code}
 \alias{rename_pdb.pdb_model_info}
+\alias{rename_pdb.pdb_model_code}
 \alias{rename_pdb.pdb_posterior}
 \title{Rename a data, model, or posterior in a local PosteriorDB}
 \usage{
@@ -14,33 +14,39 @@ rename_pdb(x, new_name, ...)
 
 \method{rename_pdb}{character}(x, new_name, type = NULL, pdb = pdb_default(), ...)
 
-\method{rename_pdb}{pdb_data}(x, new_name, ...)
+\method{rename_pdb}{pdb_data}(x, new_name, pdb = pdb(x), ...)
 
 \method{rename_pdb}{pdb_data_info}(x, new_name, pdb = NULL, ...)
 
-\method{rename_pdb}{pdb_model_code}(x, new_name, ...)
-
 \method{rename_pdb}{pdb_model_info}(x, new_name, pdb = NULL, ...)
 
-\method{rename_pdb}{pdb_posterior}(x, new_name, ...)
+\method{rename_pdb}{pdb_model_code}(x, new_name, pdb = pdb(x), ...)
+
+\method{rename_pdb}{pdb_posterior}(x, new_name, pdb = pdb(x), ...)
 }
 \arguments{
 \item{x}{an object to rename, or a character name.}
 
 \item{new_name}{the new name.}
 
-\item{type}{for a character \code{x}, one of \code{"data"}, \code{"model"}, or
-\code{"posterior"}. It is inferred when the name belongs to exactly one
+\item{...}{currently unused.}
+
+\item{type}{for a character `x`, one of `"data"`, `"model"`, or
+`"posterior"`. It is inferred when the name belongs to exactly one
 resource type.}
 
 \item{pdb}{a local PosteriorDB connection when it cannot be obtained from
-\code{x}.}
-
-\item{...}{currently unused.}
+`x` (required for a bare character name).}
+}
+\value{
+The renamed in-memory object.
 }
 \description{
-Renaming a data set or model updates its metadata, affected posterior records,
-canonical reference-posterior files, and posterior alias targets. Data values,
-draws, summaries, and model-code contents are preserved; JSON ZIP archives are
-rebuilt only to change their member filename.
+Renaming a data set or model is a database migration, rather than a simple
+file rename. The migration updates the object's metadata, affected
+posterior records, canonical reference-posterior files, and posterior alias
+targets. Data values, draws, summaries, and model-code contents are
+preserved; JSON ZIP archives are rebuilt only to change their single member
+filename to match the new database name. All validation and staging happen
+before source files are moved.
 }

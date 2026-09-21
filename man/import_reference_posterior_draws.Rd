@@ -15,7 +15,7 @@ import_reference_posterior_draws(
 )
 }
 \arguments{
-  \item{fit}{A completed post-warmup \code{rstan::stanfit} object. Sampling occurs outside posteriordb-r.}
+  \item{fit}{A completed post-warmup \code{rstan::stanfit} or \code{cmdstanr::CmdStanMCMC} object. Sampling occurs outside posteriordb-r.}
   \item{posterior}{A PosteriorDB posterior name or \code{pdb_posterior} object.}
   \item{pdb}{A local PosteriorDB object when writing.}
   \item{dimensions}{Optional named PosteriorDB dimension list. If omitted, the posterior specification is used.}
@@ -25,8 +25,8 @@ import_reference_posterior_draws(
   \item{...}{Optional metadata fields forwarded to the conversion function.}
 }
 \value{A \code{pdb_reference_posterior_draws} object.}
-\description{Imports draws and sampling metadata from an externally sampled rstan fit without sampling the model again.}
-\details{The importer extracts chains, iterations, warmup, thinning, sampler arguments, model and Stan versions when available, plus rstan, posterior, and R versions. Optional seed and timestamp fields are omitted when unavailable. Matrix parameters are filtered using explicit scalar names such as \code{A[1,1]}. Warmup draws and undeclared variables are excluded. Writing stages the metadata, draws, and any new posterior reference link together, verifies the result, and refuses to overwrite existing reference files unless \code{overwrite = TRUE}.}
+\description{Imports draws and sampling metadata from an externally sampled rstan or CmdStanR fit without sampling the model again.}
+\details{The importer extracts chains, iterations, warmup, thinning, sampler arguments, model and Stan versions when available, plus backend, posterior, and R versions. For CmdStanR, draws and sampler diagnostics are read lazily from the fit's CSV output files; the CmdStan executable is not run. Optional seed and timestamp fields are omitted when unavailable. Matrix parameters are filtered using explicit scalar names such as \code{A[1,1]}. Warmup draws and undeclared variables are excluded. Writing stages the metadata, draws, and any new posterior reference link together, verifies the result, and refuses to overwrite existing reference files unless \code{overwrite = TRUE}.}
 \examples{\dontrun{
 fit <- rstan::stan(
   model_code = "parameters { real theta; } model { theta ~ normal(0, 1); }",
@@ -39,5 +39,5 @@ imported <- import_reference_posterior_draws(
   write = FALSE
 )
 }}
-\seealso{\code{\link{as_reference_posterior_draws_from_stanfit}}, \code{\link{write_pdb}}}
+\seealso{\code{\link{as_reference_posterior_draws}}, \code{\link{as_reference_posterior_draws_from_cmdstanr}}, \code{\link{write_pdb}}}
 \keyword{utilities}
