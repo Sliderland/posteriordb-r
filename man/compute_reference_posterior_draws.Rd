@@ -5,12 +5,18 @@
 \alias{compute_reference_posterior_draws}
 \title{Compute a Reference Posteriors for a reference posterior info object}
 \usage{
-compute_reference_posterior_draws(rpi, pdb = pdb_default())
+compute_reference_posterior_draws(
+  rpi,
+  pdb = pdb_default(),
+  backend = c("rstan", "cmdstanr")
+)
 }
 \arguments{
 \item{rpi}{a [reference_posterior_info] object.}
 
 \item{pdb}{a [pdb] object.}
+
+\item{backend}{Stan sampler backend, either \code{"rstan"} or \code{"cmdstanr"}.}
 }
 \description{
 Compute a Reference Posteriors for a reference posterior info object

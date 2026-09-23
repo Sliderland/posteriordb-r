@@ -661,7 +661,14 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
 
   write_pdb(x, staged_pdb, overwrite = FALSE)
   verify_imported_reference_posterior(staged_pdb, x)
-  if (update_posterior) write_pdb(linked_posterior, staged_pdb, overwrite = FALSE)
+  if (update_posterior) {
+    link_reference_posterior_object(
+      linked_posterior,
+      reference_posterior = name,
+      pdb = staged_pdb,
+      verify = TRUE
+    )
+  }
   dir.create(dirname(final_info), recursive = TRUE, showWarnings = FALSE)
   dir.create(dirname(final_draws), recursive = TRUE, showWarnings = FALSE)
 

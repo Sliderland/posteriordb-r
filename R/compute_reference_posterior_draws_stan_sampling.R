@@ -2,52 +2,91 @@
 #'
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
+#' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
 #'
 #' @export
-compute_reference_posterior_draws <- function(rpi, pdb = pdb_default()) {
+compute_reference_posterior_draws <- function(
+  rpi,
+  pdb = pdb_default(),
+  backend = c("rstan", "cmdstanr")
+) {
   checkmate::assert_class(pdb, "pdb")
   assert_reference_posterior_info(x = rpi)
+  backend <- match.arg(backend)
   if (rpi$inference$method == "stan_sampling") {
-    rp <- compute_reference_posterior_draws_stan_sampling(rpi, pdb)
+    rp <- compute_reference_posterior_draws_stan_sampling(rpi, pdb, backend)
   } else {
     stop("Currently not implemented")
   }
   rp
 }
 
-#' Compute a Reference Posteriors using Rstan
+#' Compute reference draws using a Stan sampling backend
 #'
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
+#' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
 #'
-compute_reference_posterior_draws_stan_sampling <- function(rpi, pdb) {
+compute_reference_posterior_draws_stan_sampling <- function(
+  rpi,
+  pdb,
+  backend = c("rstan", "cmdstanr")
+) {
   checkmate::assert_class(pdb, "pdb")
   assert_reference_posterior_info(x = rpi)
+  backend <- match.arg(backend)
   po <- posterior(rpi$name, pdb = pdb)
   pdn <- posterior_dimension_names(x = po$dimensions)
 
-  # Add versions
-  rpi$versions <- pdb_stan_sampling_versions()
-
-  # Run Stan
   stan_object <- run_stan.pdb_posterior(
     po,
-    stan_args = rpi$inference$method_arguments
+    stan_args = rpi$inference$method_arguments,
+    backend = backend
   )
+  if (identical(backend, "rstan")) {
+    rpi$versions <- pdb_stan_sampling_versions()
+    rpi$diagnostics <- compute_stan_sampling_diagnostics(
+      x = stan_object,
+      keep_dimensions = pdn
+    )
+    rpd <- as.reference_posterior_draws(
+      x = stan_object,
+      info = rpi,
+      pdb = pdb
+    )
+  } else {
+    extracted <- extract_external_stan_fit(stan_object)
+    draws <- posterior::subset_draws(extracted$draws, variable = pdn)
+    rpi$diagnostics <- compute_stan_sampling_diagnostics(
+      x = draws,
+      keep_dimensions = pdn,
+      sampler_diagnostics = extracted$sampler_diagnostics,
+      expected_fraction_of_missing_information =
+        extracted$metadata$expected_fraction_of_missing_information,
+      max_treedepth = extracted$metadata$max_treedepth
+    )
+    rpi$versions <- stan_fit_sampling_versions(extracted$metadata)
+    rpd <- as.reference_posterior_draws(
+      x = posterior::as_draws_list(draws),
+      info = rpi,
+      pdb = pdb
+    )
+  }
+  subset(rpd, variable = pdn)
+}
 
-  # Compute the diagnostics from the stan object and add it to the slot
-  rpi$diagnostics <- compute_stan_sampling_diagnostics(
-    x = stan_object,
-    keep_dimensions = pdn
+stan_fit_sampling_versions <- function(metadata) {
+  versions <- list(
+    r_version = metadata$r_version %||% R.version$version.string,
+    posterior_version = metadata$posterior_version %||%
+      paste("posterior", utils::packageVersion("posterior"))
   )
-
-  # Create rpd object
-  rpd <- as.reference_posterior_draws(x = stan_object, info = rpi, pdb = pdb)
-
-  # Subset to relevant parameters (that are used)
-  rpd <- subset(rpd, variable = pdn)
-
-  rpd
+  for (name in c(
+    "rstan_version", "cmdstanr_version", "cmdstan_version", "stan_version"
+  )) {
+    if (!is.null(metadata[[name]])) versions[[name]] <- metadata[[name]]
+  }
+  versions
 }
 
 

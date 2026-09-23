@@ -5,16 +5,18 @@
 \alias{run_stan.pdb_posterior}
 \title{Run Stan on a posterior}
 \usage{
-run_stan(x, stan_args, ...)
+run_stan(x, stan_args, backend = c("rstan", "cmdstanr"), ...)
 
-\method{run_stan}{pdb_posterior}(x, stan_args, ...)
+\method{run_stan}{pdb_posterior}(x, stan_args, backend = c("rstan", "cmdstanr"), ...)
 }
 \arguments{
 \item{x}{a [pdb_posterior] object.}
 
-\item{stan_args}{Arguments supplied to [rstan::stan] to compute the posterior}
+\item{stan_args}{Arguments supplied to the selected Stan sampling backend.}
 
-\item{...}{currently not in use.}
+\item{backend}{either \code{"rstan"} or \code{"cmdstanr"}.}
+
+\item{...}{reserved for future arguments.}
 }
 \description{
 Run Stan on a posterior
