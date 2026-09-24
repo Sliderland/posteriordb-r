@@ -33,12 +33,14 @@ test_that("bundle acceptance agrees with writers and retains single-chain metric
   # leave their contents and the database tree untouched.
   sentinel_paths <- c(
     file.path(pdb$pdb_local_endpoint, "data/data/acceptance-data.json.zip"),
-    file.path(pdb$pdb_local_endpoint, "models/info/acceptance-model.json"),
+    file.path(pdb$pdb_local_endpoint, "data/info/acceptance-data.info.json"),
+    file.path(pdb$pdb_local_endpoint, "models/info/acceptance-model.info.json"),
     file.path(pdb$pdb_local_endpoint, "models/stan/acceptance-model.stan"),
     file.path(pdb$pdb_local_endpoint, "posteriors/acceptance-data-acceptance-model.json")
   )
-  sentinel_bytes <- list(charToRaw("existing data"), charToRaw("existing model info"),
-                         charToRaw("existing model"), charToRaw("existing posterior"))
+  sentinel_bytes <- list(charToRaw("existing data"), charToRaw("existing data info"),
+                         charToRaw("existing model info"), charToRaw("existing model"),
+                         charToRaw("existing posterior"))
   Map(writeBin, sentinel_bytes, sentinel_paths)
   attached <- create_pdb_reference_draws(
     structure(list(), class = "stanfit"), data = list(),
@@ -51,13 +53,20 @@ test_that("bundle acceptance agrees with writers and retains single-chain metric
   expect_identical(pdb(attached$reference_draws), pdb)
   expect_setequal(list.files(pdb$pdb_local_endpoint, recursive = TRUE, all.files = TRUE),
                   c("data/data/acceptance-data.json.zip",
-                    "models/info/acceptance-model.json",
+                    "data/info/acceptance-data.info.json",
+                    "models/info/acceptance-model.info.json",
                     "models/stan/acceptance-model.stan",
                     "posteriors/acceptance-data-acceptance-model.json"))
   expect_length(list.files(file.path(pdb$pdb_local_endpoint, "reference_posteriors"),
                            recursive = TRUE, all.files = TRUE), 0L)
   expect_identical(unname(Map(readBin, sentinel_paths, MoreArgs = list(what = "raw", n = 100L))), sentinel_bytes)
   expect_error(write_pdb(attached$model_code, pdb, overwrite = FALSE), "already exists")
+  expect_setequal(list.files(pdb$pdb_local_endpoint, recursive = TRUE, all.files = TRUE),
+                  c("data/data/acceptance-data.json.zip",
+                    "data/info/acceptance-data.info.json",
+                    "models/info/acceptance-model.info.json",
+                    "models/stan/acceptance-model.stan",
+                    "posteriors/acceptance-data-acceptance-model.json"))
   expect_identical(unname(Map(readBin, sentinel_paths, MoreArgs = list(what = "raw", n = 100L))), sentinel_bytes)
   unchecked <- make(FALSE)
   expect_null(info(unchecked$reference_draws)$checks_made)
