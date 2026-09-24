@@ -6,7 +6,7 @@
 \usage{
 passes_reference_draw_checks(
   fit,
-  checks = "all",
+  checks = "mean_lag1_ac",
   include = NULL,
   exclude = NULL
 )
@@ -25,7 +25,8 @@ A single `TRUE` or `FALSE`.
 \description{
 Returns a scalar logical; it does not establish full acceptance unless all
 checks are selected. See [reference_draw_diagnostics()] for report details.
-Missing or invalid required metrics raise an error rather than passing.
+Unavailable or undefined required metrics return `FALSE`; malformed objects
+and selectors raise informative errors.
 }
 \examples{
 \dontrun{passes_reference_draw_checks(fit, "mean_lag1_ac")}

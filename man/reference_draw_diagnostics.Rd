@@ -17,9 +17,10 @@ reference_draw_diagnostics(fit, checks = "all", include = NULL, exclude = NULL)
 \value{
 `reference_draw_diagnostics()` returns a list with `metrics`,
   `thresholds`, named logical `status`, and named `failures`. Metric vectors
-  are named by scalar variable or chain. Failed count checks report their
-  observed and required values; unavailable values are marked `unavailable`. The
-  `ndraws` criterion requires exactly 10,000 retained draws total.
+  are named by scalar variable or chain. Unavailable metrics are marked
+  `"unavailable"`; undefined variable metrics are `NA` and fail their check.
+  Failed count checks report observed and required values. `ndraws` requires
+  exactly 10,000 retained draws total.
 }
 \description{
 Intended for callers who have an already sampled RStan or CmdStanR fit and

@@ -320,14 +320,13 @@ extract_cmdstanr_fit <- function(fit, checks = "all", strict = TRUE, ...) {
       NULL
     }
   ) else NULL
+  if (!is.null(sampler_diagnostics) &&
+      !identical(dim(sampler_diagnostics)[1:2], dim(draws)[1:2]))
+    stop("The cmdstanr fit has inconsistent post-warmup sampler diagnostics dimensions.", call. = FALSE)
   sampler_invalid <- need_sampler && (is.null(sampler_diagnostics) ||
-    posterior::nchains(sampler_diagnostics) != posterior::nchains(draws) ||
-    dim(sampler_diagnostics)[1L] != dim(draws)[1L] ||
-    (("all" %in% checks || "divergent_transitions" %in% checks) &&
-       !"divergent__" %in% posterior::variables(sampler_diagnostics)))
+    !"divergent__" %in% posterior::variables(sampler_diagnostics))
   if (sampler_invalid) {
     if (strict) stop("The cmdstanr fit has incomplete or inconsistent post-warmup sampler diagnostics.", call. = FALSE)
-    sampler_diagnostics <- NULL
   }
   metadata <- tryCatch(fit$metadata(), error = function(error) {
     stop("Could not read metadata from the cmdstanr fit's CSV files: ",
@@ -350,7 +349,7 @@ extract_cmdstanr_fit <- function(fit, checks = "all", strict = TRUE, ...) {
     metadata, c("max_depth", "max_treedepth"), 10
   )
   bfmi <- if ("all" %in% checks || "efmi" %in% checks) tryCatch(
-    cmdstanr_bfmi(sampler_diagnostics, nchains),
+    cmdstanr_bfmi(sampler_diagnostics, nchains, strict = strict),
     error = function(error) {
       if (strict) stop(conditionMessage(error), call. = FALSE)
       NULL
@@ -404,7 +403,7 @@ cmdstanr_stan_version <- function(metadata) {
   paste("Stan", paste(parts, collapse = "."))
 }
 
-cmdstanr_bfmi <- function(sampler_diagnostics, nchains) {
+cmdstanr_bfmi <- function(sampler_diagnostics, nchains, strict = TRUE) {
   if (!"energy__" %in% posterior::variables(sampler_diagnostics)) {
     stop("The cmdstanr fit has no energy__ sampler diagnostic for BFMI.", call. = FALSE)
   }
@@ -414,7 +413,7 @@ cmdstanr_bfmi <- function(sampler_diagnostics, nchains) {
     if (length(energy) < 2L || !is.finite(denominator) || denominator <= 0) return(NA_real_)
     mean(diff(energy)^2) / denominator
   }, numeric(1))
-  if (anyNA(bfmi) || any(!is.finite(bfmi))) {
+  if (strict && (anyNA(bfmi) || any(!is.finite(bfmi)))) {
     stop("The cmdstanr fit has missing or invalid per-chain BFMI values.", call. = FALSE)
   }
   bfmi
@@ -469,13 +468,13 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
   sampler_diagnostics <- if (need_sampler) {
     extract_rstan_sampler_diagnostics(fit, strict = strict)
   } else NULL
+  if (!is.null(sampler_diagnostics) &&
+      !identical(dim(sampler_diagnostics)[1:2], dim(draws)[1:2]))
+    stop("The Stan fit has inconsistent post-warmup sampler diagnostics dimensions.", call. = FALSE)
   sampler_invalid <- need_sampler && (is.null(sampler_diagnostics) ||
-    posterior::nchains(sampler_diagnostics) != posterior::nchains(draws) ||
-    dim(sampler_diagnostics)[1L] != dim(draws)[1L] ||
     !"divergent__" %in% posterior::variables(sampler_diagnostics))
   if (sampler_invalid) {
     if (strict) stop("The Stan fit has incomplete or inconsistent post-warmup sampler diagnostics.", call. = FALSE)
-    sampler_diagnostics <- NULL
   }
   stan_args <- rstan_fit_stan_args(fit)
   sim <- rstan_fit_slot(fit, "sim")

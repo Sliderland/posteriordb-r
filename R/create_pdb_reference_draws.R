@@ -276,7 +276,8 @@ recover_stanfit_data <- function(fit) NULL
 # Each named input is one ordinary finite numeric, integer, or logical
 # vector/array. Standard names and dimension attributes are preserved.
 validate_stan_input_data <- function(x, path) {
-  if (!is.list(x) || is.object(x) || isS4(x))
+  if (!is.list(x) || is.object(x) || isS4(x) ||
+      length(setdiff(names(attributes(x)), "names")))
     stop("`data` must be a named list of ordinary numeric, integer, or logical vectors and arrays.", call. = FALSE)
   if (length(x) && (is.null(names(x)) || anyNA(names(x)) || any(!nzchar(names(x))) || anyDuplicated(names(x))))
     stop("`data` must have unique, non-empty input names (or be `list()`).", call. = FALSE)
@@ -285,7 +286,7 @@ validate_stan_input_data <- function(x, path) {
     name <- names(x)[[i]]
     attrs <- attributes(value)
     if (!is.atomic(value) || is.object(value) || isS4(value) ||
-        !typeof(value) %in% c("double", "integer", "logical") || !length(value) ||
+        !typeof(value) %in% c("double", "integer", "logical") ||
         any(!is.finite(value)) ||
         length(setdiff(names(attrs), c("names", "dim", "dimnames"))))
       stop("`data$", name, "` must be an ordinary numeric, integer, or logical vector or array.", call. = FALSE)

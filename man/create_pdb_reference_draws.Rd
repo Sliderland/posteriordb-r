@@ -5,19 +5,7 @@
 \alias{create_pdb_reference_draws.stanfit}
 \title{Construct a standalone PosteriorDB reference-draw bundle from a Stan fit}
 \usage{
-create_pdb_reference_draws(
-  fit,
-  data = NULL,
-  data_info = list(),
-  model_info = list(),
-  posterior_info = list(),
-  reference_info = list(),
-  include = NULL,
-  exclude = NULL,
-  check = TRUE,
-  pdb = NULL,
-  ...
-)
+create_pdb_reference_draws(fit, data = NULL, ...)
 
 \method{create_pdb_reference_draws}{stanfit}(
   fit,
@@ -36,8 +24,13 @@ create_pdb_reference_draws(
 \arguments{
 \item{fit}{A completed `rstan::stanfit` object.}
 
-\item{data}{The exact named Stan input list. `list()` explicitly declares
+\item{data}{The exact named Stan input list, with ordinary numeric,
+integer, or logical vectors/arrays as values. `list()` explicitly declares
 an empty input; `NULL` is currently unavailable and errors.}
+
+\item{...}{Named method options: `data_info`, `model_info`,
+`posterior_info`, `reference_info`, `include`, `exclude`, `check`, and
+`pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.}
 
 \item{data_info}{Named data metadata. `name` and `title` are required;
 supported descriptive fields are `description`, `references`, `urls`,
@@ -48,9 +41,9 @@ supported descriptive fields are `description`, `references`, `urls`,
 `keywords`, `prior`, and `licence`.}
 
 \item{posterior_info}{Named posterior metadata. `added_by` and `added_date`
-provide defaults for the constructed objects. Structural fields are
-derived from the supplied data/model; only `added_by` and `added_date`
-may be supplied as posterior metadata.}
+provide defaults for the constructed objects. Optional structural fields
+(`name`, `model_name`, `data_name`, `reference_posterior_name`, and
+`dimensions`) are accepted only when they match inferred values.}
 
 \item{reference_info}{Named human annotations for the reference draws,
 such as `comments`, `added_by`, and `added_date`. The inference method
@@ -66,8 +59,6 @@ checks. `FALSE` leaves the candidate explicitly unchecked.}
 
 \item{pdb}{Optional PosteriorDB connection to attach for later use. This
 constructor never reads from or writes to it.}
-
-\item{...}{Reserved; unknown or duplicate arguments are rejected.}
 }
 \value{
 A `pdb_reference_bundle` list containing `data`, `model_code`,

@@ -48,6 +48,7 @@ reference_posterior_info.pdb_posterior <- function(x, type, ...) {
   if (identical(type, "draws") && !is.null(x$embedded_reference_draws)) {
     return(info(x$embedded_reference_draws))
   }
+  if (is.null(pdb(x))) stop("Only embedded reference draws are available; attach a database to read reference summaries.", call. = FALSE)
   read_reference_posterior_info(x = x$reference_posterior_name, type = type, pdb = pdb(x))
 }
 

@@ -22,6 +22,8 @@ Pass data and the two required names and titles. Parameter selection uses base
 names, so including an array parameter retains all its saved scalar elements.
 The default also includes saved transformed parameters and generated
 quantities, while excluding `lp__`.
+Use exact, named arguments after `data`; misspellings, duplicate arguments,
+and unnamed metadata are rejected.
 
 ```{r, eval=FALSE}
 bundle <- create_pdb_reference_draws(
@@ -41,6 +43,13 @@ bundle$diagnostics
 bundle$provenance
 ```
 
+`posterior_info$added_by` and `$added_date` supply common defaults. Each of
+`data_info`, `model_info`, and `reference_info` can override them for that
+object. The constructor derives posterior names, paths, framework, and
+dimensions; conflicting structural metadata is rejected. `reference_info`
+accepts human comments and contributor information, never diagnostic values
+or acceptance flags.
+
 The returned `pdb_reference_bundle` contains the data, model code, posterior,
 reference draws, diagnostic report, and provenance. Its posterior embeds the
 content needed by `get_data()`, `model_code()`, and
@@ -59,6 +68,7 @@ Writers continue to require a checked, passing reference draw object.
 
 ```{r, eval=FALSE}
 reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
+passes_reference_draw_checks(fit) # defaults to the lag-1 check only
 passes_reference_draw_checks(fit, checks = c("mean_lag1_ac", "r_hat"))
 ```
 
@@ -66,6 +76,14 @@ The selective calls need only the fit. A lag-only request reads post-warmup
 draws and does not calculate ESS or R-hat or read sampler energy diagnostics.
 The all-check report includes the observed metrics, policy thresholds, each
 check's status, and variables or chains that failed.
+Undefined metrics, including autocorrelation for constant quantities, fail
+their selected checks while the rest of the report remains available.
+
+Full acceptance requires exactly 10,000 retained draws across at least four
+chains, mean absolute per-chain lag-1 autocorrelation at most 0.05 for every
+variable, R-hat at most 1.01, E-FMI at least 0.2 for each chain, and zero
+divergences. ESS and treedepth are informational. Passing a selected check
+alone does not establish full reference acceptance.
 
 ## Data provenance and limits
 
@@ -75,6 +93,24 @@ errors because automatic recovery is not implemented. The package records
 whether data was caller-supplied but cannot prove that it produced the fit.
 Structural checks preserve the supplied R values and dimensions but cannot
 establish scientific equivalence.
+Data must contain ordinary finite numeric, integer, or logical Stan inputs,
+including vectors and arrays; preprocess raw data frames before calling.
+
+Saved array elements are checked against the fit's declared dimensions,
+including singleton and non-square axes. Partially saved variables cannot be
+included. Zero-sized selected variables and source code with unresolved
+`#include` directives produce clear errors. The first bundle backend supports
+completed RStan HMC fits; other inference algorithms are rejected. Current
+package versions describe the import operation in `provenance$import_versions`,
+separately from fit-derived `provenance$sampling_metadata`. An unavailable
+original sampling version is left unknown.
+
+Merged fits are accepted only when their saved chain settings and draw counts
+agree and any recorded chain IDs are unique. The stored source and declared
+dimensions must cover the selected draws. RStan may retain only the first
+input model's source when merging, so the caller must ensure the chains came
+from the same model and data. `fit_timestamp`, when available, is the fit's
+recorded date and may describe merging rather than original sampling.
 
 This bundle is an in-memory construction API. It does not perform an atomic
 database import of all contained objects. Persist objects using the package's

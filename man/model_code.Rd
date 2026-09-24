@@ -68,6 +68,10 @@ pdb_stan_code(x, ...)
 \description{
 Extract and construct model code objects
 }
+\details{
+A posterior with embedded code returns it for the matching
+  framework. Other frameworks use the attached database, if available.
+}
 \seealso{
 framework()
 }

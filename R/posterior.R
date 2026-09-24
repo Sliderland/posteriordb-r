@@ -10,6 +10,11 @@
 #' `pdb_data`, and a `dimension` element need to be included. See
 #' `posterior("eight_schools")$dimensions` for an example.
 #'
+#' Posteriors returned by [create_pdb_reference_draws()] embed their data, model
+#' code, and reference draws. Their normal getters work without a database.
+#' A NULL connection is valid only with all three embedded objects; embedded
+#' names and draw dimensions are checked even when a connection is attached.
+#'
 #' @export
 posterior <- function(x, pdb = pdb_default(), ...) {
   UseMethod("posterior")
@@ -115,24 +120,32 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_class(x$model_info$added_date, "Date")
   checkmate::assert_list(x$model_info, min.len = 1)
 
-  if (is.null(pdb(x))) {
-    checkmate::assert_names(
-      names(x), must.include = c("embedded_data", "embedded_model_code", "embedded_reference_draws")
-    )
-    checkmate::assert_class(x$embedded_data, "pdb_data")
-    checkmate::assert_class(x$embedded_model_code, "pdb_model_code")
-    checkmate::assert_class(x$embedded_reference_draws, "pdb_reference_posterior_draws")
-    checkmate::assert_true(identical(info(x$embedded_data)$name, x$data_name))
-    checkmate::assert_true(identical(info(x$embedded_model_code)$name, x$model_name))
-    checkmate::assert_true(identical(
-      attr(x$embedded_model_code, "framework"),
-      names(x$model_info$model_implementations)[[1L]]
-    ))
-    checkmate::assert_true(identical(
-      info(x$embedded_reference_draws)$name, x$reference_posterior_name
-    ))
-  } else {
-    checkmate::assert_class(pdb(x), "pdb")
+  embedded <- c("embedded_data", "embedded_model_code", "embedded_reference_draws")
+  if (is.null(pdb(x)) && any(vapply(embedded, function(key) is.null(x[[key]]), logical(1))))
+    stop("A posterior without `pdb` requires embedded data, model code, and reference draws.", call. = FALSE)
+  if (!is.null(pdb(x))) checkmate::assert_class(pdb(x), "pdb")
+  # A connection supplies fallback content; it must not bypass validation of
+  # the in-memory objects that getters prefer over that connection.
+  if (!is.null(x$embedded_data)) {
+    assert_data(x$embedded_data)
+    if (!identical(info(x$embedded_data), x$data_info) ||
+        !identical(info(x$embedded_data)$name, x$data_name))
+      stop("Embedded data metadata conflicts with the posterior's data link.", call. = FALSE)
+  }
+  if (!is.null(x$embedded_model_code)) {
+    assert_model_code(x$embedded_model_code)
+    if (!identical(info(x$embedded_model_code), x$model_info) ||
+        !identical(info(x$embedded_model_code)$name, x$model_name) ||
+        !framework(x$embedded_model_code) %in% names(x$model_info$model_implementations))
+      stop("Embedded model metadata conflicts with the posterior's model link.", call. = FALSE)
+  }
+  if (!is.null(x$embedded_reference_draws)) {
+    assert_reference_posterior_draws(x$embedded_reference_draws)
+    if (!identical(info(x$embedded_reference_draws)$name, x$reference_posterior_name))
+      stop("Embedded reference draws conflict with the posterior's reference link.", call. = FALSE)
+    if (!setequal(posterior::variables(x$embedded_reference_draws),
+                  bundle_dimension_names(x$dimensions)))
+      stop("Embedded reference draws conflict with the posterior's dimensions.", call. = FALSE)
   }
   invisible(x)
 }
