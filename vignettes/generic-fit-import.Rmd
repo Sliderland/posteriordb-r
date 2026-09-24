@@ -41,6 +41,10 @@ bundle$posterior
 bundle$reference_draws
 bundle$diagnostics
 bundle$provenance
+
+info(bundle$data)            # data metadata, including its derived file path
+info(bundle$model_code)      # model metadata and implementation path
+info(bundle$reference_draws) # inference metadata and diagnostic evidence
 ```
 
 `posterior_info$added_by` and `$added_date` supply common defaults. Each of
@@ -105,14 +109,33 @@ package versions describe the import operation in `provenance$import_versions`,
 separately from fit-derived `provenance$sampling_metadata`. An unavailable
 original sampling version is left unknown.
 
-Merged fits are accepted only when their saved chain settings and draw counts
-agree and any recorded chain IDs are unique. The stored source and declared
-dimensions must cover the selected draws. RStan may retain only the first
-input model's source when merging, so the caller must ensure the chains came
-from the same model and data. `fit_timestamp`, when available, is the fit's
-recorded date and may describe merging rather than original sampling.
+Pass one completed fit. The constructor does not combine sampling runs or
+merge database objects. `fit_timestamp`, when available, is the fit's recorded
+date, which is not necessarily its original sampling date.
 
-This bundle is an in-memory construction API. It does not perform an atomic
-database import of all contained objects. Persist objects using the package's
-existing writers after review, and reload persisted posteriors to obtain their
-database-backed file paths.
+## Explicit persistence
+
+Creating a bundle creates R objects and their metadata in memory, even if
+`pdb` is supplied or those names already exist in the database. It does not
+create, merge, or replace files. Attaching `pdb` does not authorize writes.
+
+If you choose to persist new objects, use the existing writers explicitly:
+
+```{r, eval=FALSE}
+write_pdb(bundle$data, pdb = my_pdb, overwrite = FALSE)
+write_pdb(bundle$model_code, pdb = my_pdb, overwrite = FALSE)
+write_pdb(bundle$posterior, pdb = my_pdb, overwrite = FALSE)
+# Only checked, passing reference draws may be written:
+write_pdb(bundle$reference_draws, pdb = my_pdb, overwrite = FALSE)
+```
+
+The data and model writers also write their respective info files. The
+posterior writer writes its metadata and links, without the embedded payloads.
+These separate writes are not an atomic all-object import. Review the target
+names first and reload persisted posteriors to obtain database-backed paths.
+
+Existing destination files are protected by the default `overwrite = FALSE`.
+Use new names for new contributions; only use `overwrite = TRUE` when you
+intend and are authorized to replace those specific existing objects.
+Contributor metadata such as `added_by` records attribution; the existing
+writers do not implement an ownership or access-control system.
