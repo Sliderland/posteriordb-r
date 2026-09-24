@@ -13,6 +13,7 @@ run_stan <- function(x, stan_args, backend = c("rstan", "cmdstanr"), ...){
 }
 
 #' @rdname run_stan
+#' @exportS3Method
 run_stan.pdb_posterior <- function(
   x,
   stan_args,

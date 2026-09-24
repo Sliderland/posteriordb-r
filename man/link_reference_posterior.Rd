@@ -12,17 +12,17 @@ link_reference_posterior(
 )
 }
 \arguments{
-\item{posterior}{a posterior name or \code{pdb_posterior} object.}
+\item{posterior}{a posterior name or [pdb_posterior] object.}
 
 \item{reference_posterior}{the reference-posterior name. Defaults to
-\code{posterior} when it is a character name, or the object's name otherwise.}
+`posterior` when it is a character name, or the object's name otherwise.}
 
-\item{pdb}{a local PosteriorDB connection. Defaults to \code{pdb_default()}.}
+\item{pdb}{a local PosteriorDB connection. Defaults to [pdb_default()].}
 
 \item{verify}{verify the written link by reading the posterior JSON.}
 }
 \value{
-The updated \code{pdb_posterior} object, invisibly.
+The updated [pdb_posterior] object, invisibly.
 }
 \description{
 Update a local PosteriorDB posterior to point to reference draws that are

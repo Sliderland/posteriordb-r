@@ -16,7 +16,7 @@ compute_reference_posterior_draws(
 
 \item{pdb}{a [pdb] object.}
 
-\item{backend}{Stan sampler backend, either \code{"rstan"} or \code{"cmdstanr"}.}
+\item{backend}{Stan sampler backend, either `"rstan"` or `"cmdstanr"`.}
 }
 \description{
 Compute a Reference Posteriors for a reference posterior info object

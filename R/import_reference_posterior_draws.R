@@ -149,6 +149,7 @@ as_reference_posterior_draws_external <- function(
   checked
 }
 
+#' @exportS3Method
 as_reference_posterior_draws.default <- function(fit, ...) {
   stop(
     "Unsupported Stan fit object; expected a completed rstan::stanfit or cmdstanr::CmdStanMCMC object.",
@@ -268,14 +269,17 @@ extract_external_stan_fit <- function(fit, ...) {
   UseMethod("extract_external_stan_fit", fit)
 }
 
+#' @exportS3Method
 extract_external_stan_fit.stanfit <- function(fit, ...) {
   extract_rstan_fit(fit, ...)
 }
 
+#' @exportS3Method
 extract_external_stan_fit.CmdStanMCMC <- function(fit, ...) {
   extract_cmdstanr_fit(fit, ...)
 }
 
+#' @exportS3Method
 extract_external_stan_fit.default <- function(fit, ...) {
   stop(
     "Unsupported Stan fit object; expected a completed rstan::stanfit or cmdstanr::CmdStanMCMC object.",

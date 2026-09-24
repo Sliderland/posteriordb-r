@@ -14,16 +14,16 @@ infer_posterior_dimensions(
 )
 }
 \arguments{
-\item{model_code}{Stan model source as a string or \code{pdb_model_code} object.}
+\item{model_code}{Stan model source as a string or `pdb_model_code` object.}
 
-\item{data}{a named list of Stan data or a \code{pdb_data} object.}
+\item{data}{a named list of Stan data or a `pdb_data` object.}
 
 \item{include}{optional parameter names to retain. Names refer to base Stan
 variables, before array indices are expanded.}
 
-\item{exclude}{parameter names to omit. \code{lp__} is always omitted.}
+\item{exclude}{parameter names to omit. `lp__` is always omitted.}
 
-\item{backend}{Stan backend to use, either \code{"rstan"} or \code{"cmdstanr"}.}
+\item{backend}{Stan backend to use, either `"rstan"` or `"cmdstanr"`.}
 
 \item{iter}{total iterations for the short fit, split evenly between
 warmup and sampling.}

@@ -17,17 +17,14 @@ sequential_batch_workflow(
 }
 \arguments{
 \item{reference_posteriors}{a non-empty list of
-\code{pdb_reference_posterior_info} objects.}
+[pdb_reference_posterior_info] objects.}
 
 \item{sampling}{either one named list of sampler arguments to reuse, or a
-list containing one named sampler-argument list per workflow. A single unnamed nested
-list is shared by all workflows. Per-workflow lists may be named to match the
-names of \code{reference_posteriors}. The sampling arguments replace the
-method arguments in each info object for this run.}
+list containing one named sampler-argument list per workflow.}
 
 \item{pdb}{a PosteriorDB connection containing the posteriors to sample.}
 
-\item{backend}{sampler backend, either \code{"rstan"} or \code{"cmdstanr"}.}
+\item{backend}{sampler backend, either `"rstan"` or `"cmdstanr"`.}
 
 \item{check}{whether each sampled result should be checked against the
 reference-draw requirements.}
@@ -36,20 +33,28 @@ reference-draw requirements.}
 linked to their posteriors.}
 
 \item{overwrite}{whether existing reference-posterior files may be
-overwritten when \code{write = TRUE}.}
+overwritten when `write = TRUE`.}
 
 \item{on_error}{either continue with later workflows or stop after the first
-failure. With \code{"stop"}, remaining entries are returned with status
-\code{"not_run"}.}
+failure. With `"stop"`, remaining entries are returned with status
+`"not_run"`.}
 }
 \value{
 A named list of per-workflow result records, with class
-\code{sequential_batch_workflow_results}. Each record contains the reference
-name, status and last stage, sampler arguments, returned draws when available,
-write and link flags, and an error message when a stage fails.
+  `sequential_batch_workflow_results`. Each record contains the reference
+  name, status and last stage, the sampler arguments, returned draws when
+  available, write and link flags, and an error message when a stage fails.
 }
 \description{
 Run one reference-posterior sampling workflow for each supplied
-\code{pdb_reference_posterior_info} object. Workflows run one after another
-and return a result record for each item.
+[pdb_reference_posterior_info] object. Workflows run one after another and
+return a result record for each item.
+}
+\details{
+`sampling` may be one named list of sampler arguments, shared by every
+workflow, or a list of named sampler-argument lists. In the latter form,
+its length must equal the number of reference-posterior info objects; a
+named outer list must use the workflow names. A single unnamed nested
+sampling list is shared by all workflows. These arguments replace the method arguments in
+each reference-posterior info object for this run.
 }

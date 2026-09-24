@@ -3,7 +3,7 @@
 %   R/compute_reference_posterior_draws_stan_sampling.R
 \name{compute_reference_posterior_draws_stan_sampling}
 \alias{compute_reference_posterior_draws_stan_sampling}
-\title{Compute a Reference Posteriors using Rstan}
+\title{Compute reference draws using a Stan sampling backend}
 \usage{
 compute_reference_posterior_draws_stan_sampling(
   rpi,
@@ -16,8 +16,8 @@ compute_reference_posterior_draws_stan_sampling(
 
 \item{pdb}{a [pdb] object.}
 
-\item{backend}{Stan sampler backend, either \code{"rstan"} or \code{"cmdstanr"}.}
+\item{backend}{Stan sampler backend, either `"rstan"` or `"cmdstanr"`.}
 }
 \description{
-Compute a Reference Posteriors using Rstan
+Compute reference draws using a Stan sampling backend
 }

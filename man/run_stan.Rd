@@ -14,7 +14,7 @@ run_stan(x, stan_args, backend = c("rstan", "cmdstanr"), ...)
 
 \item{stan_args}{Arguments supplied to the selected Stan sampling backend.}
 
-\item{backend}{either \code{"rstan"} or \code{"cmdstanr"}.}
+\item{backend}{either `"rstan"` or `"cmdstanr"`.}
 
 \item{...}{reserved for future arguments.}
 }
