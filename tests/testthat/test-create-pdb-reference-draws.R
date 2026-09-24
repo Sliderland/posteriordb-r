@@ -24,18 +24,29 @@ test_that("saved scalar array coverage is converted to dimensions", {
                list(theta = 2L, mu = integer()))
   expect_equal(infer_saved_dimensions(c("A[1,1]", "A[2,1]", "A[1,2]", "A[2,2]"))$A,
                c(2L, 2L))
+  expect_equal(infer_saved_dimensions(c(
+    "B[1,1]", "B[2,1]", "B[1,2]", "B[2,2]", "B[1,3]", "B[2,3]"
+  ))$B, c(2L, 3L))
   expect_error(infer_saved_dimensions(c("A[1]", "A[3]")), "partial")
 })
 
 test_that("a sampled stanfit produces a standalone bundle", {
   skip_if_not_installed("rstan")
-  code <- "parameters { real mu; } model { mu ~ normal(0, 1); }"
+  code <- paste(
+    "parameters { real mu; matrix[2,3] beta; }",
+    "transformed parameters { real twice_mu = 2 * mu; }",
+    "model { mu ~ normal(0, 1); to_vector(beta) ~ normal(0, 1); }",
+    "generated quantities { real prediction = mu; }"
+  )
   fit <- suppressWarnings(rstan::sampling(rstan::stan_model(model_code = code),
     data = list(), iter = 20, warmup = 10, chains = 2, seed = 781, refresh = 0))
   bundle <- create_pdb_reference_draws(fit, data = list(),
     data_info = list(name = "unit-data", title = "Unit inputs"),
     model_info = list(name = "unit-model", title = "Unit model"), check = FALSE)
   expect_s3_class(bundle, "pdb_reference_bundle")
+  expect_identical(bundle$posterior$dimensions$beta, c(2L, 3L))
+  expect_true(all(c("mu", "twice_mu", "prediction", "beta[2,3]") %in%
+                  posterior::variables(bundle$reference_draws)))
   expect_true(is.null(pdb(bundle$data)))
   expect_true(is.null(pdb(bundle$model_code)))
   expect_equal(bundle$posterior$embedded_data, bundle$data)
@@ -75,6 +86,9 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_identical(pdb(attached$model_code), pdb)
   expect_identical(pdb(attached$posterior), pdb)
   expect_identical(pdb(attached$reference_draws), pdb)
+  expect_error(data_file_path(attached$posterior), "not persisted")
+  expect_error(model_code_file_path(attached$posterior, framework = "stan"), "not persisted")
+  expect_error(reference_posterior_draws_file_path(attached$posterior), "not persisted")
   write_pdb(bundle$posterior, pdb)
   posterior_json <- list.files(file.path(root, "posteriors"), pattern = "json$", full.names = TRUE)
   expect_length(posterior_json, 1L)

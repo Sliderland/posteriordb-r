@@ -89,7 +89,12 @@ write_pdb.pdb_posterior <- function(x, pdb,  overwrite = FALSE, ...){
   pdb(x) <- NULL
   x$model_info <- NULL
   x$data_info <- NULL
+  # In-memory constructors may embed large content objects for standalone
+  # getters. These payloads belong in their own database files, never in the
+  # posterior metadata JSON.
+  x$embedded_data <- NULL
+  x$embedded_model_code <- NULL
+  x$embedded_reference_draws <- NULL
   class(x) <- c(class(x), "list")
   write_json_to_path(x, "posteriors", pdb, zip = FALSE, info = FALSE, overwrite = overwrite)
 }
-

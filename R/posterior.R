@@ -65,7 +65,12 @@ as.posterior.list <- function(x, pdb = pdb_default(), ...) {
     suppressWarnings(otpt <- utils::capture.output(so <- run_stan.pdb_posterior(x, stan_args = list(iter = 2, warmup = 0, chains = 1))))
     stop("posterior dimensions are missing.")
   }
+  embedded_fields <- intersect(
+    names(x), c("embedded_data", "embedded_model_code", "embedded_reference_draws")
+  )
+  embedded_content <- x[embedded_fields]
   x <- x[pdb_posterior_must_include()]
+  x[embedded_fields] <- embedded_content
 
   pdb(x) <- pdb
   class(x) <- "pdb_posterior"
@@ -110,6 +115,24 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_class(x$model_info$added_date, "Date")
   checkmate::assert_list(x$model_info, min.len = 1)
 
-  checkmate::assert_class(pdb(x), "pdb")
+  if (is.null(pdb(x))) {
+    checkmate::assert_names(
+      names(x), must.include = c("embedded_data", "embedded_model_code", "embedded_reference_draws")
+    )
+    checkmate::assert_class(x$embedded_data, "pdb_data")
+    checkmate::assert_class(x$embedded_model_code, "pdb_model_code")
+    checkmate::assert_class(x$embedded_reference_draws, "pdb_reference_posterior_draws")
+    checkmate::assert_true(identical(info(x$embedded_data)$name, x$data_name))
+    checkmate::assert_true(identical(info(x$embedded_model_code)$name, x$model_name))
+    checkmate::assert_true(identical(
+      attr(x$embedded_model_code, "framework"),
+      names(x$model_info$model_implementations)[[1L]]
+    ))
+    checkmate::assert_true(identical(
+      info(x$embedded_reference_draws)$name, x$reference_posterior_name
+    ))
+  } else {
+    checkmate::assert_class(pdb(x), "pdb")
+  }
   invisible(x)
 }

@@ -1,0 +1,82 @@
+---
+title: "Build a reference-draw bundle from a sampled fit"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Build a reference-draw bundle from a sampled fit}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This guide starts with an already sampled `rstan::stanfit`, the exact Stan
+input list used for that fit, and human labels for the data and model. Bundle
+construction does not compile or sample the model, access a database, or write
+files.
+
+## Construct the bundle
+
+Pass data and the two required names and titles. Parameter selection uses base
+names, so including an array parameter retains all its saved scalar elements.
+The default also includes saved transformed parameters and generated
+quantities, while excluding `lp__`.
+
+```{r, eval=FALSE}
+bundle <- create_pdb_reference_draws(
+  fit,
+  data = stan_data,
+  data_info = list(name = "experiment-1", title = "Experiment 1 inputs"),
+  model_info = list(name = "normal-model", title = "Normal model"),
+  posterior_info = list(added_by = "Contributor name"),
+  include = c("mu", "sigma")
+)
+
+bundle$data
+bundle$model_code
+bundle$posterior
+bundle$reference_draws
+bundle$diagnostics
+bundle$provenance
+```
+
+The returned `pdb_reference_bundle` contains the data, model code, posterior,
+reference draws, diagnostic report, and provenance. Its posterior embeds the
+content needed by `get_data()`, `model_code()`, and
+`reference_posterior_draws()`, so those getters work before persistence. A
+`pdb` connection may be attached for later use, but it is not read during
+construction. File-path methods report that embedded objects have not been
+persisted.
+
+## Inspect diagnostics
+
+The fit may be useful even when it does not meet every reference-draw
+criterion. Failed checks are reported, and the candidate is returned without
+resampling, thinning, or selecting a target draw count. Use `check = FALSE` to
+leave the candidate explicitly unchecked; this does not set acceptance flags.
+Writers continue to require a checked, passing reference draw object.
+
+```{r, eval=FALSE}
+reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
+passes_reference_draw_checks(fit, checks = c("mean_lag1_ac", "r_hat"))
+```
+
+The selective calls need only the fit. A lag-only request reads post-warmup
+draws and does not calculate ESS or R-hat or read sampler energy diagnostics.
+The all-check report includes the observed metrics, policy thresholds, each
+check's status, and variables or chains that failed.
+
+## Data provenance and limits
+
+Supply the exact named Stan input list after preprocessing. Explicit `list()`
+declares that the model had no data inputs; omitted or `NULL` data currently
+errors because automatic recovery is not implemented. The package records
+whether data was caller-supplied but cannot prove that it produced the fit.
+Structural checks preserve the supplied R values and dimensions but cannot
+establish scientific equivalence.
+
+This bundle is an in-memory construction API. It does not perform an atomic
+database import of all contained objects. Persist objects using the package's
+existing writers after review, and reload persisted posteriors to obtain their
+database-backed file paths.

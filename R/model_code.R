@@ -23,6 +23,11 @@ as.model_code <- function(x, info, ...) {
 #' @rdname model_code
 #' @export
 model_code.pdb_posterior <- function(x, framework, ...) {
+  if (!is.null(x$embedded_model_code)) {
+    checkmate::assert_choice(framework, supported_frameworks())
+    checkmate::assert_true(identical(attr(x$embedded_model_code, "framework"), framework))
+    return(x$embedded_model_code)
+  }
   model_code(x$model_name, framework, pdb = pdb(x), ...)
 }
 
@@ -80,6 +85,7 @@ model_code_file_path <- function(x, ...) {
 #' @rdname model_code
 #' @export
 model_code_file_path.pdb_posterior <- function(x, framework, ...) {
+  if (!is.null(x$embedded_model_code)) stop("This in-memory posterior is not persisted; its embedded model code has no database file path.", call. = FALSE)
   checkmate::assert_choice(framework, names(x$model_info$model_implementations))
   mcfp <- pdb_cached_local_file_path(pdb(x), x$model_info$model_implementations[[framework]]$model_code)
   mcfp

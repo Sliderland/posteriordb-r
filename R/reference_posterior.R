@@ -45,6 +45,9 @@ pdb_reference_posterior_draws_info <- reference_posterior_draws_info
 #' @rdname reference_posterior_info
 #' @export
 reference_posterior_info.pdb_posterior <- function(x, type, ...) {
+  if (identical(type, "draws") && !is.null(x$embedded_reference_draws)) {
+    return(info(x$embedded_reference_draws))
+  }
   read_reference_posterior_info(x = x$reference_posterior_name, type = type, pdb = pdb(x))
 }
 
@@ -117,6 +120,7 @@ reference_posterior_draws_file_path <- function(x, ...) {
 #' @rdname reference_posterior_draws_file_path
 #' @export
 reference_posterior_draws_file_path.pdb_posterior <- function(x, ...) {
+  if (!is.null(x$embedded_reference_draws)) stop("This in-memory posterior is not persisted; its embedded reference draws have no database file path.", call. = FALSE)
   if(is.null(x$reference_posterior_name)) stop2("There is currently no gold standard for this posterior.")
   reference_posterior_draws_file_path(x$reference_posterior_name, pdb = pdb(x))
 }
@@ -172,6 +176,7 @@ reference_posterior_draws.character <- function(x, pdb = pdb_default(), ...){
 #' @rdname reference_posterior_draws
 #' @export
 reference_posterior_draws.pdb_posterior <- function(x, ...){
+  if (!is.null(x$embedded_reference_draws)) return(x$embedded_reference_draws)
   read_reference_posterior_draws(x = x$reference_posterior_name, pdb = pdb(x))
 }
 
