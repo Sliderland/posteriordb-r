@@ -40,8 +40,9 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
 
   tst <- list()
 
-  # Assert that there is exactly 10000 draws
-  checkmate::assert_true(rpi$diagnostics$ndraws >= 10000)
+  # Summary-statistic acceptance permits more than the minimum draw count.
+  policy <- reference_draw_policy()
+  checkmate::assert_true(rpi$diagnostics$ndraws >= policy$ndraws_summary_min)
   tst$ndraws_is_gte_10k <- TRUE
 
   if(rpi$inference$method == "stan_sampling"){
@@ -104,8 +105,8 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...
 
   tst <- list()
 
-  # Assert that there is exactly 10000 draws
-  checkmate::assert_true(rpi$diagnostics$ndraws == 10000)
+  policy <- reference_draw_policy()
+  checkmate::assert_true(rpi$diagnostics$ndraws == policy$ndraws_exact)
   tst$ndraws_is_10k <- TRUE
 
   if(rpi$inference$method == "stan_sampling"){
@@ -148,34 +149,36 @@ assert_diagnostic_draw_counts <- function(x, rpi) {
 # ESS is recorded for information, while the other checks are required.
 check_stan_sampling_quality <- function(x, rpi) {
   diagnostics <- rpi$diagnostics
-  checkmate::assert_true(diagnostics$nchains >= 4)
+  policy <- reference_draw_policy()
+  checkmate::assert_true(diagnostics$nchains >= policy$nchains_min)
   checks <- list(nchains_is_gte_4 = TRUE)
   checks$ess_within_bounds <- ess_within_bounds(x, rpi)
 
   lag1 <- diagnostics$mean_lag1_ac
   if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
   assert_finite_diagnostic(
-    abs(lag1), posterior::nvariables(x), upper = 0.05,
+    abs(lag1), posterior::nvariables(x), upper = policy$mean_lag1_ac_max,
     name = "mean_lag1_ac"
   )
   checks$abs_mean_lag1_ac_below_0_05 <- TRUE
 
   assert_finite_diagnostic(
-    diagnostics$r_hat, posterior::nvariables(x), upper = 1.01,
+    diagnostics$r_hat, posterior::nvariables(x), upper = policy$r_hat_max,
     name = "r_hat"
   )
   checks$r_hat_below_1_01 <- TRUE
 
   assert_finite_diagnostic(
     diagnostics$expected_fraction_of_missing_information,
-    diagnostics$nchains, lower = 0.2,
+    diagnostics$nchains, lower = policy$efmi_min,
     name = "expected_fraction_of_missing_information"
   )
   checks$efmi_above_0_2 <- TRUE
 
   assert_finite_diagnostic(
     diagnostics$divergent_transitions, diagnostics$nchains,
-    lower = 0, upper = 0, name = "divergent_transitions"
+    lower = policy$divergences_max, upper = policy$divergences_max,
+    name = "divergent_transitions"
   )
   checks$no_divergent_transitions <- TRUE
   checks
