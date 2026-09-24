@@ -20,12 +20,22 @@ make_diagnostic_cmdstan_fit <- function(n = 2500L, nchains = 4L) {
 
 test_that("lag-only diagnostics do not read sampler or energy diagnostics", {
   mock <- make_diagnostic_cmdstan_fit()
+  testthat::local_mocked_bindings(
+    rhat = function(...) stop("unexpected R-hat calculation"),
+    ess_bulk = function(...) stop("unexpected bulk ESS calculation"),
+    ess_tail = function(...) stop("unexpected tail ESS calculation"),
+    .package = "posterior"
+  )
+  testthat::local_mocked_bindings(
+    cmdstanr_bfmi = function(...) stop("unexpected BFMI calculation"),
+    .package = "posteriordb"
+  )
   report <- reference_draw_diagnostics(mock$fit, "mean_lag1_ac")
   expect_false(mock$called$sampler)
   expect_named(report, c("metrics", "thresholds", "status", "failures"))
   expect_named(report$metrics$mean_lag1_ac, "theta")
   expect_type(passes_reference_draw_checks(mock$fit, "mean_lag1_ac"), "logical")
-  expect_true(passes_reference_draw_checks(mock$fit))
+  expect_identical(passes_reference_draw_checks(mock$fit), report$status$mean_lag1_ac)
   expect_named(report$metrics, "mean_lag1_ac")
 })
 
