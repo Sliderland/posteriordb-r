@@ -11,7 +11,8 @@
 #' saved scalar elements of an array parameter.
 #'
 #' @param fit A completed `rstan::stanfit` object.
-#' @param data The exact named Stan input list. `list()` explicitly declares
+#' @param data The exact named Stan input list, with ordinary numeric,
+#'   integer, or logical vectors/arrays as values. `list()` explicitly declares
 #'   an empty input; `NULL` is currently unavailable and errors.
 #' @param data_info Named data metadata. `name` and `title` are required;
 #'   supported descriptive fields are `description`, `references`, `urls`,
@@ -20,9 +21,9 @@
 #'   supported descriptive fields are `description`, `references`, `urls`,
 #'   `keywords`, `prior`, and `licence`.
 #' @param posterior_info Named posterior metadata. `added_by` and `added_date`
-#'   provide defaults for the constructed objects. Structural fields are
-#'   derived from the supplied data/model; only `added_by` and `added_date`
-#'   may be supplied as posterior metadata.
+#'   provide defaults for the constructed objects. Optional structural fields
+#'   (`name`, `model_name`, `data_name`, `reference_posterior_name`, and
+#'   `dimensions`) are accepted only when they match inferred values.
 #' @param reference_info Named human annotations for the reference draws,
 #'   such as `comments`, `added_by`, and `added_date`. The inference method
 #'   and version provenance are derived from the fit. Diagnostics and
@@ -33,7 +34,9 @@
 #'   checks. `FALSE` leaves the candidate explicitly unchecked.
 #' @param pdb Optional PosteriorDB connection to attach for later use. This
 #'   constructor never reads from or writes to it.
-#' @param ... Reserved; unknown or duplicate arguments are rejected.
+#' @param ... Named method options: `data_info`, `model_info`,
+#'   `posterior_info`, `reference_info`, `include`, `exclude`, `check`, and
+#'   `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.
 #'
 #' @return A `pdb_reference_bundle` list containing `data`, `model_code`,
 #'   `posterior`, `reference_draws`, `diagnostics`, and `provenance`.
@@ -57,11 +60,8 @@
 #' produce actionable errors. Failed diagnostic candidates are returned with
 #' their failures recorded.
 #' @export
-create_pdb_reference_draws <- function(
-  fit, data = NULL, data_info = list(), model_info = list(),
-  posterior_info = list(), reference_info = list(), include = NULL,
-  exclude = NULL, check = TRUE, pdb = NULL, ...
-) {
+create_pdb_reference_draws <- function(fit, data = NULL, ...) {
+  validate_bundle_call_dots(list(...))
   UseMethod("create_pdb_reference_draws", fit)
 }
 
@@ -72,14 +72,12 @@ create_pdb_reference_draws.stanfit <- function(
   posterior_info = list(), reference_info = list(), include = NULL,
   exclude = NULL, check = TRUE, pdb = NULL, ...
 ) {
-  dots <- list(...)
-  if (length(dots)) stop("Unused or unknown arguments in `...`: ",
-                         paste(names(dots) %||% rep("<unnamed>", length(dots)), collapse = ", "),
-                         call. = FALSE)
+  if (length(list(...))) stop("Internal dispatch passed unexpected extra arguments.", call. = FALSE)
   checkmate::assert_flag(check)
   if (!is.null(pdb)) checkmate::assert_class(pdb, "pdb")
   resolved_data <- resolve_standalone_fit_data(fit, data)
   data <- resolved_data$data
+  validate_stan_input_data(data, "data")
   data_info <- validate_bundle_metadata(data_info, "data_info",
     required = character(), allowed = c("name", "title", "data_file", "added_by", "added_date", "description", "references", "urls", "keywords"))
   model_info <- validate_bundle_metadata(model_info, "model_info",
@@ -100,28 +98,34 @@ create_pdb_reference_draws.stanfit <- function(
   if (!is.null(model_info$model_implementations) && !identical(model_info$model_implementations, expected_impl))
     stop("`model_info$model_implementations` conflicts with the inferred Stan model path.", call. = FALSE)
 
-  extracted <- extract_external_stan_fit(fit)
-  all_vars <- posterior::variables(extracted$draws)
-  all_vars <- setdiff(all_vars, "lp__")
+  extracted <- extract_rstan_fit(fit, checks = "all", strict = FALSE,
+    for_bundle = TRUE, include = include, exclude = exclude)
+  assemble_standalone_fit_bundle(extracted = extracted,
+    resolved_data = resolved_data, data_info = data_info, model_info = model_info,
+    posterior_info = posterior_info, reference_info = reference_info,
+    include = include, exclude = exclude, check = check, pdb = pdb,
+    expected_data_file = expected_data_file)
+}
+
+# Construct bundle objects from resolved values and the backend-neutral
+# extraction record. This helper must not inspect a backend fit object.
+assemble_standalone_fit_bundle <- function(extracted, resolved_data, data_info,
+                                           model_info, posterior_info,
+                                           reference_info, include = NULL,
+                                           exclude = NULL, check = TRUE,
+                                           pdb = NULL, expected_data_file) {
+  data <- resolved_data$data
+  draws_array <- extracted$draws
+  all_vars <- setdiff(posterior::variables(draws_array), "lp__")
   bases <- unique(sub("\\[.*$", "", all_vars))
   include <- validate_variable_selection(include, "include")
   exclude <- validate_variable_selection(exclude, "exclude")
-  if (!is.null(include) && length(setdiff(include, bases)))
-    stop("Unknown saved variable(s) in `include`: ", paste(setdiff(include, bases), collapse = ", "), call. = FALSE)
-  if (!is.null(exclude) && length(setdiff(exclude, bases)))
-    stop("Unknown saved variable(s) in `exclude`: ", paste(setdiff(exclude, bases), collapse = ", "), call. = FALSE)
-  chosen_bases <- setdiff(if (is.null(include)) bases else include, exclude %||% character())
-  chosen <- all_vars[vapply(all_vars, function(v) sub("\\[.*$", "", v) %in% chosen_bases, logical(1))]
+  chosen_bases <- setdiff(if (is.null(include)) bases else include,
+                          exclude %||% character())
+  chosen <- all_vars
   if (!length(chosen)) stop("Variable selection leaves no saved draws.", call. = FALSE)
-  dimensions <- infer_saved_dimensions(chosen)
-  draws_array <- posterior::subset_draws(extracted$draws, variable = chosen, regex = FALSE)
+  dimensions <- extracted$dimensions[chosen_bases]
   draws <- posterior::as_draws_list(draws_array)
-  diagnostics <- compute_stan_sampling_diagnostics(
-    draws_array, keep_dimensions = chosen,
-    sampler_diagnostics = extracted$sampler_diagnostics,
-    expected_fraction_of_missing_information = extracted$metadata$expected_fraction_of_missing_information,
-    max_treedepth = extracted$metadata$max_treedepth
-  )
 
   added_by <- posterior_info$added_by %||% unname(Sys.info()[["user"]])
   added_date <- posterior_info$added_date %||% Sys.Date()
@@ -134,9 +138,7 @@ create_pdb_reference_draws.stanfit <- function(
   model_info$model_implementations <- NULL
   dat <- as.pdb_data(data, info = as.pdb_data_info(data_info))
   mi <- as.pdb_model_info(c(model_info, list(framework = "stan")))
-  code <- tryCatch(as.character(fit@stanmodel@model_code), error = function(e) NULL)
-  if (is.null(code) || length(code) != 1L || is.na(code) || !nzchar(code))
-    stop("The `stanfit` does not expose its saved Stan source code.", call. = FALSE)
+  code <- extracted$source
   mc <- as.pdb_model_code(code, info = mi, framework = "stan")
   if (!is.null(pdb)) {
     pdb(dat) <- pdb
@@ -153,33 +155,52 @@ create_pdb_reference_draws.stanfit <- function(
       "` conflicts with the inferred value.", call. = FALSE)
   }
   po_fields <- posterior_info[setdiff(names(posterior_info), c("added_by", "added_date", names(structural)))]
-  rinfo <- new_bundle_reference_info(reference_info, extracted$metadata, diagnostics,
-                                     structural$reference_posterior_name, added_by, added_date)
+  diagnostic_report <- reference_draw_diagnostics_from_extracted(
+    extracted, checks = "all", include = chosen_bases)
+  scalar_vars <- posterior::variables(draws_array)
+  scalar_ess <- function(fun) stats::setNames(vapply(seq_along(scalar_vars), function(j) {
+    z <- matrix(draws_array[, , j], nrow = dim(draws_array)[1L],
+                ncol = dim(draws_array)[2L])
+    tryCatch(as.numeric(fun(z))[1L], error = function(e) NA_real_)
+  }, numeric(1)), scalar_vars)
+  diagnostic_report$metrics$effective_sample_size_bulk <- scalar_ess(posterior::ess_bulk)
+  diagnostic_report$metrics$effective_sample_size_tail <- scalar_ess(posterior::ess_tail)
+  sampler_vars <- if (is.null(extracted$sampler_diagnostics)) character() else
+    posterior::variables(extracted$sampler_diagnostics)
+  if ("treedepth__" %in% sampler_vars) {
+    sampler_depth <- matrix(extracted$sampler_diagnostics[, , "treedepth__"],
+      nrow = dim(draws_array)[1L], ncol = dim(draws_array)[2L])
+    diagnostic_report$metrics$max_treedepth_observed_by_chain <- stats::setNames(
+      apply(sampler_depth, 2L, max, na.rm = TRUE),
+      paste0("chain", seq_len(posterior::nchains(draws_array))))
+  }
+  diagnostic_report$metrics$max_treedepth <- extracted$metadata$max_treedepth %||% NULL
+  diagnostic_report$checked <- check
+  diagnostic_info <- bundle_reference_diagnostic_info(diagnostic_report$metrics,
+    posterior::ndraws(draws_array), posterior::nchains(draws_array))
+  rinfo <- new_bundle_reference_info(reference_info, extracted$metadata,
+    diagnostic_info, structural$reference_posterior_name, added_by, added_date)
   rpd <- as.pdb_reference_posterior_draws(draws, info = rinfo)
   if (!is.null(pdb)) pdb(rpd) <- pdb
   attr(rpd, "sampler_diagnostics") <- extracted$sampler_diagnostics
   attr(rpd, "sampling_metadata") <- extracted$metadata
-  diagnostic_report <- list(
-    metrics = list(ndraws = diagnostics$ndraws, nchains = diagnostics$nchains,
-      mean_lag1_ac = diagnostics$mean_lag1_ac, r_hat = diagnostics$r_hat,
-      efmi = diagnostics$expected_fraction_of_missing_information,
-      divergent_transitions = diagnostics$divergent_transitions),
-    thresholds = reference_draw_policy()$thresholds,
-    status = NULL, failures = NULL, checked = FALSE
-  )
   if (check) {
-    diagnostic_report <- reference_draw_diagnostics_from_extracted(
-      extracted, checks = "all", include = chosen_bases
-    )
-    diagnostic_report$checked <- TRUE
-    rpd <- tryCatch(check_reference_posterior_draws(rpd), error = function(e) {
-      ri <- info(rpd)
-      ri$checks_made <- c(ri$checks_made %||% list(), list(
-        check_failed = conditionMessage(e), diagnostic_report = diagnostic_report
-      ))
-      info(rpd) <- ri
-      rpd
-    })
+    passed <- all(unlist(diagnostic_report$status, use.names = FALSE))
+    ri <- info(rpd)
+    if (passed) {
+      ri$checks_made <- bundle_acceptance_flags()
+    } else {
+      ri$checks_made <- list(check_failed = paste(names(diagnostic_report$failures), collapse = ", "),
+        diagnostic_report = diagnostic_report)
+    }
+    info(rpd) <- ri
+    if (passed) {
+      assert_reference_posterior_draws(rpd)
+      assert_checked_reference_posterior_draws(rpd)
+    }
+  } else {
+    diagnostic_report$status <- NULL
+    diagnostic_report$failures <- NULL
   }
   po <- as.pdb_posterior(c(structural, list(pdb_data = dat, pdb_model_code = mc), po_fields,
     list(added_by = added_by, added_date = added_date,
@@ -187,14 +208,11 @@ create_pdb_reference_draws.stanfit <- function(
          embedded_reference_draws = rpd)), pdb = pdb)
   if (!is.null(pdb)) pdb(po) <- pdb
   bundle <- list(data = dat, model_code = mc, posterior = po,
-    reference_draws = rpd, diagnostics = diagnostic_report %||% diagnostics,
-    provenance = list(data_source = resolved_data$source, fit_class = class(fit)[1],
+    reference_draws = rpd, diagnostics = diagnostic_report,
+    provenance = list(data_source = resolved_data$source, fit_class = extracted$fit_class,
       selected_variables = chosen, sampling_metadata = extracted$metadata,
-      imported_at = Sys.time(), import_versions = list(
-        posteriordb = as.character(utils::packageVersion("posteriordb")),
-        R = R.version$version.string,
-        rstan = as.character(utils::packageVersion("rstan")),
-        posterior = as.character(utils::packageVersion("posterior")))))
+      imported_at = Sys.time(), import_versions = c(extracted$import_versions,
+        list(posteriordb = as.character(utils::packageVersion("posteriordb"))))))
   class(bundle) <- c("pdb_reference_bundle", "list")
   bundle
 }
@@ -202,6 +220,19 @@ create_pdb_reference_draws.stanfit <- function(
 #' @exportS3Method
 create_pdb_reference_draws.default <- function(fit, ...) {
   stop("Unsupported fit class. `create_pdb_reference_draws()` currently accepts only `rstan::stanfit`.", call. = FALSE)
+}
+
+validate_bundle_call_dots <- function(dots) {
+  allowed <- c("data_info", "model_info", "posterior_info", "reference_info",
+               "include", "exclude", "check", "pdb")
+  supplied <- names(dots)
+  if (length(dots) && (is.null(supplied) || anyNA(supplied) || any(!nzchar(supplied))))
+    stop("Arguments after `data` must be named exactly; use `data_info`, `model_info`, `posterior_info`, `reference_info`, `include`, `exclude`, `check`, or `pdb`.", call. = FALSE)
+  if (anyDuplicated(supplied)) stop("Duplicate argument(s) in `...`: ",
+    paste(unique(supplied[duplicated(supplied)]), collapse = ", "), call. = FALSE)
+  unknown <- setdiff(supplied, allowed)
+  if (length(unknown)) stop("Unknown argument(s) in `...`: ", paste(unknown, collapse = ", "), call. = FALSE)
+  invisible(TRUE)
 }
 
 #' Print a standalone reference-draw bundle
@@ -242,6 +273,26 @@ resolve_standalone_fit_data <- function(fit, data) {
 # malformed recovered values are returned and rejected by the common validator.
 recover_stanfit_data <- function(fit) NULL
 
+# Each named input is one ordinary finite numeric, integer, or logical
+# vector/array. Standard names and dimension attributes are preserved.
+validate_stan_input_data <- function(x, path) {
+  if (!is.list(x) || is.object(x) || isS4(x))
+    stop("`data` must be a named list of ordinary numeric, integer, or logical vectors and arrays.", call. = FALSE)
+  if (length(x) && (is.null(names(x)) || anyNA(names(x)) || any(!nzchar(names(x))) || anyDuplicated(names(x))))
+    stop("`data` must have unique, non-empty input names (or be `list()`).", call. = FALSE)
+  for (i in seq_along(x)) {
+    value <- x[[i]]
+    name <- names(x)[[i]]
+    attrs <- attributes(value)
+    if (!is.atomic(value) || is.object(value) || isS4(value) ||
+        !typeof(value) %in% c("double", "integer", "logical") || !length(value) ||
+        any(!is.finite(value)) ||
+        length(setdiff(names(attrs), c("names", "dim", "dimnames"))))
+      stop("`data$", name, "` must be an ordinary numeric, integer, or logical vector or array.", call. = FALSE)
+  }
+  invisible(x)
+}
+
 validate_bundle_metadata <- function(x, arg, required, allowed) {
   checkmate::assert_list(x, .var.name = arg)
   if (!length(x)) return(x)
@@ -255,7 +306,8 @@ validate_bundle_metadata <- function(x, arg, required, allowed) {
 }
 
 assert_metadata_pair <- function(x, arg, fields) {
-  missing <- setdiff(fields, names(x))
+  missing <- fields[!fields %in% names(x) | vapply(fields, function(field)
+    is.null(x[[field]]), logical(1))]
   if (length(missing)) return(missing)
   checkmate::assert_string(x$name); checkmate::assert_string(x$title)
   character()
@@ -284,24 +336,6 @@ validate_variable_selection <- function(x, arg) {
   x
 }
 
-infer_saved_dimensions <- function(variables) {
-  bases <- unique(sub("\\[.*$", "", variables))
-  out <- lapply(bases, function(base) {
-    vals <- variables[startsWith(variables, paste0(base, "["))]
-    if (!length(vals)) return(integer())
-    idx <- lapply(sub("^.*\\[([^]]+)\\]$", "\\1", vals), function(s) as.integer(strsplit(s, ",", fixed = TRUE)[[1]]))
-    if (anyNA(unlist(idx)) || !all(lengths(idx) == lengths(idx)[1])) stop("Saved array indices are malformed for `", base, "`.", call. = FALSE)
-    matrix <- do.call(rbind, idx); dims <- apply(matrix, 2L, max)
-    expected <- do.call(expand.grid, c(lapply(dims, seq_len), KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE))
-    observed <- unique(as.data.frame(matrix))
-    if (nrow(observed) != prod(dims) || !all(apply(expected, 1L, paste, collapse = ",") %in% apply(observed, 1L, paste, collapse = ",")))
-      stop("Saved array `", base, "` is partial; all scalar elements are required.", call. = FALSE)
-    as.integer(dims)
-  })
-  names(out) <- bases
-  out
-}
-
 new_bundle_reference_info <- function(x, metadata, diagnostics, name, added_by, added_date) {
   allowed <- c("comments", "added_by", "added_date", "inference", "versions")
   x <- x[intersect(names(x), allowed)]
@@ -315,4 +349,24 @@ new_bundle_reference_info <- function(x, metadata, diagnostics, name, added_by, 
     # Installed package versions below describe this import operation instead.
     versions = if (!is.null(metadata$stan_version)) list(stan_version = metadata$stan_version) else NULL)
   as.pdb_reference_posterior_info(info)
+}
+
+bundle_reference_diagnostic_info <- function(metrics, ndraws, nchains) {
+  get_metric <- function(key, default) {
+    value <- metrics[[key]]
+    if (is.null(value) || identical(value, "unavailable")) default else value
+  }
+  list(ndraws = as.integer(ndraws), nchains = as.integer(nchains),
+    effective_sample_size_bulk = get_metric("effective_sample_size_bulk", rep(NA_real_, 0L)),
+    effective_sample_size_tail = get_metric("effective_sample_size_tail", rep(NA_real_, 0L)),
+    mean_lag1_ac = get_metric("mean_lag1_ac", rep(NA_real_, 0L)),
+    r_hat = get_metric("r_hat", rep(NA_real_, 0L)),
+    divergent_transitions = get_metric("divergent_transitions", rep(NA_real_, nchains)),
+    expected_fraction_of_missing_information = get_metric("efmi", rep(NA_real_, nchains)))
+}
+
+bundle_acceptance_flags <- function() {
+  list(ndraws_is_10k = TRUE, nchains_is_gte_4 = TRUE,
+    abs_mean_lag1_ac_below_0_05 = TRUE, r_hat_below_1_01 = TRUE,
+    efmi_above_0_2 = TRUE, no_divergent_transitions = TRUE)
 }
