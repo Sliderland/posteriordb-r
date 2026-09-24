@@ -323,7 +323,8 @@ extract_cmdstanr_fit <- function(fit, checks = "all", strict = TRUE, ...) {
   sampler_invalid <- need_sampler && (is.null(sampler_diagnostics) ||
     posterior::nchains(sampler_diagnostics) != posterior::nchains(draws) ||
     dim(sampler_diagnostics)[1L] != dim(draws)[1L] ||
-    !"divergent__" %in% posterior::variables(sampler_diagnostics))
+    (("all" %in% checks || "divergent_transitions" %in% checks) &&
+       !"divergent__" %in% posterior::variables(sampler_diagnostics)))
   if (sampler_invalid) {
     if (strict) stop("The cmdstanr fit has incomplete or inconsistent post-warmup sampler diagnostics.", call. = FALSE)
     sampler_diagnostics <- NULL
@@ -450,7 +451,13 @@ extract_rstan_sampler_diagnostics <- function(fit, strict = TRUE) {
   })
 }
 
-extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
+extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
+                              for_bundle = FALSE, include = NULL,
+                              exclude = NULL, ...) {
+  if (isTRUE(for_bundle)) {
+    return(extract_rstan_fit_for_bundle(fit, strict = strict,
+      include = include, exclude = exclude))
+  }
   draws <- tryCatch(
     posterior::as_draws_array(fit),
     error = function(error) {
@@ -472,6 +479,9 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
   }
   stan_args <- rstan_fit_stan_args(fit)
   sim <- rstan_fit_slot(fit, "sim")
+  # Consistent merged fits are accepted only when their saved chain count and
+  # unique chain IDs agree with the extracted draws, and all saved shapes and
+  # source metadata below validate against the merged object.
   nchains <- posterior::nchains(draws)
   retained_iterations <- dim(draws)[1L]
   retained_draws <- posterior::ndraws(draws)
@@ -506,7 +516,7 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
     }
   ) else NULL
   if (!is.null(bfmi) && (!is.numeric(bfmi) || length(bfmi) != nchains ||
-      anyNA(bfmi) || any(!is.finite(bfmi)))) {
+      (strict && (anyNA(bfmi) || any(!is.finite(bfmi)))))) {
     if (strict) stop("The Stan fit has missing or invalid per-chain BFMI values.", call. = FALSE)
     bfmi <- NULL
   }
@@ -541,6 +551,166 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
     sampler_diagnostics = sampler_diagnostics,
     metadata = metadata
   )
+}
+
+# Bundle extraction contract: draws is an ordered post-warmup draws_array;
+# dimensions contains selected base-variable axes (integer(), scalar); metadata
+# is sampling provenance only. Import-time package versions live separately.
+extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
+                                         include = NULL, exclude = NULL) {
+  if (!inherits(fit, "stanfit"))
+    stop("Bundle extraction requires an `rstan::stanfit`.", call. = FALSE)
+  checkmate::assert_flag(strict)
+  include <- validate_variable_selection(include, "include")
+  exclude <- validate_variable_selection(exclude, "exclude")
+
+  stan_args <- rstan_fit_stan_args(fit)
+  if (!length(stan_args))
+    stop("The `stanfit` has no saved per-chain sampling arguments; its inference method cannot be verified.", call. = FALSE)
+  chain_is_hmc <- vapply(stan_args, function(x) {
+    method <- x$method
+    algorithm <- x$algorithm
+    if (is.list(method)) {
+      algorithm <- algorithm %||% method$algorithm
+      method <- method$method %||% method$name
+    }
+    method <- if (is.null(method) || !length(method)) NULL else tolower(as.character(method[[1L]]))
+    algorithm <- if (is.null(algorithm) || !length(algorithm)) NULL else tolower(as.character(algorithm[[1L]]))
+    !is.null(algorithm) && algorithm %in% c("nuts", "hmc") &&
+      (is.null(method) || method %in% c("sampling", "stan_sampling"))
+  }, logical(1))
+  if (!length(chain_is_hmc) || anyNA(chain_is_hmc) || !all(chain_is_hmc))
+    stop("Bundle extraction supports completed HMC sampling fits only; the `stanfit` records a non-sampling or unknown inference method.", call. = FALSE)
+  sim <- rstan_fit_slot(fit, "sim")
+  if (!is.null(sim$chains) && length(sim$chains) == 1L &&
+      sim$chains != length(stan_args))
+    stop("Merged or inconsistent `stanfit` objects are not supported for bundle extraction.", call. = FALSE)
+  chain_ids <- vapply(stan_args, function(x) as.character(x$chain_id %||% NA_character_), character(1))
+  if (length(chain_ids) > 1L && !anyNA(chain_ids) && anyDuplicated(chain_ids))
+    stop("Merged `stanfit` objects with repeated chain IDs are not supported for bundle extraction.", call. = FALSE)
+
+  code <- rstan_fit_slot(rstan_fit_slot(fit, "stanmodel"), "model_code")
+  if (is.null(code) || length(code) != 1L || is.na(code) || !nzchar(code))
+    stop("The `stanfit` does not expose its saved Stan source code.", call. = FALSE)
+  if (grepl("#\\s*include\\b", code, perl = TRUE))
+    stop("The saved Stan source contains `#include`; bundle extraction requires self-contained source code.", call. = FALSE)
+
+  # Reuse the established extractor once so draws, sampler metrics, and
+  # sampling metadata all describe the same fit snapshot.
+  result <- extract_rstan_fit(fit, checks = "all", strict = strict)
+  draws <- result$draws
+  if (posterior::nchains(draws) != length(stan_args))
+    stop("The saved per-chain inference settings do not match the number of draw chains.", call. = FALSE)
+  scalar_names <- setdiff(posterior::variables(draws), "lp__")
+  declared <- rstan_fit_slot(fit, "par_dims")
+  if (is.null(declared) || is.null(names(declared)) || anyDuplicated(names(declared)))
+    stop("The `stanfit` does not contain usable declared parameter dimensions.", call. = FALSE)
+  bases <- unique(sub("\\[.*$", "", scalar_names))
+  missing_decl <- setdiff(bases, names(declared))
+  if (length(missing_decl))
+    stop("Saved variables lack declared dimensions: ", paste(missing_decl, collapse = ", "), call. = FALSE)
+  declared_bases <- setdiff(names(declared), "lp__")
+  if (!is.null(include) && length(setdiff(include, declared_bases)))
+    stop("Unknown Stan variable(s) in `include`: ", paste(setdiff(include, declared_bases), collapse = ", "), call. = FALSE)
+  if (!is.null(exclude) && length(setdiff(exclude, declared_bases)))
+    stop("Unknown Stan variable(s) in `exclude`: ", paste(setdiff(exclude, declared_bases), collapse = ", "), call. = FALSE)
+  selected_bases <- setdiff(if (is.null(include)) declared_bases else include,
+                            exclude %||% character())
+  if (!length(selected_bases)) stop("Variable selection leaves no saved draws.", call. = FALSE)
+  invalid_axes <- selected_bases[vapply(selected_bases, function(base) {
+    axes <- declared[[base]]
+    !is.numeric(axes) || anyNA(axes) || any(!is.finite(axes)) ||
+      any(axes < 0L) || any(axes != floor(axes))
+  }, logical(1))]
+  if (length(invalid_axes))
+    stop("Stan variable(s) have invalid declared dimensions: ",
+         paste(invalid_axes, collapse = ", "), call. = FALSE)
+  zero_sized <- selected_bases[vapply(selected_bases, function(base) {
+    axes <- declared[[base]]
+    length(axes) > 0L && any(axes == 0L)
+  }, logical(1))]
+  if (length(zero_sized))
+    stop("Stan variable(s) have zero-sized declared dimensions; exclude them explicitly to continue: ",
+         paste(zero_sized, collapse = ", "), call. = FALSE)
+  unsaved <- setdiff(selected_bases, bases)
+  if (length(unsaved))
+    stop("Requested Stan variable(s) were not saved in the fit: ", paste(unsaved, collapse = ", "), call. = FALSE)
+
+  dimensions <- stats::setNames(lapply(selected_bases, function(base) {
+    raw_axes <- declared[[base]]
+    if (!is.numeric(raw_axes) || anyNA(raw_axes) || any(!is.finite(raw_axes)) ||
+        any(raw_axes < 0L) || any(raw_axes != floor(raw_axes)))
+      stop("Stan variable `", base, "` has invalid declared dimensions.", call. = FALSE)
+    axes <- as.integer(raw_axes)
+    if (any(axes <= 0L))
+      stop("Stan variable `", base, "` has zero-sized or invalid declared dimensions; exclude it explicitly to continue.", call. = FALSE)
+    saved <- scalar_names[sub("\\[.*$", "", scalar_names) == base]
+    validate_rstan_saved_coverage(base, saved, axes)
+    axes
+  }), selected_bases)
+  selected <- scalar_names[sub("\\[.*$", "", scalar_names) %in% selected_bases]
+  draws <- posterior::subset_draws(draws, variable = selected, regex = FALSE)
+
+  sampler_diagnostics <- result$sampler_diagnostics
+  metadata <- result$metadata
+  # rstan_stan_version() is based on the installed package's Stan version,
+  # which is not proof of the version used when this fit was sampled.
+  metadata[c("rstan_version", "posterior_version", "r_version", "stan_version")] <- NULL
+  # `stanfit@date` can be the merge time for sflist2stanfit(), so do not
+  # describe this available clock value as the original sampling timestamp.
+  metadata$fit_timestamp <- metadata$sampling_timestamp
+  metadata$sampling_timestamp <- NULL
+  metadata$method_arguments$sampling_timestamp <- NULL
+  metadata$method_arguments$sampler_arguments <- metadata$sampler_arguments
+  # Keep chain-specific values intact; derive a scalar max depth only when common.
+  controls <- lapply(stan_args, function(x) x$control %||% list())
+  depths <- vapply(controls, function(x) as.numeric(x$max_treedepth %||% 10), numeric(1))
+  metadata$max_treedepth <- if (all(depths == depths[[1L]])) depths[[1L]] else depths
+  import_versions <- list(R = R.version$version.string,
+    rstan = as.character(utils::packageVersion("rstan")),
+    posterior = as.character(utils::packageVersion("posterior")))
+  list(draws = draws, sampler_diagnostics = sampler_diagnostics,
+    metadata = metadata, source = as.character(code), dimensions = dimensions,
+    fit_class = "stanfit", import_versions = import_versions)
+}
+
+validate_rstan_saved_coverage <- function(base, saved_names, axes) {
+  if (!length(axes)) {
+    if (!identical(saved_names, base))
+      stop("Saved scalar coverage for `", base, "` does not match its declared scalar shape.", call. = FALSE)
+    return(invisible(TRUE))
+  }
+  indices <- lapply(saved_names, function(nm) {
+    m <- regmatches(nm, regexpr("\\[[0-9,]+\\]$", nm))
+    if (!length(m) || !nzchar(m)) return(NULL)
+    as.integer(strsplit(substr(m, 2L, nchar(m) - 1L), ",", fixed = TRUE)[[1L]])
+  })
+  expected <- prod(axes)
+  valid <- length(indices) == expected && all(vapply(indices, function(i)
+    !is.null(i) && length(i) == length(axes) && all(i >= 1L) &&
+      all(i <= axes), logical(1)))
+  if (valid) {
+    key <- vapply(indices, paste, collapse = ",", character(1))
+    valid <- !anyDuplicated(key) && length(key) == expected
+  }
+  if (!valid)
+    stop("Saved scalar coverage for `", base, "` is partial or does not match declared axes ",
+         paste(axes, collapse = " x "), ".", call. = FALSE)
+  invisible(TRUE)
+}
+
+# Expand base dimensions to the canonical scalar draw names, preserving every
+# axis (including an axis of length one). This is intentionally private to the
+# fit import path and does not invoke dimension inference or sampling.
+bundle_dimension_names <- function(dimensions) {
+  unlist(lapply(names(dimensions), function(base) {
+    axes <- dimensions[[base]]
+    if (!length(axes)) return(base)
+    indices <- expand.grid(lapply(axes, seq_len), KEEP.OUT.ATTRS = FALSE,
+                           stringsAsFactors = FALSE)
+    ordered <- do.call(cbind, indices)
+    apply(ordered, 1L, function(i) paste0(base, "[", paste(i, collapse = ","), "]"))
+  }), use.names = FALSE)
 }
 
 resolve_import_posterior <- function(posterior, pdb) {
