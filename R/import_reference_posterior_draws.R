@@ -467,9 +467,7 @@ cmdstanr_sampler_arguments <- function(metadata) {
 
 cmdstanr_method_arguments <- function(metadata) {
   keep <- c("chains", "iter", "warmup", "thin", "sampling_timestamp")
-  args <- metadata[intersect(keep, names(metadata))]
-  if (!is.null(metadata$sampler_arguments)) args$sampler_arguments <- metadata$sampler_arguments
-  args
+  metadata[intersect(keep, names(metadata))]
 }
 
 # Sampler access and conversion are one optional diagnostics boundary. In
@@ -577,6 +575,7 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
     posterior_version = paste("posterior", utils::packageVersion("posterior")),
     r_version = R.version$version.string,
     sampling_timestamp = rstan_sampling_timestamp(fit),
+    control = control,
     max_treedepth = max_treedepth,
     expected_fraction_of_missing_information = bfmi
   )
@@ -715,7 +714,6 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   metadata$fit_timestamp <- metadata$sampling_timestamp
   metadata$sampling_timestamp <- NULL
   metadata$method_arguments$sampling_timestamp <- NULL
-  metadata$method_arguments$sampler_arguments <- metadata$sampler_arguments
   # Keep chain-specific values intact; derive a scalar max depth only when common.
   controls <- lapply(stan_args, function(x) x$control %||% list())
   depths <- vapply(controls, function(x) as.numeric(x$max_treedepth %||% 10), numeric(1))
@@ -1068,10 +1066,8 @@ rstan_sampler_arguments <- function(stan_args) {
 }
 
 rstan_method_arguments <- function(metadata) {
-  keep <- c("chains", "iter", "warmup", "thin", "seed", "sampling_timestamp")
-  args <- metadata[intersect(keep, names(metadata))]
-  if (!is.null(metadata$sampler_arguments)) args$sampler_arguments <- metadata$sampler_arguments
-  args
+  keep <- c("chains", "iter", "warmup", "thin", "seed", "control")
+  metadata[intersect(keep, names(metadata))]
 }
 
 rstan_model_name <- function(fit) {

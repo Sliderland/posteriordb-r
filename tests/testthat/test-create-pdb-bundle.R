@@ -53,6 +53,14 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_equal(info(bundle$model_code)$added_by, info(bundle$data)$added_by)
   expect_equal(bundle$posterior$added_by, info(bundle$data)$added_by)
   expect_equal(info(bundle$reference_draws)$added_by, info(bundle$data)$added_by)
+  reference_info <- info(bundle$reference_draws)
+  expect_null(reference_info$inference$method_arguments$sampler_arguments)
+  expect_identical(
+    reference_info$diagnostics$diagnostic_information$names,
+    posterior::variables(bundle$reference_draws)
+  )
+  expect_true(is.list(reference_info$versions))
+  expect_true(all(c("r_version", "r_session") %in% names(reference_info$versions)))
   expect_equal(bundle$posterior$embedded_data, bundle$data)
   expect_equal(bundle$posterior$embedded_model_code, bundle$model_code)
   expect_equal(bundle$posterior$embedded_reference_draws, bundle$reference_draws)

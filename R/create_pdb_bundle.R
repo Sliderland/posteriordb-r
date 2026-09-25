@@ -33,8 +33,8 @@
 #'   `dimensions`) are accepted only when they match inferred values.
 #' @param reference_info Named human annotations for the reference draws,
 #'   such as `comments`, `added_by`, and `added_date`. The inference method
-#'   and version provenance are derived from the fit. Diagnostics and
-#'   `checks_made` are calculated internally.
+#'   and version provenance are derived from the current R environment.
+#'   Diagnostics and `checks_made` are calculated internally.
 #' @param include Optional character vector of base variable names to retain.
 #' @param exclude Optional character vector of base variable names to omit.
 #' @param check Whether to evaluate the package's reference-draw acceptance
@@ -343,7 +343,8 @@ assemble_standalone_fit_bundle <- function(
   diagnostic_info <- bundle_reference_diagnostic_info(
     diagnostic_report$metrics,
     posterior::ndraws(draws_array),
-    posterior::nchains(draws_array)
+    posterior::nchains(draws_array),
+    posterior::variables(draws_array)
   )
   rinfo <- new_bundle_reference_info(
     reference_info,
@@ -495,7 +496,8 @@ attach_bundle_check_result <- function(draws, report) {
   ri$diagnostics <- bundle_reference_diagnostic_info(
     report$metrics,
     posterior::ndraws(draws),
-    posterior::nchains(draws)
+    posterior::nchains(draws),
+    posterior::variables(draws)
   )
   if (passed) {
     ri$checks_made <- bundle_acceptance_flags()
@@ -820,23 +822,20 @@ new_bundle_reference_info <- function(
       paste0("Imported from an externally sampled rstan::stanfit."),
     added_by = x$added_by %||% added_by,
     added_date = x$added_date %||% added_date,
-    # Only retain a Stan version reported by the fit's own stored metadata.
-    # Installed package versions below describe this import operation instead.
-    versions = if (!is.null(metadata$stan_version)) {
-      list(stan_version = metadata$stan_version)
-    } else {
-      NULL
-    }
+    # These describe the R environment used to assemble the bundle; a fit
+    # object does not reliably preserve its original package/session versions.
+    versions = pdb_stan_sampling_versions()
   )
   as.pdb_reference_posterior_info(info)
 }
 
-bundle_reference_diagnostic_info <- function(metrics, ndraws, nchains) {
+bundle_reference_diagnostic_info <- function(metrics, ndraws, nchains, variables) {
   get_metric <- function(key, default) {
     value <- metrics[[key]]
     if (is.null(value) || identical(value, "unavailable")) default else value
   }
   list(
+    diagnostic_information = list(names = variables),
     ndraws = as.integer(ndraws),
     nchains = as.integer(nchains),
     effective_sample_size_bulk = get_metric(
