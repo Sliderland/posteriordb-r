@@ -1,3 +1,9 @@
+---
+output:
+  rmarkdown::md_document:
+    variant: gfm
+---
+
 <!-- CREATE_PDB_BUNDLE.md is generated from CREATE_PDB_BUNDLE.Rmd. Please edit that file. -->
 
 Create and contribute a reference-draw bundle
@@ -12,8 +18,7 @@ current implementation supports RStan `stanfit` objects.
 Prepare the fit and the exact named Stan input list used for sampling. The
 eight schools example below follows the model in `CONTRIBUTING.md`:
 
-
-``` r
+```{r, eval=FALSE}
 library(posteriordb)
 library(rstan)
 
@@ -44,8 +49,7 @@ titles for the data and model. `added_by` and `added_date` are shared defaults
 for the objects in the bundle; a value in an individual metadata list takes
 precedence.
 
-
-``` r
+```{r, eval=FALSE}
 bundle <- create_pdb_bundle(
   fit,
   data = eight_schools,
@@ -67,8 +71,7 @@ bundle <- create_pdb_bundle(
 
 The constructor returns all four objects in memory:
 
-
-``` r
+```{r, eval=FALSE}
 bundle$data
 bundle$model_code
 bundle$posterior
@@ -88,8 +91,7 @@ Choose when to compute diagnostics
 `check = TRUE` is the default. It calculates the reference-draw diagnostic
 report during bundle creation. The report is available as:
 
-
-``` r
+```{r, eval=FALSE}
 bundle$diagnostics$metrics
 bundle$diagnostics$status
 bundle$diagnostics$failures
@@ -115,8 +117,7 @@ and its reference draws have no acceptance flags. Sampler diagnostics are
 retained in memory for a later check; sampling is not repeated. Unchecked draws
 are not writable.
 
-
-``` r
+```{r, eval=FALSE}
 unchecked <- create_pdb_bundle(
   fit,
   data = eight_schools,
@@ -134,8 +135,7 @@ To defer the check, pass the unchecked bundle to
 `check_reference_posterior_draws()`. It returns an updated bundle with the
 report and result attached:
 
-
-``` r
+```{r, eval=FALSE}
 bundle <- check_reference_posterior_draws(unchecked)
 bundle$diagnostics$status
 bundle$diagnostics$failures
@@ -159,8 +159,7 @@ below stops before writing if they are unchecked or failed. Point `pdb_local()`
 to the local database you intend to update, then write the four objects
 individually:
 
-
-``` r
+```{r, eval=FALSE}
 assert_checked_reference_posterior_draws(bundle$reference_draws)
 
 pdbl <- pdb_local()
