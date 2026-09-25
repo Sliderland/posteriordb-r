@@ -76,6 +76,8 @@ bundle$data
 bundle$model_code
 bundle$posterior
 bundle$reference_draws
+bundle$summary_statistics$mean_value
+bundle$summary_statistics$sd
 ```
 
 
@@ -103,6 +105,15 @@ which checks failed and, where relevant, which variables or chains were
 responsible. A failed check does not prevent bundle creation: the bundle is
 returned with the failure recorded, so you can inspect the report. Its
 reference draws cannot be written until they pass.
+
+When the reference-draw checks pass, the bundle also computes the supported
+summary statistics (`mean_value` and `sd`) from those draws. They are returned
+in `bundle$summary_statistics`. An unchecked bundle, or a bundle whose checks
+fail, has `summary_statistics = NULL`; this prevents summaries from appearing
+writeable before the required draw checks pass. The summary info objects carry
+the same reference-posterior metadata as the draws, with the summary-specific
+acceptance flags and summary-computation version added by the existing
+summary-statistic constructor.
 
 The acceptance checks require exactly 10,000 retained draws, at least four
 chains, absolute lag-1 autocorrelation at most 0.05 for every retained
@@ -166,16 +177,20 @@ pdbl <- pdb_local()
 write_pdb(bundle$data, pdbl, overwrite = FALSE)
 write_pdb(bundle$model_code, pdbl, overwrite = FALSE)
 write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
+write_pdb(bundle$summary_statistics$mean_value, pdbl, overwrite = FALSE)
+write_pdb(bundle$summary_statistics$sd, pdbl, overwrite = FALSE)
 write_pdb(bundle$posterior, pdbl, overwrite = FALSE)
 ```
 
 
 Each call uses the existing `write_pdb()` method for that object. Data, model,
-and reference-draw payloads are written with their info files; the posterior
-JSON records the links and dimensions. `overwrite = FALSE` is the default and
-causes an error if a destination file already exists. Each write happens
-separately, so successful earlier writes remain if a later write fails. Set
-`overwrite = TRUE` only when replacing existing files is intended.
+reference-draw, and summary-statistic payloads are written with their info
+files; summary statistics are saved under
+`reference_posteriors/summary_statistics/<type>/`. The posterior JSON records
+the links and dimensions. `overwrite = FALSE` is the default and causes an
+error if a destination file already exists. Each write happens separately, so
+successful earlier writes remain if a later write fails. Set `overwrite = TRUE`
+only when replacing existing files is intended.
 
 For further details about accepted metadata and arguments, see
 `?create_pdb_bundle`. The constructor requires the actual named Stan input

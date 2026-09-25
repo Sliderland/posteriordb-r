@@ -44,8 +44,8 @@ user. Values supplied in the corresponding metadata lists take precedence.}
 objects. Defaults to the current date when the function is called.
 Values supplied in the corresponding metadata lists take precedence.}
 
-\item{...}{Named method options: `data_info`, `model_info`,
-`posterior_info`, `reference_info`, `include`, `exclude`, `check`, and
+\item{...}{Named method options: `data_info`, `model_info`, `posterior_info`,
+`reference_info`, `include`, `exclude`, `check`, and
 `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.}
 
 \item{data_info}{Named data metadata. `name` and `title` are required;
@@ -64,8 +64,8 @@ Optional structural fields
 
 \item{reference_info}{Named human annotations for the reference draws,
 such as `comments`, `added_by`, and `added_date`. The inference method
-and version provenance are derived from the fit. Diagnostics and
-`checks_made` are calculated internally.}
+and version provenance are derived from the current R environment.
+Diagnostics and `checks_made` are calculated internally.}
 
 \item{include}{Optional character vector of base variable names to retain.}
 
@@ -80,9 +80,11 @@ constructor never reads from or writes to it.}
 }
 \value{
 A `pdb_reference_bundle` list containing `data`, `model_code`,
-  `posterior`, `reference_draws`, `diagnostics`, and `provenance`.
-  `diagnostics` is `NULL` when `check = FALSE`; call
-  [check_reference_posterior_draws()] on that bundle to check it later.
+  `posterior`, `reference_draws`, `summary_statistics`, `diagnostics`, and
+  `provenance`. When checks pass, `summary_statistics` is a named list with
+  `mean_value` and `sd` objects; otherwise it is `NULL`. `diagnostics` is
+  `NULL` when `check = FALSE`; call [check_reference_posterior_draws()] on
+  that bundle to check it later.
 }
 \description{
 Build linked data, model, posterior, and reference-draw objects around an
@@ -111,6 +113,8 @@ bundle <- create_pdb_bundle(
   include = c("mu", "sigma")
 )
 bundle$reference_draws
+bundle$summary_statistics$mean_value
+bundle$summary_statistics$sd
 ```
 
 Missing names/titles, conflicting structural metadata, unknown fields,

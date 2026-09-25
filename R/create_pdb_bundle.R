@@ -47,9 +47,11 @@
 #'   `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.
 #'
 #' @return A `pdb_reference_bundle` list containing `data`, `model_code`,
-#'   `posterior`, `reference_draws`, `diagnostics`, and `provenance`.
-#'   `diagnostics` is `NULL` when `check = FALSE`; call
-#'   [check_reference_posterior_draws()] on that bundle to check it later.
+#'   `posterior`, `reference_draws`, `summary_statistics`, `diagnostics`, and
+#'   `provenance`. When checks pass, `summary_statistics` is a named list with
+#'   `mean_value` and `sd` objects; otherwise it is `NULL`. `diagnostics` is
+#'   `NULL` when `check = FALSE`; call [check_reference_posterior_draws()] on
+#'   that bundle to check it later.
 #' @details
 #' The bundle embeds its content in memory and remains usable before database
 #' persistence. Supplied data is recorded as caller-supplied; this function
@@ -65,6 +67,8 @@
 #'   include = c("mu", "sigma")
 #' )
 #' bundle$reference_draws
+#' bundle$summary_statistics$mean_value
+#' bundle$summary_statistics$sd
 #' ```
 #'
 #' Missing names/titles, conflicting structural metadata, unknown fields,
@@ -366,6 +370,7 @@ assemble_standalone_fit_bundle <- function(
     diagnostic_report$status <- NULL
     diagnostic_report$failures <- NULL
   }
+  summary_statistics <- bundle_summary_statistics(rpd)
   po <- as.pdb_posterior(
     c(
       structural,
@@ -389,6 +394,7 @@ assemble_standalone_fit_bundle <- function(
     model_code = mc,
     posterior = po,
     reference_draws = rpd,
+    summary_statistics = summary_statistics,
     diagnostics = if (check) diagnostic_report else NULL,
     provenance = list(
       data_source = resolved_data$source,
@@ -439,8 +445,45 @@ check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
   draws <- attach_bundle_check_result(draws, report)
   x$reference_draws <- draws
   x$posterior$embedded_reference_draws <- draws
+  x$summary_statistics <- bundle_summary_statistics(draws)
   x$diagnostics <- report
   x
+}
+
+# Compute the persisted summary statistics only after the bundle's reference
+# draw checks pass. The summary statistic writer has its own acceptance
+# assertion, which uses `ndraws_is_gte_10k` instead of the bundle's stricter
+# exact-draw-count flag. Preserve separate info objects for the draws and the
+# summaries, and use the existing summary-statistic constructors and writers.
+bundle_summary_statistics <- function(draws) {
+  draw_checks <- info(draws)$checks_made
+  required_draw_checks <- c(
+    "ndraws_is_10k",
+    "nchains_is_gte_4",
+    "abs_mean_lag1_ac_below_0_05",
+    "r_hat_below_1_01",
+    "efmi_above_0_2",
+    "no_divergent_transitions"
+  )
+  if (!all(vapply(required_draw_checks, function(key) {
+    isTRUE(draw_checks[[key]])
+  }, logical(1)))) {
+    return(NULL)
+  }
+
+  summary_draws <- draws
+  summary_info <- info(draws)
+  summary_info$checks_made <- draw_checks[setdiff(
+    required_draw_checks,
+    "ndraws_is_10k"
+  )]
+  summary_info$checks_made$ndraws_is_gte_10k <- TRUE
+  info(summary_draws) <- summary_info
+
+  stats <- lapply(supported_summary_statistic_types(), function(type) {
+    compute_reference_posterior_summary_statistic(summary_draws, type)
+  })
+  stats::setNames(stats, supported_summary_statistic_types())
 }
 
 bundle_full_diagnostic_report <- function(extracted, include = NULL) {
