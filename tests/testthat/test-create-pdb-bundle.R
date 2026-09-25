@@ -71,6 +71,13 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_null(info(bundle$reference_draws)$checks_made)
   expect_null(bundle$diagnostics)
   expect_match(paste(capture.output(print(bundle)), collapse = "\n"), "unchecked")
+  checked_later <- check_reference_posterior_draws(bundle)
+  expect_s3_class(checked_later, "pdb_reference_bundle")
+  expect_true(checked_later$diagnostics$checked)
+  expect_false(all(unlist(checked_later$diagnostics$status, use.names = FALSE)))
+  expect_false(is.null(attr(checked_later$reference_draws, "sampler_diagnostics")))
+  expect_null(bundle$diagnostics)
+  expect_null(info(bundle$reference_draws)$checks_made)
   testthat::local_mocked_bindings(
     sampling = function(...) stop("unexpected sampling", call. = FALSE),
     stan_model = function(...) stop("unexpected compilation", call. = FALSE),

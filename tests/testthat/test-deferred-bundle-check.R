@@ -23,7 +23,6 @@ make_unchecked_test_bundle <- function(divergence = 0L) {
     metadata = list(
       ndraws = iterations * 4L,
       nchains = 4L,
-      expected_fraction_of_missing_information = rep(0.8, 4L),
       max_treedepth = 10L,
       method_arguments = list()
     ),
@@ -63,9 +62,25 @@ test_that("an unchecked bundle can be checked later and becomes writable when ac
   expect_true(all(unlist(checked$diagnostics$status, use.names = FALSE)))
   expect_named(checked$diagnostics$status,
     c("ndraws", "nchains", "mean_lag1_ac", "r_hat", "efmi", "divergent_transitions"))
+  sampler <- attr(bundle$reference_draws, "sampler_diagnostics")
+  expected_efmi <- vapply(seq_len(posterior::nchains(sampler)), function(chain) {
+    energy <- sampler[, chain, "energy__"]
+    sum(diff(energy)^2) / length(energy) / stats::var(energy)
+  }, numeric(1))
+  expect_equal(unname(checked$diagnostics$metrics$efmi),
+               unname(expected_efmi))
   expect_true(all(unlist(info(checked$reference_draws)$checks_made, use.names = FALSE)))
   expect_equal(checked$posterior$embedded_reference_draws, checked$reference_draws)
   expect_silent(assert_checked_reference_posterior_draws(checked$reference_draws))
+
+  root <- tempfile("deferred-check-accepted-write-")
+  for (folder in c("data/data", "data/info", "models/stan", "models/info",
+                   "posteriors", "reference_posteriors/draws/info",
+                   "reference_posteriors/draws/draws", "cache")) {
+    dir.create(file.path(root, folder), recursive = TRUE)
+  }
+  pdb <- pdb_local(root, cache_path = file.path(root, "cache"))
+  expect_silent(write_pdb(checked$reference_draws, pdb))
 })
 
 test_that("a failed deferred bundle check records failures without certifying draws", {

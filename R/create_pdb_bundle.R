@@ -395,6 +395,15 @@ check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
     stop("The bundle has no saved sampling metadata needed for diagnostics.",
          call. = FALSE)
   }
+  if (is.null(extracted$metadata$expected_fraction_of_missing_information) &&
+      !is.null(extracted$sampler_diagnostics)) {
+    extracted$metadata$expected_fraction_of_missing_information <-
+      rstan_sampler_bfmi(
+        extracted$sampler_diagnostics,
+        posterior::nchains(extracted$draws),
+        strict = FALSE
+      )
+  }
   report <- bundle_full_diagnostic_report(
     extracted
   )
