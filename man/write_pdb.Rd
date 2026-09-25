@@ -49,7 +49,10 @@ a function to simplify writing to a local pdb.
 }
 \details{
 Writing reference draws requires all recorded reference acceptance
-  flags to be `TRUE`. Unchecked or failed reference draws are rejected before
-  either their info or draws file is written. This writer does not compute
-  diagnostics; ESS and treedepth are informational, not acceptance gates.
+  flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
+  Unchecked or failed reference draws, or draws without a saved posterior,
+  are rejected before files are written. A successful reference-draw write
+  also computes and writes each supported summary statistic. This writer
+  does not rerun diagnostic checks; ESS and treedepth are informational, not
+  acceptance gates.
 }

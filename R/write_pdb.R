@@ -3,9 +3,12 @@
 #' @description a function to simplify writing to a local pdb.
 #'
 #' @details Writing reference draws requires all recorded reference acceptance
-#'   flags to be `TRUE`. Unchecked or failed reference draws are rejected before
-#'   either their info or draws file is written. This writer does not compute
-#'   diagnostics; ESS and treedepth are informational, not acceptance gates.
+#'   flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
+#'   Unchecked or failed reference draws, or draws without a saved posterior,
+#'   are rejected before files are written. A successful reference-draw write
+#'   also computes and writes each supported summary statistic. This writer
+#'   does not rerun diagnostic checks; ESS and treedepth are informational, not
+#'   acceptance gates.
 #'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
@@ -34,8 +37,39 @@ write_pdb.pdb_reference_posterior_info <- function(x, pdb, overwrite = FALSE, ty
 write_pdb.pdb_reference_posterior_draws <- function(x, pdb, overwrite = FALSE, ...){
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
+  reference_posterior_name <- info(x)$name
+  assert_reference_posterior_exists(pdb, reference_posterior_name)
+  summary_statistics <- summary_statistics_from_checked_reference_draws(x)
   write_pdb(info(x), pdb = pdb, overwrite = overwrite, type = "draws")
   write_json_to_path(x, "reference_posteriors/draws/draws", pdb, zip = TRUE, info = FALSE, overwrite = overwrite)
+  for (summary_statistic in summary_statistics) {
+    write_pdb(summary_statistic, pdb = pdb, overwrite = overwrite)
+  }
+}
+
+assert_reference_posterior_exists <- function(pdb, reference_posterior_name) {
+  posterior_dir <- pdb_file_path(pdb, "posteriors")
+  posterior_files <- if (dir.exists(posterior_dir)) {
+    list.files(posterior_dir, pattern = "\\.json$", full.names = TRUE)
+  } else {
+    character()
+  }
+  linked <- vapply(posterior_files, function(path) {
+    tryCatch({
+      posterior_info <- jsonlite::read_json(path, simplifyVector = TRUE)
+      identical(posterior_info$reference_posterior_name,
+                reference_posterior_name)
+    }, error = function(error) FALSE)
+  }, logical(1))
+  if (!any(linked)) {
+    stop(
+      "Cannot write reference-posterior draws: no posterior in this database ",
+      "points to reference posterior '", reference_posterior_name,
+      "'. Write or link the associated posterior first.",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
 }
 
 #' @rdname write_pdb

@@ -30,6 +30,33 @@ compute_reference_posterior_summary_statistic <- function(rpd, summary_statistic
   rpss
 }
 
+# Create the summary-statistic acceptance record from a reference-draw object
+# whose stricter PosteriorDB checks have already passed. The summary writer
+# requires `ndraws_is_gte_10k`, while reference-draw writes require exactly
+# 10,000 retained draws; preserve the common acceptance evidence in a separate
+# info object and leave the original draw metadata unchanged.
+summary_statistics_from_checked_reference_draws <- function(rpd) {
+  assert_checked_reference_posterior_draws(rpd)
+  reference_checks <- info(rpd)$checks_made
+  shared_checks <- c(
+    "nchains_is_gte_4",
+    "abs_mean_lag1_ac_below_0_05",
+    "r_hat_below_1_01",
+    "efmi_above_0_2",
+    "no_divergent_transitions"
+  )
+  summary_draws <- rpd
+  summary_info <- info(rpd)
+  summary_info$checks_made <- reference_checks[shared_checks]
+  summary_info$checks_made$ndraws_is_gte_10k <- TRUE
+  info(summary_draws) <- summary_info
+
+  stats <- lapply(supported_summary_statistic_types(), function(type) {
+    compute_reference_posterior_summary_statistic(summary_draws, type)
+  })
+  stats::setNames(stats, supported_summary_statistic_types())
+}
+
 #' @rdname compute_reference_posterior_summary_statistic
 #' @export
 compute_summary_statistic <- compute_reference_posterior_summary_statistic

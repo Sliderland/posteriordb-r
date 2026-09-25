@@ -156,8 +156,9 @@ variables.
 
 Only write reference draws after all acceptance checks pass. The
 assertion below stops before writing if they are unchecked or failed.
-Point `pdb_local()` to the local database you intend to update, then
-write the four objects individually:
+Write the data and model first, then the posterior. The reference-draw
+writer requires that posterior to exist in the target database before it
+writes the draws:
 
 ``` r
 assert_checked_reference_posterior_draws(bundle$reference_draws)
@@ -165,20 +166,26 @@ assert_checked_reference_posterior_draws(bundle$reference_draws)
 pdbl <- pdb_local()
 write_pdb(bundle$data, pdbl, overwrite = FALSE)
 write_pdb(bundle$model_code, pdbl, overwrite = FALSE)
-write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
-write_pdb(bundle$summary_statistics$mean_value, pdbl, overwrite = FALSE)
-write_pdb(bundle$summary_statistics$sd, pdbl, overwrite = FALSE)
 write_pdb(bundle$posterior, pdbl, overwrite = FALSE)
+write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 ```
 
-Each call uses the existing `write_pdb()` method for that object. Data,
-model, reference-draw, and summary-statistic payloads are written with
-their info files; summary statistics are saved under
+The reference-draw `write_pdb()` method also computes and writes the
+supported summary statistics (`mean_value` and `sd`) using their
+existing constructors and writer methods. You do not need to write those
+separately when saving reference draws. Data, model, reference-draw, and
+summary-statistic payloads are written with their info files; summary
+statistics are saved under
 `reference_posteriors/summary_statistics/<type>/`. The posterior JSON
 records the links and dimensions. `overwrite = FALSE` is the default and
 causes an error if a destination file already exists. Each write happens
 separately, so successful earlier writes remain if a later write fails.
 Set `overwrite = TRUE` only when replacing existing files is intended.
+
+If the associated posterior JSON is missing, writing reference draws
+stops before writing any reference-draw or summary-statistic files. This
+ensures the saved reference posterior is linked from an existing
+posterior entry.
 
 The summary payload field names follow the existing PosteriorDB format:
 `mean_value` contains `names`, `mean_value`, and `mcse_mean`; `sd`

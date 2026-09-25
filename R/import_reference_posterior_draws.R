@@ -203,8 +203,9 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #' [as_reference_posterior_draws()]. Sampling is never performed
 #' by this function. With `write = FALSE` (the default), the validated or
 #' diagnostically failed in-memory object is returned. With `write = TRUE`,
-#' required checks must pass and the metadata JSON and draw ZIP are written
-#' transactionally after a round-trip verification.
+#' required checks must pass and the reference-draw, supported summary-statistic,
+#' and posterior-link files are written transactionally after round-trip
+#' verification. The target posterior must be present in the local database.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
@@ -869,6 +870,10 @@ imported_reference_posterior_versions <- function(metadata) {
 write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
                                                      linked_posterior = NULL) {
   checkmate::assert_class(pdb, "pdb_local")
+  if (is.null(linked_posterior)) {
+    stop("A linked posterior is required before reference draws can be written.",
+         call. = FALSE)
+  }
   failure <- info(x)$checks_made$check_failed
   if (!is.null(failure)) {
     stop("Reference-posterior checks failed; nothing was written: ", failure, call. = FALSE)
@@ -881,22 +886,27 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
   }
   final_info <- pdb_file_path(pdb, "reference_posteriors", "draws", "info", paste0(name, ".info.json"))
   final_draws <- pdb_file_path(pdb, "reference_posteriors", "draws", "draws", paste0(name, ".json.zip"))
-  final_files <- c(final_info, final_draws)
-  update_posterior <- FALSE
-  if (!is.null(linked_posterior)) {
-    checkmate::assert_class(linked_posterior, "pdb_posterior")
-    current_reference <- linked_posterior$reference_posterior_name
-    if (!is.null(current_reference) && !identical(current_reference, name)) {
-      stop("The posterior already points to a different reference posterior.", call. = FALSE)
-    }
-    update_posterior <- is.null(current_reference)
-    if (update_posterior) {
-      final_files <- c(final_files, pdb_file_path(
-        pdb, "posteriors", paste0(linked_posterior$name, ".json")
-      ))
-    }
+  checkmate::assert_class(linked_posterior, "pdb_posterior")
+  current_reference <- linked_posterior$reference_posterior_name
+  if (!is.null(current_reference) && !identical(current_reference, name)) {
+    stop("The posterior already points to a different reference posterior.", call. = FALSE)
   }
-  existing <- file.exists(c(final_info, final_draws))
+  update_posterior <- is.null(current_reference)
+  summary_files <- unlist(lapply(supported_summary_statistic_types(), function(type) {
+    c(
+      pdb_file_path(pdb, "reference_posteriors", "summary_statistics", type,
+                    "info", paste0(name, ".info.json")),
+      pdb_file_path(pdb, "reference_posteriors", "summary_statistics", type,
+                    type, paste0(name, ".json"))
+    )
+  }), use.names = FALSE)
+  final_files <- c(final_info, final_draws, summary_files)
+  if (update_posterior) {
+    final_files <- c(final_files, pdb_file_path(
+      pdb, "posteriors", paste0(linked_posterior$name, ".json")
+    ))
+  }
+  existing <- file.exists(final_files)
   if (any(existing) && !overwrite) {
     stop(
       "Reference-posterior files already exist; use `overwrite = TRUE` to replace them.",
@@ -913,6 +923,9 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
   staged_pdb$cache_path <- file.path(staging, "cache")
   dir.create(staged_pdb$cache_path, recursive = TRUE)
 
+  staged_posterior <- linked_posterior
+  staged_posterior$reference_posterior_name <- name
+  write_pdb(staged_posterior, staged_pdb, overwrite = TRUE)
   write_pdb(x, staged_pdb, overwrite = FALSE)
   verify_imported_reference_posterior(staged_pdb, x)
   if (update_posterior) {
@@ -923,19 +936,28 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
       verify = TRUE
     )
   }
-  dir.create(dirname(final_info), recursive = TRUE, showWarnings = FALSE)
-  dir.create(dirname(final_draws), recursive = TRUE, showWarnings = FALSE)
+  for (path in final_files) {
+    dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  }
 
   staged_info <- pdb_file_path(staged_pdb, "reference_posteriors", "draws", "info", paste0(name, ".info.json"))
   staged_draws <- pdb_file_path(staged_pdb, "reference_posteriors", "draws", "draws", paste0(name, ".json.zip"))
-  staged_files <- c(staged_info, staged_draws)
+  staged_summary_files <- unlist(lapply(supported_summary_statistic_types(), function(type) {
+    c(
+      pdb_file_path(staged_pdb, "reference_posteriors", "summary_statistics", type,
+                    "info", paste0(name, ".info.json")),
+      pdb_file_path(staged_pdb, "reference_posteriors", "summary_statistics", type,
+                    type, paste0(name, ".json"))
+    )
+  }), use.names = FALSE)
+  staged_files <- c(staged_info, staged_draws, staged_summary_files)
   if (update_posterior) {
     staged_files <- c(staged_files, pdb_file_path(
       staged_pdb, "posteriors", paste0(linked_posterior$name, ".json")
     ))
   }
   if (!all(file.exists(staged_files))) {
-    stop("Staging did not produce both reference-posterior files.", call. = FALSE)
+    stop("Staging did not produce all reference-draw and summary-statistic files.", call. = FALSE)
   }
   backups <- character()
   installed <- character()
@@ -981,6 +1003,14 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
     pdb$cache_path,
     c(file.path("reference_posteriors", "draws", "info", paste0(name, ".info.json")),
       file.path("reference_posteriors", "draws", "draws", paste0(name, ".json")),
+      unlist(lapply(supported_summary_statistic_types(), function(type) {
+        c(
+          file.path("reference_posteriors", "summary_statistics", type,
+                    "info", paste0(name, ".info.json")),
+          file.path("reference_posteriors", "summary_statistics", type,
+                    type, paste0(name, ".json"))
+        )
+      }), use.names = FALSE),
       if (update_posterior) file.path("posteriors", paste0(linked_posterior$name, ".json")))
   )
   unlink(cached_files[file.exists(cached_files)])

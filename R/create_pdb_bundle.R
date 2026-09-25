@@ -470,20 +470,7 @@ bundle_summary_statistics <- function(draws) {
   }, logical(1)))) {
     return(NULL)
   }
-
-  summary_draws <- draws
-  summary_info <- info(draws)
-  summary_info$checks_made <- draw_checks[setdiff(
-    required_draw_checks,
-    "ndraws_is_10k"
-  )]
-  summary_info$checks_made$ndraws_is_gte_10k <- TRUE
-  info(summary_draws) <- summary_info
-
-  stats <- lapply(supported_summary_statistic_types(), function(type) {
-    compute_reference_posterior_summary_statistic(summary_draws, type)
-  })
-  stats::setNames(stats, supported_summary_statistic_types())
+  summary_statistics_from_checked_reference_draws(draws)
 }
 
 bundle_full_diagnostic_report <- function(extracted, include = NULL) {
