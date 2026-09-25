@@ -6,13 +6,17 @@
 #'   flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
 #'   Unchecked or failed reference draws, or draws without a saved posterior,
 #'   are rejected before files are written. A successful reference-draw write
-#'   also computes and writes each supported summary statistic. This writer
-#'   does not rerun diagnostic checks; ESS and treedepth are informational, not
-#'   acceptance gates.
+#'   also computes and writes each supported summary statistic by default;
+#'   set `write_summary_statistics = FALSE` to write those objects separately.
+#'   This writer does not rerun diagnostic checks; ESS and treedepth are
+#'   informational, not acceptance gates.
 #'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
 #' @param overwrite overwrite existing file?
+#' @param write_summary_statistics When writing reference draws, also compute
+#'   and write all supported summary statistics. Defaults to `TRUE`; set to
+#'   `FALSE` to write summary-statistic objects separately.
 #' @param type supported reference posterior types.
 #' @param ... further arguments supplied to methods.
 #' @export
@@ -34,12 +38,19 @@ write_pdb.pdb_reference_posterior_info <- function(x, pdb, overwrite = FALSE, ty
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_reference_posterior_draws <- function(x, pdb, overwrite = FALSE, ...){
+write_pdb.pdb_reference_posterior_draws <- function(
+  x, pdb, overwrite = FALSE, write_summary_statistics = TRUE, ...
+){
+  checkmate::assert_flag(write_summary_statistics)
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
   reference_posterior_name <- info(x)$name
   assert_reference_posterior_exists(pdb, reference_posterior_name)
-  summary_statistics <- summary_statistics_from_checked_reference_draws(x)
+  summary_statistics <- if (write_summary_statistics) {
+    summary_statistics_from_checked_reference_draws(x)
+  } else {
+    list()
+  }
   write_pdb(info(x), pdb = pdb, overwrite = overwrite, type = "draws")
   write_json_to_path(x, "reference_posteriors/draws/draws", pdb, zip = TRUE, info = FALSE, overwrite = overwrite)
   for (summary_statistic in summary_statistics) {

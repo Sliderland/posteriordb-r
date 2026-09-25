@@ -170,12 +170,11 @@ write_pdb(bundle$posterior, pdbl, overwrite = FALSE)
 write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 ```
 
-The reference-draw `write_pdb()` method also computes and writes the
-supported summary statistics (`mean_value` and `sd`) using their
-existing constructors and writer methods. You do not need to write those
-separately when saving reference draws. Data, model, reference-draw, and
-summary-statistic payloads are written with their info files; summary
-statistics are saved under
+By default, the reference-draw `write_pdb()` method also computes and
+writes the supported summary statistics (`mean_value` and `sd`) using
+their existing constructors and writer methods. Data, model,
+reference-draw, and summary-statistic payloads are written with their
+info files; summary statistics are saved under
 `reference_posteriors/summary_statistics/<type>/`. The posterior JSON
 records the links and dimensions. `overwrite = FALSE` is the default and
 causes an error if a destination file already exists. Each write happens
@@ -186,6 +185,21 @@ If the associated posterior JSON is missing, writing reference draws
 stops before writing any reference-draw or summary-statistic files. This
 ensures the saved reference posterior is linked from an existing
 posterior entry.
+
+To save only the draws in that call, use
+`write_summary_statistics = FALSE`. You can then write the summary
+objects from the checked bundle individually:
+
+``` r
+write_pdb(
+  bundle$reference_draws,
+  pdbl,
+  overwrite = FALSE,
+  write_summary_statistics = FALSE
+)
+write_pdb(bundle$summary_statistics$mean_value, pdbl, overwrite = FALSE)
+write_pdb(bundle$summary_statistics$sd, pdbl, overwrite = FALSE)
+```
 
 The summary payload field names follow the existing PosteriorDB format:
 `mean_value` contains `names`, `mean_value`, and `mcse_mean`; `sd`

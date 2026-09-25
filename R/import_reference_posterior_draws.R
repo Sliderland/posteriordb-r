@@ -203,9 +203,10 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #' [as_reference_posterior_draws()]. Sampling is never performed
 #' by this function. With `write = FALSE` (the default), the validated or
 #' diagnostically failed in-memory object is returned. With `write = TRUE`,
-#' required checks must pass and the reference-draw, supported summary-statistic,
-#' and posterior-link files are written transactionally after round-trip
-#' verification. The target posterior must be present in the local database.
+#' required checks must pass and the reference-draw files, optional
+#' summary-statistic files, and posterior link are written transactionally after
+#' round-trip verification. The target posterior must be present in the local
+#' database.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
@@ -215,6 +216,8 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #'   `NULL`.
 #' @param write whether to write the validated result to `pdb`.
 #' @param overwrite whether existing reference-posterior files may be replaced.
+#' @param write_summary_statistics whether to also write the supported summary
+#'   statistics when `write = TRUE`. Defaults to `TRUE`.
 #' @param ... optional metadata fields forwarded to the conversion function.
 #' @return A `pdb_reference_posterior_draws` object.
 #' @export
@@ -226,10 +229,12 @@ import_reference_posterior_draws <- function(
   policy = NULL,
   write = FALSE,
   overwrite = FALSE,
+  write_summary_statistics = TRUE,
   ...
 ) {
   checkmate::assert_flag(write)
   checkmate::assert_flag(overwrite)
+  checkmate::assert_flag(write_summary_statistics)
   checkmate::assert_class(pdb, "pdb")
   if (write) checkmate::assert_class(pdb, "pdb_local")
 
@@ -260,7 +265,8 @@ import_reference_posterior_draws <- function(
          call. = FALSE)
   }
   write_imported_reference_posterior_draws(
-    rpd, pdb = pdb, overwrite = overwrite, linked_posterior = target_posterior
+    rpd, pdb = pdb, overwrite = overwrite, linked_posterior = target_posterior,
+    write_summary_statistics = write_summary_statistics
   )
   rpd
 }
@@ -868,8 +874,10 @@ imported_reference_posterior_versions <- function(metadata) {
 }
 
 write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
-                                                     linked_posterior = NULL) {
+                                                     linked_posterior = NULL,
+                                                     write_summary_statistics = TRUE) {
   checkmate::assert_class(pdb, "pdb_local")
+  checkmate::assert_flag(write_summary_statistics)
   if (is.null(linked_posterior)) {
     stop("A linked posterior is required before reference draws can be written.",
          call. = FALSE)
@@ -892,7 +900,12 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
     stop("The posterior already points to a different reference posterior.", call. = FALSE)
   }
   update_posterior <- is.null(current_reference)
-  summary_files <- unlist(lapply(supported_summary_statistic_types(), function(type) {
+  summary_types <- if (write_summary_statistics) {
+    supported_summary_statistic_types()
+  } else {
+    character()
+  }
+  summary_files <- unlist(lapply(summary_types, function(type) {
     c(
       pdb_file_path(pdb, "reference_posteriors", "summary_statistics", type,
                     "info", paste0(name, ".info.json")),
@@ -926,7 +939,12 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
   staged_posterior <- linked_posterior
   staged_posterior$reference_posterior_name <- name
   write_pdb(staged_posterior, staged_pdb, overwrite = TRUE)
-  write_pdb(x, staged_pdb, overwrite = FALSE)
+  write_pdb(
+    x,
+    staged_pdb,
+    overwrite = FALSE,
+    write_summary_statistics = write_summary_statistics
+  )
   verify_imported_reference_posterior(staged_pdb, x)
   if (update_posterior) {
     link_reference_posterior_object(
@@ -942,7 +960,7 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
 
   staged_info <- pdb_file_path(staged_pdb, "reference_posteriors", "draws", "info", paste0(name, ".info.json"))
   staged_draws <- pdb_file_path(staged_pdb, "reference_posteriors", "draws", "draws", paste0(name, ".json.zip"))
-  staged_summary_files <- unlist(lapply(supported_summary_statistic_types(), function(type) {
+  staged_summary_files <- unlist(lapply(summary_types, function(type) {
     c(
       pdb_file_path(staged_pdb, "reference_posteriors", "summary_statistics", type,
                     "info", paste0(name, ".info.json")),
@@ -1003,7 +1021,7 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
     pdb$cache_path,
     c(file.path("reference_posteriors", "draws", "info", paste0(name, ".info.json")),
       file.path("reference_posteriors", "draws", "draws", paste0(name, ".json")),
-      unlist(lapply(supported_summary_statistic_types(), function(type) {
+      unlist(lapply(summary_types, function(type) {
         c(
           file.path("reference_posteriors", "summary_statistics", type,
                     "info", paste0(name, ".info.json")),

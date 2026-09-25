@@ -17,7 +17,7 @@ write_pdb(x, pdb, overwrite = FALSE, ...)
 
 \method{write_pdb}{pdb_reference_posterior_info}(x, pdb, overwrite = FALSE, type, ...)
 
-\method{write_pdb}{pdb_reference_posterior_draws}(x, pdb, overwrite = FALSE, ...)
+\method{write_pdb}{pdb_reference_posterior_draws}(x, pdb, overwrite = FALSE, write_summary_statistics = TRUE, ...)
 
 \method{write_pdb}{pdb_reference_posterior_summary_statistic}(x, pdb, overwrite = FALSE, ...)
 
@@ -43,6 +43,10 @@ write_pdb(x, pdb, overwrite = FALSE, ...)
 \item{...}{further arguments supplied to methods.}
 
 \item{type}{supported reference posterior types.}
+
+\item{write_summary_statistics}{When writing reference draws, also compute
+and write all supported summary statistics. Defaults to `TRUE`; set to
+`FALSE` to write summary-statistic objects separately.}
 }
 \description{
 a function to simplify writing to a local pdb.
@@ -52,7 +56,8 @@ Writing reference draws requires all recorded reference acceptance
   flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
   Unchecked or failed reference draws, or draws without a saved posterior,
   are rejected before files are written. A successful reference-draw write
-  also computes and writes each supported summary statistic. This writer
-  does not rerun diagnostic checks; ESS and treedepth are informational, not
-  acceptance gates.
+  also computes and writes each supported summary statistic by default;
+  set `write_summary_statistics = FALSE` to write those objects separately.
+  This writer does not rerun diagnostic checks; ESS and treedepth are
+  informational, not acceptance gates.
 }
