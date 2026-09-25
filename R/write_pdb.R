@@ -61,6 +61,10 @@ write_pdb.pdb_data <- function(x, pdb, overwrite = FALSE, ...){
 #' @export
 write_pdb.pdb_data_info <- function(x, pdb,  overwrite = FALSE, ...){
   assert_data_info(x)
+  x <- complete_info_fields(x, c(
+    "name", "data_file", "title", "added_by", "added_date",
+    "references", "description", "urls", "keywords"
+  ))
   class(x) <- c(class(x), "list")
   write_json_to_path(x, "data/info", pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
 }
@@ -83,8 +87,20 @@ write_pdb.pdb_model_code <- function(x, pdb,  overwrite = FALSE, ...){
 #' @export
 write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
   assert_model_info(x)
+  x <- complete_info_fields(x, c(
+    "name", "model_implementations", "title", "prior", "added_by",
+    "added_date", "references", "description", "urls", "keywords", "licence"
+  ))
+  x$model_implementations <- lapply(x$model_implementations, complete_info_fields,
+    fields = c("model_code", "likelihood_code", "stan_version", "pymc_version"))
   class(x) <- c(class(x), "list")
   write_json_to_path(x, "models/info", pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
+}
+
+complete_info_fields <- function(x, fields) {
+  missing <- setdiff(fields, names(x))
+  if (length(missing)) x[missing] <- rep(list(NULL), length(missing))
+  x[fields]
 }
 
 #' @rdname write_pdb
