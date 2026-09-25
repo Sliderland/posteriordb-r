@@ -57,7 +57,8 @@ supported descriptive fields are `description`, `references`, `urls`,
 `keywords`, `prior`, and `licence`. Supply `prior` only when you have
 prior metadata to record (for example, `list(keywords = "prior-key")`);
 the constructor does not infer priors from Stan code. When written, an
-unspecified prior is omitted, and no `likelihood_code` entry is emitted.
+unspecified prior is omitted, no `likelihood_code` entry is emitted, and
+omitted model `keywords` are written as `null`.
 The Stan implementation uses `stan_version = ">=2.26.0"` by default;
 supply `model_implementations = list(stan = list(model_code =
 "models/stan/<name>.stan", stan_version = "..."))` to override it.}

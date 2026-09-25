@@ -77,7 +77,8 @@ names and titles for the data and model. `added_by` and `added_date` are
 shared defaults for the objects in the bundle; a value in an individual
 metadata list takes precedence. `posterior_info` also accepts the
 optional character fields `urls`, `references`, and `keywords`; supplied
-values are written to the posterior JSON.
+values are written to the posterior JSON. If posterior keywords are
+omitted, the posterior JSON writes `"keywords": null`.
 
 `model_info$prior` is optional descriptive metadata, often a list of
 keywords that points to prior information elsewhere in PosteriorDB. For
@@ -87,7 +88,8 @@ from the Stan source; if no prior metadata is supplied, the written
 model info omits `prior`. The model writer does not emit a
 `likelihood_code` entry. Optional model metadata is written only when
 supplied; the writer does not add a `pymc` entry or a `pymc_version` by
-default. The bundle API defaults the Stan implementation’s
+default. If model keywords are omitted, the model info JSON writes
+`"keywords": null`. The bundle API defaults the Stan implementation’s
 `stan_version` to `">=2.26.0"`. You can override this by supplying the
 `stan_version` inside `model_info$model_implementations$stan`, while
 keeping `model_code` equal to the inferred path, for example:

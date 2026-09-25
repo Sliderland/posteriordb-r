@@ -43,5 +43,6 @@ A NULL connection is valid only with all three embedded objects; embedded
 names and draw dimensions are checked even when a connection is attached.
 
 List-based posterior construction preserves the optional character fields
-`urls`, `references`, and `keywords` when they are supplied.
+`urls`, `references`, and `keywords` when they are supplied. When writing a
+posterior, an omitted `keywords` field is serialized as `null`.
 }

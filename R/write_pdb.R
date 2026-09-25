@@ -11,7 +11,8 @@
 #'   When `x` is a `pdb_reference_bundle`, `write_pdb()` checks unchecked
 #'   draws, writes the data, model, and posterior, and writes reference draws
 #'   only if all acceptance checks pass. The returned write report includes
-#'   the checked bundle and any skipped components.
+#'   the checked bundle and any skipped components. Posterior JSON includes a
+#'   `keywords` field set to `null` when no keywords were supplied.
 #'   The individual reference-draw writer does not rerun diagnostic checks;
 #'   ESS and treedepth are informational, not acceptance gates. The bundle
 #'   writer runs the full checks first when the bundle has not already been
@@ -222,6 +223,7 @@ write_pdb.pdb_model_code <- function(x, pdb,  overwrite = FALSE, ...){
 #' @export
 write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
   assert_model_info(x)
+  if (!"keywords" %in% names(x)) x["keywords"] <- list(NULL)
   implementations <- x$model_implementations
   # Keep caller-supplied implementation metadata as-is. In particular, do not
   # manufacture null version/framework fields or discard optional values.
@@ -243,6 +245,7 @@ complete_info_fields <- function(x, fields) {
 #' @export
 write_pdb.pdb_posterior <- function(x, pdb,  overwrite = FALSE, ...){
   assert_pdb_posterior(x)
+  if (!"keywords" %in% names(x)) x["keywords"] <- list(NULL)
   pdb(x) <- NULL
   x$model_info <- NULL
   x$data_info <- NULL
