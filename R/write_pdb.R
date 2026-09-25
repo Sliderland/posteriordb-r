@@ -98,9 +98,12 @@ write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
 }
 
 complete_info_fields <- function(x, fields) {
+  original_class <- class(x)
   missing <- setdiff(fields, names(x))
   if (length(missing)) x[missing] <- rep(list(NULL), length(missing))
-  x[fields]
+  out <- x[fields]
+  class(out) <- original_class
+  out
 }
 
 #' @rdname write_pdb
