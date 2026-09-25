@@ -1,13 +1,14 @@
 Create and contribute a reference-draw bundle
 ============================================
 
-`create_pdb_bundle()` builds the data, model, posterior, and reference-draw
-objects from an already sampled `rstan::stanfit`. It keeps the objects in
-memory: it does not compile or sample a model, read from a database, or write
-files. The current implementation supports RStan fits.
+`create_pdb_bundle()` builds linked data, model, posterior, and reference-draw
+objects around an already sampled `rstan::stanfit`. The result is an R list
+that you can inspect and check before writing any of its objects. The function
+does not compile or sample a model, read from a database, or write files. The
+current implementation supports RStan `stanfit` objects.
 
-Prepare the fit and its exact Stan input list. The eight schools example from
-this repository follows the model used in `CONTRIBUTING.md`:
+Prepare the fit and the exact named Stan input list used for sampling. The
+eight schools example below follows the model in `CONTRIBUTING.md`:
 
     library(posteriordb)
     library(rstan)
@@ -32,10 +33,10 @@ this repository follows the model used in `CONTRIBUTING.md`:
       control = list(adapt_delta = 0.92)
     )
 
-Pass the same named list of inputs that was used for sampling, plus the
-required names and titles for the data and model. Contributor and date defaults
-are shared across the bundle; values in an individual metadata list override
-those defaults.
+Pass the same input list used for sampling, along with the required names and
+titles for the data and model. `added_by` and `added_date` are shared defaults
+for the objects in the bundle; a value in an individual metadata list takes
+precedence.
 
     bundle <- create_pdb_bundle(
       fit,
@@ -44,35 +45,59 @@ those defaults.
       data_info = list(
         name = "test_eight_schools_data",
         title = "A Test Data for the Eight Schools Model",
-        description = "The data contain treatment estimates and standard errors for eight schools."
+        description = "Treatment estimates and standard errors for eight schools."
       ),
       model_info = list(
         name = "test_eight_schools_model",
         title = "Test Non-Centered Model for Eight Schools",
         description = "A hierarchical model with a non-centered parameterization.",
         references = "rubin1981estimation"
-      ),
-      check = TRUE
+      )
     )
 
-The result is a list with the individual objects:
+The constructor returns all four objects in memory:
 
     bundle$data
     bundle$model_code
     bundle$posterior
     bundle$reference_draws
 
-`check = TRUE` (the default) computes the reference-draw diagnostics during
-construction. Inspect the report before writing:
+The posterior embeds the data, model code, and reference draws, so its getters
+work before persistence. `bundle$provenance` records how the input data was
+obtained, the fit class, selected variables, and sampling metadata. Passing a
+`pdb` connection only attaches it to the objects; it does not read or write
+database files.
 
+Choose when to compute diagnostics
+----------------------------------
+
+`check = TRUE` is the default. It calculates the reference-draw diagnostic
+report during bundle creation. The report is available as:
+
+    bundle$diagnostics$metrics
     bundle$diagnostics$status
     bundle$diagnostics$failures
 
-If you prefer to create the objects first and check them later, set
-`check = FALSE`. The constructor retains the sampler diagnostics needed for a
-later check, but leaves the draws unchecked and not writable:
+`status` contains one logical value per acceptance check. `failures` identifies
+which checks failed and, where relevant, which variables or chains were
+responsible. A failed check does not prevent bundle creation: the bundle is
+returned with the failure recorded, so you can inspect the report. Its
+reference draws cannot be written until they pass.
 
-    bundle <- create_pdb_bundle(
+The acceptance checks require exactly 10,000 retained draws, at least four
+chains, absolute lag-1 autocorrelation at most 0.05 for every retained
+variable, R-hat at most 1.01 for every variable, E-FMI at least 0.2 for every
+chain, and no divergent transitions. Bulk and tail ESS are also calculated and
+stored as diagnostic metrics, but ESS bounds do not decide whether the draws
+pass.
+
+Set `check = FALSE` to create the objects without calculating the diagnostic
+metrics or evaluating acceptance checks. The bundle has `diagnostics = NULL`
+and its reference draws have no acceptance flags. Sampler diagnostics are
+retained in memory for a later check; sampling is not repeated. Unchecked draws
+are not writable.
+
+    unchecked <- create_pdb_bundle(
       fit,
       data = eight_schools,
       data_info = list(name = "test_eight_schools_data", title = "Eight schools data"),
@@ -80,13 +105,33 @@ later check, but leaves the draws unchecked and not writable:
       check = FALSE
     )
 
-    bundle <- check_reference_posterior_draws(bundle)
+    is.null(unchecked$diagnostics)  # TRUE
+    info(unchecked$reference_draws)$checks_made  # NULL
+
+To defer the check, pass the unchecked bundle to
+`check_reference_posterior_draws()`. It returns an updated bundle with the
+report and result attached:
+
+    bundle <- check_reference_posterior_draws(unchecked)
     bundle$diagnostics$status
     bundle$diagnostics$failures
 
-Checking can return a bundle with failed criteria recorded. Write the draws
-only after the checks pass. Then write each object explicitly to the local
-database configured by `PDB_PATH` (or pass a `pdb_local()` connection):
+The bundle workflow currently supports checking the full set of acceptance
+criteria during construction or checking that full set later. It does not
+provide a way to select one criterion for a bundle check.
+
+Choose variables and write the objects
+--------------------------------------
+
+By default, the bundle includes saved parameters, transformed parameters, and
+generated quantities, excluding `lp__`. Use `include` or `exclude` with base
+variable names to select variables. For example, `include = c("mu", "tau")`
+keeps all saved scalar elements of those variables.
+
+Only write reference draws after all acceptance checks pass. The assertion
+below stops before writing if they are unchecked or failed. Point `pdb_local()`
+to the local database you intend to update, then write the four objects
+individually:
 
     assert_checked_reference_posterior_draws(bundle$reference_draws)
 
@@ -96,15 +141,14 @@ database configured by `PDB_PATH` (or pass a `pdb_local()` connection):
     write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
     write_pdb(bundle$posterior, pdbl, overwrite = FALSE)
 
-Each call uses the existing `write_pdb()` method for that object. Data,
-model, and reference-draw payloads are written with their info files; the
-posterior JSON records the links and dimensions. With `overwrite = FALSE`, an
-existing destination file causes an error. Writes happen one at a time, so a
-later error does not roll back earlier successful writes. Use
+Each call uses the existing `write_pdb()` method for that object. Data, model,
+and reference-draw payloads are written with their info files; the posterior
+JSON records the links and dimensions. `overwrite = FALSE` is the default and
+causes an error if a destination file already exists. Each write happens
+separately, so successful earlier writes remain if a later write fails. Set
 `overwrite = TRUE` only when replacing existing files is intended.
 
-The default variable selection retains saved parameters, transformed
-parameters, and generated quantities, excluding `lp__`. Use `include` or
-`exclude` with base variable names to select variables, for example
-`include = c("mu", "tau")`. See `?create_pdb_bundle` for all arguments and
-validation details.
+For further details about accepted metadata and arguments, see
+`?create_pdb_bundle`. The constructor requires the actual named Stan input
+list; it cannot establish that supplied data was the data used to produce the
+fit.
