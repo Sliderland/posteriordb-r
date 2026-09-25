@@ -64,7 +64,7 @@ test_that("standalone content survives serialization in a fresh R process", {
     source = as.character(po$embedded_model_code), dimensions = po$dimensions,
     fit_class = "stanfit", import_versions = list())
   testthat::local_mocked_bindings(extract_rstan_fit = function(...) extracted)
-  bundle <- create_pdb_reference_draws(structure(list(), class = "stanfit"),
+  bundle <- create_pdb_bundle(structure(list(), class = "stanfit"),
     data = list(y = get_data(po)$y),
     data_info = list(name = "standalone-data", title = "Inputs"),
     model_info = list(name = "standalone-model", title = "Model"), check = FALSE)

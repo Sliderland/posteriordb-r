@@ -1,6 +1,6 @@
 test_that("standalone bundle argument and metadata errors are actionable", {
   fake <- structure(list(), class = "not_a_fit")
-  expect_error(create_pdb_reference_draws(fake), "only `rstan::stanfit`")
+  expect_error(create_pdb_bundle(fake), "only `rstan::stanfit`")
   expect_error(resolve_standalone_fit_data(fake, NULL), "`data` is required")
   expect_equal(resolve_standalone_fit_data(fake, list()), list(data = list(), source = "caller-supplied"))
   expect_error(resolve_standalone_fit_data(fake, list(x = 1, x = 2)), "unique")
@@ -38,7 +38,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
   )
   fit <- suppressWarnings(rstan::sampling(rstan::stan_model(model_code = code),
     data = list(), iter = 20, warmup = 10, chains = 2, seed = 781, refresh = 0))
-  bundle <- create_pdb_reference_draws(fit, data = list(),
+  bundle <- create_pdb_bundle(fit, data = list(),
     data_info = list(name = "unit-data", title = "Unit inputs"),
     model_info = list(name = "unit-model", title = "Unit model"), check = FALSE)
   expect_s3_class(bundle, "pdb_reference_bundle")
@@ -78,11 +78,11 @@ test_that("a sampled stanfit produces a standalone bundle", {
     sampling = function(...) stop("unexpected sampling", call. = FALSE),
     stan_model = function(...) stop("unexpected compilation", call. = FALSE),
     .package = "rstan")
-  no_sampling <- create_pdb_reference_draws(fit, data = list(),
+  no_sampling <- create_pdb_bundle(fit, data = list(),
     data_info = list(name = "no-sampling", title = "Inputs"),
     model_info = list(name = "no-sampling", title = "Model"), check = FALSE)
   expect_s3_class(no_sampling, "pdb_reference_bundle")
-  overrides <- create_pdb_reference_draws(fit, data = list(),
+  overrides <- create_pdb_bundle(fit, data = list(),
     data_info = list(name = "overrides", title = "Inputs", added_by = "data curator"),
     model_info = list(name = "overrides", title = "Model", added_by = "model curator"),
     posterior_info = list(name = "overrides-overrides", added_by = "posterior curator",
@@ -94,11 +94,11 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_equal(info(overrides$reference_draws)$added_by, "draw curator")
   expect_equal(info(overrides$reference_draws)$comments, "reviewed")
   expect_equal(overrides$posterior$added_date, as.Date("2025-02-03"))
-  expect_error(create_pdb_reference_draws(fit, data = list(),
+  expect_error(create_pdb_bundle(fit, data = list(),
     data_info = list(name = "conflict", title = "Inputs"),
     model_info = list(name = "conflict", title = "Model"),
     posterior_info = list(dimensions = list(mu = 1L)), check = FALSE), "conflicts")
-  failed_bundle <- create_pdb_reference_draws(fit, data = list(),
+  failed_bundle <- create_pdb_bundle(fit, data = list(),
     data_info = list(name = "unit-data-failed", title = "Unit inputs"),
     model_info = list(name = "unit-model-failed", title = "Unit model"), check = TRUE)
   failed_print <- paste(capture.output(print(failed_bundle)), collapse = "\n")
@@ -112,7 +112,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
   for (folder in c("data", "models", "posteriors")) dir.create(file.path(root, folder))
   dir.create(file.path(root, "cache"))
   pdb <- pdb_local(root, cache_path = file.path(root, "cache"))
-  attached <- create_pdb_reference_draws(fit, data = list(),
+  attached <- create_pdb_bundle(fit, data = list(),
     data_info = list(name = "attached-data", title = "Attached inputs"),
     model_info = list(name = "attached-model", title = "Attached model"),
     check = FALSE, pdb = pdb)
@@ -128,15 +128,15 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_length(posterior_json, 1L)
   serialized <- paste(readLines(posterior_json), collapse = "")
   expect_false(grepl("embedded_(data|model_code|reference_draws)", serialized))
-  expect_error(create_pdb_reference_draws(fit, data = list(),
+  expect_error(create_pdb_bundle(fit, data = list(),
     data_info = list(name = "d", title = "D"),
     model_info = list(name = "m", title = "M"), typo = TRUE), "Unknown argument")
-  expect_error(create_pdb_reference_draws(fit, data = list(),
+  expect_error(create_pdb_bundle(fit, data = list(),
     data_info = list(name = "d", title = "D"), model_info = list(name = "m", title = "M"),
     di = list(name = "d", title = "D")), "Unknown argument.*di")
-  expect_error(do.call(create_pdb_reference_draws, c(list(fit = fit, data = list()),
+  expect_error(do.call(create_pdb_bundle, c(list(fit = fit, data = list()),
     list(data_info = list(name = "d", title = "D"), data_info = list(name = "d", title = "D")))),
     "Duplicate argument")
-  expect_error(do.call(create_pdb_reference_draws, list(fit = fit, data = list(),
+  expect_error(do.call(create_pdb_bundle, list(fit = fit, data = list(),
     list(name = "d", title = "D"))), "must be named exactly")
 })

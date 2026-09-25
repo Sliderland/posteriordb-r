@@ -9,7 +9,7 @@ test_that("bundle acceptance agrees with writers and retains single-chain metric
     dimensions = list(theta = integer()), source = "parameters { real theta; } model { theta ~ normal(0,1); }",
     fit_class = "stanfit", import_versions = list())
   testthat::local_mocked_bindings(extract_rstan_fit = function(...) extracted)
-  make <- function(check = TRUE, ...) create_pdb_reference_draws(
+  make <- function(check = TRUE, ...) create_pdb_bundle(
     structure(list(), class = "stanfit"), data = list(),
     data_info = list(name = "acceptance-data", title = "Inputs"),
     model_info = list(name = "acceptance-model", title = "Model"), check = check, ...)
@@ -42,7 +42,7 @@ test_that("bundle acceptance agrees with writers and retains single-chain metric
                          charToRaw("existing model info"), charToRaw("existing model"),
                          charToRaw("existing posterior"))
   Map(writeBin, sentinel_bytes, sentinel_paths)
-  attached <- create_pdb_reference_draws(
+  attached <- create_pdb_bundle(
     structure(list(), class = "stanfit"), data = list(),
     data_info = list(name = "acceptance-data", title = "Inputs"),
     model_info = list(name = "acceptance-model", title = "Model"),
