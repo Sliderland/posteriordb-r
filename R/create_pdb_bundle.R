@@ -29,6 +29,9 @@
 #'   prior metadata to record (for example, `list(keywords = "prior-key")`);
 #'   the constructor does not infer priors from Stan code. When written, an
 #'   unspecified prior is omitted, and no `likelihood_code` entry is emitted.
+#'   The Stan implementation uses `stan_version = ">=2.26.0"` by default;
+#'   supply `model_implementations = list(stan = list(model_code =
+#'   "models/stan/<name>.stan", stan_version = "..."))` to override it.
 #' @param posterior_info Named posterior metadata. Optional `added_by` and
 #'   `added_date` values override the shared defaults for the posterior.
 #'   Optional structural fields
@@ -207,14 +210,26 @@ create_pdb_bundle.stanfit <- function(
   expected_impl <- list(
     stan = list(model_code = paste0("models/stan/", model_info$name, ".stan"))
   )
-  if (
-    !is.null(model_info$model_implementations) &&
-      !identical(model_info$model_implementations, expected_impl)
-  ) {
-    stop(
-      "`model_info$model_implementations` conflicts with the inferred Stan model path.",
-      call. = FALSE
+  if (!is.null(model_info$model_implementations)) {
+    implementations <- model_info$model_implementations
+    checkmate::assert_names(names(implementations), must.include = "stan")
+    checkmate::assert_subset(names(implementations), "stan")
+    stan_implementation <- implementations$stan
+    checkmate::assert_list(stan_implementation)
+    checkmate::assert_names(
+      names(stan_implementation),
+      must.include = "model_code",
+      subset.of = c("model_code", "stan_version")
     )
+    if (!identical(
+      stan_implementation$model_code,
+      expected_impl$stan$model_code
+    )) {
+      stop(
+        "`model_info$model_implementations$stan$model_code` conflicts with the inferred Stan model path.",
+        call. = FALSE
+      )
+    }
   }
 
   extracted <- extract_rstan_fit(
@@ -290,10 +305,19 @@ assemble_standalone_fit_bundle <- function(
   data_info <- make_bundle_info(data_info, added_by, added_date)
   data_info$data_file <- expected_data_file
   model_info <- make_bundle_info(model_info, added_by, added_date)
+  stan_version <- if (
+    !is.null(model_info$model_implementations) &&
+      "stan_version" %in% names(model_info$model_implementations$stan)
+  ) {
+    model_info$model_implementations$stan$stan_version
+  } else {
+    ">=2.26.0"
+  }
   model_info$framework <- NULL
   model_info$model_implementations <- NULL
   dat <- as.pdb_data(data, info = as.pdb_data_info(data_info))
   mi <- as.pdb_model_info(c(model_info, list(framework = "stan")))
+  mi$model_implementations$stan["stan_version"] <- list(stan_version)
   code <- extracted$source
   mc <- as.pdb_model_code(code, info = mi, framework = "stan")
   if (!is.null(pdb)) {

@@ -132,27 +132,9 @@ write_pdb.pdb_model_code <- function(x, pdb,  overwrite = FALSE, ...){
 #' @export
 write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
   assert_model_info(x)
-  x <- complete_info_fields(x, c(
-    "name", "model_implementations", "title", "prior", "added_by",
-    "added_date", "references", "description", "urls", "keywords", "licence"
-  ))
-  if (is.null(x$prior)) x["prior"] <- NULL
   implementations <- x$model_implementations
-  if ("stan" %in% names(implementations) && !"pymc" %in% names(implementations)) {
-    implementations["pymc"] <- list(NULL)
-  }
-  for (framework in names(implementations)) {
-    implementation <- implementations[[framework]]
-    if (is.null(implementation)) next
-    fields <- if (framework == "stan") {
-      c("model_code", "stan_version")
-    } else if (framework %in% c("pymc", "pymc3")) {
-      "model_code"
-    } else {
-      c("model_code", "stan_version", "pymc_version")
-    }
-    implementations[[framework]] <- complete_info_fields(implementation, fields)
-  }
+  # Keep caller-supplied implementation metadata as-is. In particular, do not
+  # manufacture null version/framework fields or discard optional values.
   x$model_implementations <- implementations
   class(x) <- c(class(x), "list")
   write_json_to_path(x, "models/info", pdb, zip = FALSE, info = TRUE, overwrite = overwrite)

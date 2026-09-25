@@ -83,10 +83,23 @@ example, pass `prior = list(keywords = "stan_recommended_35dbfe6")` when
 that reference is known. The bundle does not infer prior distributions
 from the Stan source; if no prior metadata is supplied, the written
 model info omits `prior`. The model writer does not emit a
-`likelihood_code` entry. A Stan-only implementation is written with
-`pymc: null`; the writer does not add `pymc_version`. The bundle API
-does not currently provide a way to set a minimum `stan_version`, so
-that field is written as `null`.
+`likelihood_code` entry. Optional model metadata is written only when
+supplied; the writer does not add a `pymc` entry or a `pymc_version` by
+default. The bundle API defaults the Stan implementation’s
+`stan_version` to `">=2.26.0"`. You can override this by supplying the
+`stan_version` inside `model_info$model_implementations$stan`, while
+keeping `model_code` equal to the inferred path, for example:
+
+``` r
+model_info = list(
+  name = "normal",
+  title = "Normal model",
+  model_implementations = list(stan = list(
+    model_code = "models/stan/normal.stan",
+    stan_version = ">=2.35.0"
+  ))
+)
+```
 
 ``` r
 bundle <- create_pdb_bundle(

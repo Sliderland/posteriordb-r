@@ -84,11 +84,11 @@ assert_model_info <- function(x){
     if (is.null(implementation)) next
     checkmate::assert_list(implementation)
     allowed_fields <- if (implementation_name == "stan") {
-      c("model_code", "likelihood_code", "stan_version")
+      c("model_code", "stan_version")
     } else if (implementation_name %in% c("pymc", "pymc3")) {
       "model_code"
     } else {
-      c("model_code", "likelihood_code", "stan_version", "pymc_version")
+      c("model_code", "stan_version", "pymc_version")
     }
     checkmate::assert_names(
       names(implementation),
