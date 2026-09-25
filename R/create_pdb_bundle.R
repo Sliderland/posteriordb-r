@@ -268,6 +268,12 @@ assemble_standalone_fit_bundle <- function(
     stop("Variable selection leaves no saved draws.", call. = FALSE)
   }
   dimensions <- extracted$dimensions[chosen_bases]
+  # PosteriorDB represents scalar parameters with a dimension of 1. Fit
+  # extractors represent them as integer(0), so normalize at the bundle
+  # boundary where PosteriorDB metadata is assembled.
+  dimensions <- lapply(dimensions, function(axes) {
+    if (!length(axes)) 1L else axes
+  })
   draws <- posterior::as_draws_list(draws_array)
 
   added_by <- added_by %||% unname(Sys.info()[["user"]])

@@ -756,10 +756,15 @@ validate_rstan_saved_coverage <- function(base, saved_names, axes) {
 # Expand base dimensions to the canonical scalar draw names, preserving every
 # axis (including an axis of length one). This is intentionally private to the
 # fit import path and does not invoke dimension inference or sampling.
-bundle_dimension_names <- function(dimensions) {
+bundle_dimension_names <- function(dimensions, variables = NULL) {
   unlist(lapply(names(dimensions), function(base) {
     axes <- dimensions[[base]]
     if (!length(axes)) return(base)
+    # The PosteriorDB dimension format uses 1 for scalars, but a one-element
+    # vector also has dimensions 1. Its indexed draw name disambiguates it
+    # while the full in-memory bundle is available.
+    if (length(axes) == 1L && axes == 1L &&
+        !is.null(variables) && base %in% variables) return(base)
     indices <- expand.grid(lapply(axes, seq_len), KEEP.OUT.ATTRS = FALSE,
                            stringsAsFactors = FALSE)
     ordered <- do.call(cbind, indices)

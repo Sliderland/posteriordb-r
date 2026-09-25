@@ -143,8 +143,9 @@ assert_pdb_posterior <- function(x) {
     assert_reference_posterior_draws(x$embedded_reference_draws)
     if (!identical(info(x$embedded_reference_draws)$name, x$reference_posterior_name))
       stop("Embedded reference draws conflict with the posterior's reference link.", call. = FALSE)
-    if (!setequal(posterior::variables(x$embedded_reference_draws),
-                  bundle_dimension_names(x$dimensions)))
+    embedded_variables <- posterior::variables(x$embedded_reference_draws)
+    if (!setequal(embedded_variables,
+                  bundle_dimension_names(x$dimensions, embedded_variables)))
       stop("Embedded reference draws conflict with the posterior's dimensions.", call. = FALSE)
   }
   invisible(x)

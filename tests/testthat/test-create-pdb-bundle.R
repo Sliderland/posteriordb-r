@@ -42,6 +42,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
     data_info = list(name = "unit-data", title = "Unit inputs"),
     model_info = list(name = "unit-model", title = "Unit model"), check = FALSE)
   expect_s3_class(bundle, "pdb_reference_bundle")
+  expect_identical(bundle$posterior$dimensions$mu, 1L)
   expect_identical(bundle$posterior$dimensions$beta, c(2L, 3L))
   expect_true(all(c("mu", "twice_mu", "prediction", "constant", "beta[2,3]") %in%
                   posterior::variables(bundle$reference_draws)))
@@ -101,7 +102,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_error(create_pdb_bundle(fit, data = list(),
     data_info = list(name = "conflict", title = "Inputs"),
     model_info = list(name = "conflict", title = "Model"),
-    posterior_info = list(dimensions = list(mu = 1L)), check = FALSE), "conflicts")
+    posterior_info = list(dimensions = list(mu = 2L)), check = FALSE), "conflicts")
   failed_bundle <- create_pdb_bundle(fit, data = list(),
     data_info = list(name = "unit-data-failed", title = "Unit inputs"),
     model_info = list(name = "unit-model-failed", title = "Unit model"), check = TRUE)
