@@ -80,6 +80,40 @@ test_that("bundle extraction selects draws and keeps sampling provenance", {
   expect_named(extracted$import_versions, c("R", "rstan", "posterior"))
 })
 
+test_that("unchecked bundle extraction retains sampler inputs without metrics", {
+  fit <- make_bundle_extraction_fit()
+  sampler_read <- FALSE
+  testthat::local_mocked_bindings(
+    rstan_fit_slot = function(fit, slot_name) fit[[slot_name]],
+    rstan_fit_stan_args = function(fit) fit$stan_args,
+    extract_rstan_fit = function(fit, checks = "all", strict = TRUE, ...) {
+      expect_length(checks, 0L)
+      list(
+        draws = fit$.draws,
+        sampler_diagnostics = NULL,
+        metadata = list(nchains = 2L, max_treedepth = 10L,
+                        sampler_arguments = fit$stan_args,
+                        method_arguments = list())
+      )
+    },
+    extract_rstan_sampler_diagnostics = function(fit, strict = TRUE) {
+      sampler_read <<- TRUE
+      expect_false(strict)
+      fit$.sampler
+    }
+  )
+
+  extracted <- posteriordb:::extract_rstan_fit_for_bundle(
+    fit,
+    strict = FALSE,
+    compute_diagnostics = FALSE
+  )
+
+  expect_true(sampler_read)
+  expect_equal(extracted$sampler_diagnostics, fit$.sampler)
+  expect_null(extracted$metadata$expected_fraction_of_missing_information)
+})
+
 test_that("bundle extraction rejects unsupported provenance and incomplete variables", {
   fit <- make_bundle_extraction_fit()
   testthat::local_mocked_bindings(

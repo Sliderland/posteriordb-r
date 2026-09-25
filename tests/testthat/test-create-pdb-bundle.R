@@ -138,7 +138,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
     list(name = "d", title = "D"))), "must be named exactly")
 })
 
-test_that("unchecked bundles skip diagnostic extraction and calculation", {
+test_that("unchecked bundles skip diagnostic calculation", {
   draws <- posterior::as_draws_array(array(
     seq_len(40L), dim = c(10L, 4L, 1L),
     dimnames = list(NULL, NULL, "mu")
@@ -146,10 +146,10 @@ test_that("unchecked bundles skip diagnostic extraction and calculation", {
   diagnostic_called <- FALSE
   testthat::local_mocked_bindings(
     extract_rstan_fit = function(fit, checks = "all", strict = TRUE,
-                                 for_bundle = FALSE, need_diagnostics = TRUE,
+                                 for_bundle = FALSE, compute_diagnostics = TRUE,
                                  include = NULL, exclude = NULL, ...) {
       expect_true(for_bundle)
-      expect_false(need_diagnostics)
+      expect_false(compute_diagnostics)
       list(
         draws = draws,
         sampler_diagnostics = NULL,

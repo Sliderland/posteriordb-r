@@ -403,9 +403,14 @@ cmdstanr_stan_version <- function(metadata) {
   paste("Stan", paste(parts, collapse = "."))
 }
 
-cmdstanr_bfmi <- function(sampler_diagnostics, nchains, strict = TRUE) {
+sampler_diagnostics_bfmi <- function(sampler_diagnostics, nchains,
+                                     strict = TRUE) {
   if (!"energy__" %in% posterior::variables(sampler_diagnostics)) {
-    stop("The cmdstanr fit has no energy__ sampler diagnostic for BFMI.", call. = FALSE)
+    if (strict) {
+      stop("Sampler diagnostics have no `energy__` variable for E-FMI.",
+           call. = FALSE)
+    }
+    return(NULL)
   }
   bfmi <- vapply(seq_len(nchains), function(chain) {
     energy <- sampler_diagnostics[, chain, "energy__"]
@@ -414,9 +419,14 @@ cmdstanr_bfmi <- function(sampler_diagnostics, nchains, strict = TRUE) {
     mean(diff(energy)^2) / denominator
   }, numeric(1))
   if (strict && (anyNA(bfmi) || any(!is.finite(bfmi)))) {
-    stop("The cmdstanr fit has missing or invalid per-chain BFMI values.", call. = FALSE)
+    stop("Sampler diagnostics have missing or invalid per-chain E-FMI values.",
+         call. = FALSE)
   }
   bfmi
+}
+
+cmdstanr_bfmi <- function(sampler_diagnostics, nchains, strict = TRUE) {
+  sampler_diagnostics_bfmi(sampler_diagnostics, nchains, strict)
 }
 
 cmdstanr_sampler_arguments <- function(metadata) {
@@ -451,12 +461,12 @@ extract_rstan_sampler_diagnostics <- function(fit, strict = TRUE) {
 }
 
 extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
-                              for_bundle = FALSE, need_diagnostics = TRUE,
+                              for_bundle = FALSE, compute_diagnostics = TRUE,
                               include = NULL,
                               exclude = NULL, ...) {
   if (isTRUE(for_bundle)) {
     return(extract_rstan_fit_for_bundle(fit, strict = strict,
-      need_diagnostics = need_diagnostics,
+      compute_diagnostics = compute_diagnostics,
       include = include, exclude = exclude))
   }
   draws <- tryCatch(
@@ -558,12 +568,12 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
 # dimensions contains selected base-variable axes (integer(), scalar); metadata
 # is sampling provenance only. Import-time package versions live separately.
 extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
-                                         need_diagnostics = TRUE,
+                                         compute_diagnostics = TRUE,
                                          include = NULL, exclude = NULL) {
   if (!inherits(fit, "stanfit"))
     stop("Bundle extraction requires an `rstan::stanfit`.", call. = FALSE)
   checkmate::assert_flag(strict)
-  checkmate::assert_flag(need_diagnostics)
+  checkmate::assert_flag(compute_diagnostics)
   include <- validate_variable_selection(include, "include")
   exclude <- validate_variable_selection(exclude, "exclude")
 
@@ -599,14 +609,23 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     stop("The saved Stan source contains `#include`; bundle extraction requires self-contained source code.", call. = FALSE)
 
   # Reuse the established extractor once so draws and sampling metadata all
-  # describe the same fit snapshot. Unchecked bundle extraction must not read
-  # sampler diagnostics or compute BFMI; diagnostic extraction is controlled
-  # explicitly by the bundle caller.
+  # describe the same fit snapshot. Unchecked bundles retain raw sampler
+  # diagnostics for a later explicit check, but do not calculate BFMI yet.
   result <- extract_rstan_fit(
     fit,
-    checks = if (need_diagnostics) "all" else character(),
+    checks = if (compute_diagnostics) "all" else character(),
     strict = strict
   )
+  if (!compute_diagnostics) {
+    result$sampler_diagnostics <- extract_rstan_sampler_diagnostics(
+      fit,
+      strict = FALSE
+    )
+  }
+  if (!is.null(result$sampler_diagnostics) &&
+      !identical(dim(result$sampler_diagnostics)[1:2], dim(result$draws)[1:2])) {
+    stop("The Stan fit has inconsistent post-warmup sampler diagnostics dimensions.", call. = FALSE)
+  }
   draws <- result$draws
   if (posterior::nchains(draws) != length(stan_args))
     stop("The saved per-chain inference settings do not match the number of draw chains.", call. = FALSE)

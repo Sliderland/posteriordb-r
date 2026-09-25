@@ -76,6 +76,20 @@ report, while `passes_reference_draw_checks()` returns a logical result for
 selected checks. Writing `bundle$reference_draws` with `write_pdb()` requires
 all recorded acceptance flags to be `TRUE`.
 
+To defer the full check, pass the unchecked bundle to
+`check_reference_posterior_draws()`. It returns an updated bundle with the
+report attached and acceptance flags set only if every required check passes.
+Failed candidates keep their failure report and remain unwritable.
+
+```{r, eval=FALSE}
+bundle <- create_pdb_bundle(fit, data = stan_data,
+  data_info = data_info, model_info = model_info, check = FALSE)
+bundle <- check_reference_posterior_draws(bundle)
+bundle$diagnostics$status
+# If every required check passed:
+write_pdb(bundle$reference_draws, target_pdb)
+```
+
 ```{r, eval=FALSE}
 reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
 passes_reference_draw_checks(fit) # defaults to the lag-1 check only

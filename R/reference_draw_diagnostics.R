@@ -174,6 +174,13 @@ reference_diagnostic_metrics <- function(draws, extracted, checks) {
   }
   if ("efmi" %in% checks) {
     x <- extracted$metadata$expected_fraction_of_missing_information
+    if (is.null(x) && !is.null(extracted$sampler_diagnostics)) {
+      x <- sampler_diagnostics_bfmi(
+        extracted$sampler_diagnostics,
+        posterior::nchains(draws),
+        strict = FALSE
+      )
+    }
     if (!is.null(x)) {
       if (!is.numeric(x) || length(x) != posterior::nchains(draws))
         stop("Malformed extracted fit; expected one numeric E-FMI value per chain.", call. = FALSE)

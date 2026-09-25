@@ -73,8 +73,12 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
 #'   chain, and no divergent transitions. ESS bounds are recorded but do not
 #'   determine acceptance.
 #'
-#' @param x a posterior name, posterior object or reference_posterior_draws object
+#' @param x a posterior name, posterior object, reference-posterior draws, or
+#'   a `pdb_reference_bundle` returned by [create_pdb_bundle()].
 #' @param ... currently not used.
+#' @return For a `pdb_reference_bundle`, the updated bundle with a full
+#'   diagnostic report and acceptance flags attached when all required checks
+#'   pass. Other supported objects retain their existing return behavior.
 #'
 #' @export
 check_reference_posterior_draws <- function(x, ...){

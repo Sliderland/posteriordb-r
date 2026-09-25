@@ -64,6 +64,8 @@ constructor never reads from or writes to it.}
 \value{
 A `pdb_reference_bundle` list containing `data`, `model_code`,
   `posterior`, `reference_draws`, `diagnostics`, and `provenance`.
+  `diagnostics` is `NULL` when `check = FALSE`; call
+  [check_reference_posterior_draws()] on that bundle to check it later.
 }
 \description{
 Build linked data, model, posterior, and reference-draw objects around an
@@ -80,7 +82,9 @@ saved scalar elements of an array parameter.
 
 The bundle embeds its content in memory and remains usable before database
 persistence. Supplied data is recorded as caller-supplied; this function
-cannot establish that it produced the fit. For example:
+cannot establish that it produced the fit. With `check = FALSE`, raw
+sampler diagnostics are retained so [check_reference_posterior_draws()]
+can check the bundle later without rerunning sampling. For example:
 
 ```r
 bundle <- create_pdb_bundle(

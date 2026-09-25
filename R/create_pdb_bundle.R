@@ -41,10 +41,14 @@
 #'
 #' @return A `pdb_reference_bundle` list containing `data`, `model_code`,
 #'   `posterior`, `reference_draws`, `diagnostics`, and `provenance`.
+#'   `diagnostics` is `NULL` when `check = FALSE`; call
+#'   [check_reference_posterior_draws()] on that bundle to check it later.
 #' @details
 #' The bundle embeds its content in memory and remains usable before database
 #' persistence. Supplied data is recorded as caller-supplied; this function
-#' cannot establish that it produced the fit. For example:
+#' cannot establish that it produced the fit. With `check = FALSE`, raw
+#' sampler diagnostics are retained so [check_reference_posterior_draws()]
+#' can check the bundle later without rerunning sampling. For example:
 #'
 #' ```r
 #' bundle <- create_pdb_bundle(
@@ -194,7 +198,7 @@ create_pdb_bundle.stanfit <- function(
     checks = "all",
     strict = FALSE,
     for_bundle = TRUE,
-    need_diagnostics = check,
+    compute_diagnostics = check,
     include = include,
     exclude = exclude
   )
@@ -290,53 +294,10 @@ assemble_standalone_fit_bundle <- function(
     c("added_by", "added_date", names(structural))
   )]
   if (check) {
-    diagnostic_report <- reference_draw_diagnostics_from_extracted(
+    diagnostic_report <- bundle_full_diagnostic_report(
       extracted,
-      checks = "all",
       include = chosen_bases
     )
-    scalar_vars <- posterior::variables(draws_array)
-    scalar_ess <- function(fun) {
-      stats::setNames(
-        vapply(
-          seq_along(scalar_vars),
-          function(j) {
-            z <- matrix(
-              draws_array[,, j],
-              nrow = dim(draws_array)[1L],
-              ncol = dim(draws_array)[2L]
-            )
-            tryCatch(as.numeric(fun(z))[1L], error = function(e) NA_real_)
-          },
-          numeric(1)
-        ),
-        scalar_vars
-      )
-    }
-    diagnostic_report$metrics$effective_sample_size_bulk <- scalar_ess(
-      posterior::ess_bulk
-    )
-    diagnostic_report$metrics$effective_sample_size_tail <- scalar_ess(
-      posterior::ess_tail
-    )
-    sampler_vars <- if (is.null(extracted$sampler_diagnostics)) {
-      character()
-    } else {
-      posterior::variables(extracted$sampler_diagnostics)
-    }
-    if ("treedepth__" %in% sampler_vars) {
-      sampler_depth <- matrix(
-        extracted$sampler_diagnostics[,, "treedepth__"],
-        nrow = dim(draws_array)[1L],
-        ncol = dim(draws_array)[2L]
-      )
-      diagnostic_report$metrics$max_treedepth_observed_by_chain <- stats::setNames(
-        apply(sampler_depth, 2L, max, na.rm = TRUE),
-        paste0("chain", seq_len(posterior::nchains(draws_array)))
-      )
-    }
-    diagnostic_report$metrics$max_treedepth <- extracted$metadata$max_treedepth %||%
-      NULL
   } else {
     # Keep only structural counts needed to print and serialize the unchecked
     # object. Do not calculate acceptance or informational draw metrics.
@@ -372,24 +333,7 @@ assemble_standalone_fit_bundle <- function(
   attr(rpd, "sampler_diagnostics") <- extracted$sampler_diagnostics
   attr(rpd, "sampling_metadata") <- extracted$metadata
   if (check) {
-    passed <- all(unlist(diagnostic_report$status, use.names = FALSE))
-    ri <- info(rpd)
-    if (passed) {
-      ri$checks_made <- bundle_acceptance_flags()
-    } else {
-      ri$checks_made <- list(
-        check_failed = paste(
-          names(diagnostic_report$failures),
-          collapse = ", "
-        ),
-        diagnostic_report = diagnostic_report
-      )
-    }
-    info(rpd) <- ri
-    if (passed) {
-      assert_reference_posterior_draws(rpd)
-      assert_checked_reference_posterior_draws(rpd)
-    }
+    rpd <- attach_bundle_check_result(rpd, diagnostic_report)
   } else {
     diagnostic_report$status <- NULL
     diagnostic_report$failures <- NULL
@@ -432,6 +376,106 @@ assemble_standalone_fit_bundle <- function(
   )
   class(bundle) <- c("pdb_reference_bundle", "list")
   bundle
+}
+
+#' @rdname check_reference_posterior_draws
+#' @exportS3Method
+check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
+  if (length(list(...))) {
+    stop("`check_reference_posterior_draws()` does not accept extra arguments for a bundle.",
+         call. = FALSE)
+  }
+  draws <- x$reference_draws
+  extracted <- list(
+    draws = posterior::as_draws_array(draws),
+    sampler_diagnostics = attr(draws, "sampler_diagnostics"),
+    metadata = attr(draws, "sampling_metadata")
+  )
+  if (is.null(extracted$metadata)) {
+    stop("The bundle has no saved sampling metadata needed for diagnostics.",
+         call. = FALSE)
+  }
+  report <- bundle_full_diagnostic_report(
+    extracted
+  )
+  report$checked <- TRUE
+  draws <- attach_bundle_check_result(draws, report)
+  x$reference_draws <- draws
+  x$posterior$embedded_reference_draws <- draws
+  x$diagnostics <- report
+  x
+}
+
+bundle_full_diagnostic_report <- function(extracted, include = NULL) {
+  draws <- extracted$draws
+  report <- reference_draw_diagnostics_from_extracted(
+    extracted,
+    checks = "all",
+    include = include
+  )
+  scalar_vars <- posterior::variables(draws)
+  scalar_ess <- function(fun) {
+    stats::setNames(
+      vapply(
+        seq_along(scalar_vars),
+        function(j) {
+          z <- matrix(
+            draws[,, j],
+            nrow = dim(draws)[1L],
+            ncol = dim(draws)[2L]
+          )
+          tryCatch(as.numeric(fun(z))[1L], error = function(e) NA_real_)
+        },
+        numeric(1)
+      ),
+      scalar_vars
+    )
+  }
+  report$metrics$effective_sample_size_bulk <- scalar_ess(posterior::ess_bulk)
+  report$metrics$effective_sample_size_tail <- scalar_ess(posterior::ess_tail)
+  sampler_vars <- if (is.null(extracted$sampler_diagnostics)) {
+    character()
+  } else {
+    posterior::variables(extracted$sampler_diagnostics)
+  }
+  if ("treedepth__" %in% sampler_vars) {
+    sampler_depth <- matrix(
+      extracted$sampler_diagnostics[,, "treedepth__"],
+      nrow = dim(draws)[1L],
+      ncol = dim(draws)[2L]
+    )
+    report$metrics$max_treedepth_observed_by_chain <- stats::setNames(
+      apply(sampler_depth, 2L, max, na.rm = TRUE),
+      paste0("chain", seq_len(posterior::nchains(draws)))
+    )
+  }
+  report$metrics$max_treedepth <- extracted$metadata$max_treedepth %||% NULL
+  report
+}
+
+attach_bundle_check_result <- function(draws, report) {
+  passed <- all(unlist(report$status, use.names = FALSE))
+  ri <- info(draws)
+  ri$diagnostics <- bundle_reference_diagnostic_info(
+    report$metrics,
+    posterior::ndraws(draws),
+    posterior::nchains(draws)
+  )
+  if (passed) {
+    ri$checks_made <- bundle_acceptance_flags()
+  } else {
+    ri$checks_made <- list(
+      check_failed = paste(names(report$failures), collapse = ", "),
+      diagnostic_report = report
+    )
+  }
+  info(draws) <- ri
+  attr(draws, "diagnostic_report") <- report
+  if (passed) {
+    assert_reference_posterior_draws(draws)
+    assert_checked_reference_posterior_draws(draws)
+  }
+  draws
 }
 
 #' @exportS3Method
