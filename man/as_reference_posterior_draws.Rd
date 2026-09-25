@@ -82,4 +82,7 @@ keeps only the variables declared by the PosteriorDB posterior, computes the
 usual reference-posterior diagnostics, and returns the in-memory object
 without writing to a database. For CmdStanR, calling this function reads the
 draws and sampler diagnostics from the fit's CSV output files.
+The fit's retained scalar variable names and shapes must match the posterior
+specification. The importer does not verify that the fit used the posterior's
+model source code or data.
 }

@@ -73,7 +73,7 @@ test_that("write model", {
   expect_null(mit$model_implementations$pymc)
   expect_named(
     mit$model_implementations$stan,
-    c("model_code", "likelihood_code", "stan_version")
+    c("model_code", "stan_version")
   )
   expect_false("pymc_version" %in% names(mit$model_implementations$stan))
 

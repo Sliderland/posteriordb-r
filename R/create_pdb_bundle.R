@@ -25,7 +25,10 @@
 #'   and `keywords`.
 #' @param model_info Named model metadata. `name` and `title` are required;
 #'   supported descriptive fields are `description`, `references`, `urls`,
-#'   `keywords`, `prior`, and `licence`.
+#'   `keywords`, `prior`, and `licence`. Supply `prior` only when you have
+#'   prior metadata to record (for example, `list(keywords = "prior-key")`);
+#'   the constructor does not infer priors from Stan code. When written, an
+#'   unspecified prior is omitted, and no `likelihood_code` entry is emitted.
 #' @param posterior_info Named posterior metadata. Optional `added_by` and
 #'   `added_date` values override the shared defaults for the posterior.
 #'   Optional structural fields

@@ -9,6 +9,41 @@ its objects. The function does not compile or sample a model, read from
 a database, or write files. The current implementation supports RStan
 `stanfit` objects.
 
+Choose the workflow based on whether the data, model, and posterior
+records already exist:
+
+- Use `create_pdb_bundle()` to construct new linked data, model,
+  posterior, and reference-draw objects from a fit. Supply the data list
+  and metadata; the function builds everything in memory and leaves
+  persistence to you.
+- Use `import_reference_posterior_draws()` when you already have a
+  PosteriorDB posterior and want to import a completed fit for it. This
+  supports RStan and CmdStanR fits, checks them, and can write the draws
+  and summaries while linking them to the existing posterior. It does
+  not rewrite the existing data, model, or posterior payloads.
+
+For example, to import into an existing posterior in a local database:
+
+``` r
+pdbl <- pdb_local("/path/to/posterior_database")
+imported_draws <- import_reference_posterior_draws(
+  fit,
+  posterior = "existing_data-existing_model",
+  pdb = pdbl,
+  write = TRUE,
+  overwrite = FALSE
+)
+```
+
+The importer always runs the full reference-draw checks. With
+`write = TRUE`, it writes only if those checks pass. It writes both
+`mean_value` and `mean_squared_value` summaries by default; set
+`write_summary_statistics = FALSE` to skip them. A posterior already
+linked to a different reference-draw object cannot be relinked by this
+call. The importer checks that fit variables and scalar dimensions match
+the posterior specification, but it does not confirm that the fit used
+the exact model source and data linked to that posterior.
+
 Prepare the fit and the exact named Stan input list used for sampling.
 The eight schools example below follows the model in `CONTRIBUTING.md`:
 
@@ -41,6 +76,17 @@ Pass the same input list used for sampling, along with the required
 names and titles for the data and model. `added_by` and `added_date` are
 shared defaults for the objects in the bundle; a value in an individual
 metadata list takes precedence.
+
+`model_info$prior` is optional descriptive metadata, often a list of
+keywords that points to prior information elsewhere in PosteriorDB. For
+example, pass `prior = list(keywords = "stan_recommended_35dbfe6")` when
+that reference is known. The bundle does not infer prior distributions
+from the Stan source; if no prior metadata is supplied, the written
+model info omits `prior`. The model writer does not emit a
+`likelihood_code` entry. A Stan-only implementation is written with
+`pymc: null`; the writer does not add `pymc_version`. The bundle API
+does not currently provide a way to set a minimum `stan_version`, so
+that field is written as `null`.
 
 ``` r
 bundle <- create_pdb_bundle(
@@ -145,6 +191,20 @@ bundle$diagnostics$failures
 The bundle workflow currently supports checking the full set of
 acceptance criteria during construction or checking that full set later.
 It does not provide a way to select one criterion for a bundle check.
+For investigating an individual check on a sampled RStan or CmdStanR fit
+before importing it, use `reference_draw_diagnostics()` and
+`passes_reference_draw_checks()`. These functions accept a `checks`
+selector such as `"mean_lag1_ac"`; passing one check does not establish
+full reference-draw acceptance or make a draw object writable.
+
+``` r
+report <- reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
+report$metrics
+report$thresholds
+report$status
+report$failures
+passes_reference_draw_checks(fit, checks = "mean_lag1_ac")
+```
 
 ## Choose variables and write the objects
 

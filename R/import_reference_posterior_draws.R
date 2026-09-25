@@ -6,6 +6,9 @@
 #' usual reference-posterior diagnostics, and returns the in-memory object
 #' without writing to a database. For CmdStanR, calling this function reads the
 #' draws and sampler diagnostics from the fit's CSV output files.
+#' The fit's retained scalar variable names and shapes must match the posterior
+#' specification. The importer does not verify that the fit used the posterior's
+#' model source code or data.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
@@ -201,25 +204,43 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #'
 #' This is the writing wrapper around
 #' [as_reference_posterior_draws()]. Sampling is never performed
-#' by this function. With `write = FALSE` (the default), the validated or
-#' diagnostically failed in-memory object is returned. With `write = TRUE`,
-#' required checks must pass and the reference-draw files, optional
-#' summary-statistic files, and posterior link are written transactionally after
-#' round-trip verification. The target posterior must be present in the local
-#' database.
+#' by this function. Conversion runs the complete reference-draw checks
+#' regardless of the `write` setting. With `write = FALSE` (the default), the
+#' checked object is returned in memory, including any failed checks. With
+#' `write = TRUE`, all required checks must pass before writing. The
+#' reference-draw files, summary-statistic files (by default), and any new
+#' posterior link are staged and round-trip verified together. The target
+#' posterior must already exist in the local database. Existing data and model
+#' files are not rewritten.
+#'
+#' The importer verifies that the fit contains the scalar variables and shapes
+#' declared by the posterior, but it does not compare the fit's Stan source code
+#' or sampling data with the source and data linked to that posterior.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
-#' @param pdb a local PosteriorDB object.
+#' @param pdb a local PosteriorDB object. Required when `write = TRUE`; when
+#'   `write = FALSE`, it is used to resolve a posterior name.
 #' @param dimensions optional named PosteriorDB dimension list.
 #' @param policy reserved for a future diagnostic policy; must currently be
 #'   `NULL`.
 #' @param write whether to write the validated result to `pdb`.
 #' @param overwrite whether existing reference-posterior files may be replaced.
 #' @param write_summary_statistics whether to also write the supported summary
-#'   statistics when `write = TRUE`. Defaults to `TRUE`.
+#'   statistics (`mean_value` and `mean_squared_value`) when `write = TRUE`.
+#'   Defaults to `TRUE`.
 #' @param ... optional metadata fields forwarded to the conversion function.
 #' @return A `pdb_reference_posterior_draws` object.
+#' @examples
+#' \dontrun{
+#' imported <- import_reference_posterior_draws(
+#'   fit,
+#'   posterior = "existing-data-existing-model",
+#'   pdb = pdb_local("/path/to/posterior_database"),
+#'   write = TRUE
+#' )
+#' }
+#' @seealso [as_reference_posterior_draws()], [write_pdb()]
 #' @export
 import_reference_posterior_draws <- function(
   fit,

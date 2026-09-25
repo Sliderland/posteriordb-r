@@ -136,6 +136,7 @@ write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
     "name", "model_implementations", "title", "prior", "added_by",
     "added_date", "references", "description", "urls", "keywords", "licence"
   ))
+  if (is.null(x$prior)) x["prior"] <- NULL
   implementations <- x$model_implementations
   if ("stan" %in% names(implementations) && !"pymc" %in% names(implementations)) {
     implementations["pymc"] <- list(NULL)
@@ -144,11 +145,11 @@ write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
     implementation <- implementations[[framework]]
     if (is.null(implementation)) next
     fields <- if (framework == "stan") {
-      c("model_code", "likelihood_code", "stan_version")
+      c("model_code", "stan_version")
     } else if (framework %in% c("pymc", "pymc3")) {
       "model_code"
     } else {
-      c("model_code", "likelihood_code", "stan_version", "pymc_version")
+      c("model_code", "stan_version", "pymc_version")
     }
     implementations[[framework]] <- complete_info_fields(implementation, fields)
   }
