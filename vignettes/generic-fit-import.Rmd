@@ -64,15 +64,17 @@ persisted.
 
 ## Inspect diagnostics
 
-`create_pdb_bundle()` constructs the in-memory bundle. It does not calculate
-quality criteria itself: `reference_draw_diagnostics()` calculates the report,
-and `passes_reference_draw_checks()` returns a logical result for selected
-checks. The fit may be useful even when it does not meet every reference-draw
-criterion. Failed checks are reported, and the candidate is returned without
-resampling, thinning, or selecting a target draw count. Use `check = FALSE` to
-leave the candidate explicitly unchecked; this does not set acceptance flags.
-Writing `bundle$reference_draws` with `write_pdb()` requires all recorded
-acceptance flags to be `TRUE`.
+`create_pdb_bundle()` constructs the in-memory bundle. By default,
+`check = TRUE` computes the reference-draw diagnostic report and records
+whether the candidate meets the package's acceptance checks. A failed
+candidate is returned with its failures; the function does not resample, thin,
+or select a target draw count. Use `check = FALSE` to skip diagnostic and
+acceptance-metric calculations entirely. In that case
+`bundle$diagnostics` is `NULL`, and the reference draws have no acceptance
+flags. The separate `reference_draw_diagnostics()` function calculates a
+report, while `passes_reference_draw_checks()` returns a logical result for
+selected checks. Writing `bundle$reference_draws` with `write_pdb()` requires
+all recorded acceptance flags to be `TRUE`.
 
 ```{r, eval=FALSE}
 reference_draw_diagnostics(fit, checks = "mean_lag1_ac")

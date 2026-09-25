@@ -55,7 +55,8 @@ and version provenance are derived from the fit. Diagnostics and
 \item{exclude}{Optional character vector of base variable names to omit.}
 
 \item{check}{Whether to evaluate the package's reference-draw acceptance
-checks. `FALSE` leaves the candidate explicitly unchecked.}
+checks. `FALSE` leaves the candidate explicitly unchecked and skips
+draw-diagnostic and acceptance-metric calculations.}
 
 \item{pdb}{Optional PosteriorDB connection to attach for later use. This
 constructor never reads from or writes to it.}

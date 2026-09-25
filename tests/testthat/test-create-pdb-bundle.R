@@ -69,10 +69,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_error(model_code_file_path(bundle$posterior, framework = "stan"), "not persisted")
   expect_error(reference_posterior_draws_file_path(bundle$posterior), "not persisted")
   expect_null(info(bundle$reference_draws)$checks_made)
-  expect_false(bundle$diagnostics$checked)
-  expect_null(bundle$diagnostics$status)
-  expect_length(bundle$diagnostics$metrics$effective_sample_size_bulk, posterior::nvariables(bundle$reference_draws))
-  expect_true(is.finite(bundle$diagnostics$metrics$effective_sample_size_bulk[["mu"]]))
+  expect_null(bundle$diagnostics)
   expect_match(paste(capture.output(print(bundle)), collapse = "\n"), "unchecked")
   testthat::local_mocked_bindings(
     sampling = function(...) stop("unexpected sampling", call. = FALSE),
@@ -139,4 +136,51 @@ test_that("a sampled stanfit produces a standalone bundle", {
     "Duplicate argument")
   expect_error(do.call(create_pdb_bundle, list(fit = fit, data = list(),
     list(name = "d", title = "D"))), "must be named exactly")
+})
+
+test_that("unchecked bundles skip diagnostic extraction and calculation", {
+  draws <- posterior::as_draws_array(array(
+    seq_len(40L), dim = c(10L, 4L, 1L),
+    dimnames = list(NULL, NULL, "mu")
+  ))
+  diagnostic_called <- FALSE
+  testthat::local_mocked_bindings(
+    extract_rstan_fit = function(fit, checks = "all", strict = TRUE,
+                                 for_bundle = FALSE, need_diagnostics = TRUE,
+                                 include = NULL, exclude = NULL, ...) {
+      expect_true(for_bundle)
+      expect_false(need_diagnostics)
+      list(
+        draws = draws,
+        sampler_diagnostics = NULL,
+        dimensions = list(mu = integer()),
+        source = "parameters { real mu; } model {}",
+        metadata = list(
+          ndraws = 10L, nchains = 4L, max_treedepth = NULL,
+          method_arguments = list()
+        ),
+        fit_class = "stanfit",
+        import_versions = list(R = "test", rstan = "test", posterior = "test")
+      )
+    },
+    reference_draw_diagnostics_from_extracted = function(...) {
+      diagnostic_called <<- TRUE
+      stop("diagnostic report must be skipped", call. = FALSE)
+    },
+    .package = "posteriordb"
+  )
+
+  bundle <- create_pdb_bundle(
+    structure(list(), class = "stanfit"),
+    data = list(),
+    data_info = list(name = "unchecked-data", title = "Unchecked data"),
+    model_info = list(name = "unchecked-model", title = "Unchecked model"),
+    check = FALSE
+  )
+
+  expect_false(diagnostic_called)
+  expect_null(bundle$diagnostics)
+  expect_null(info(bundle$reference_draws)$checks_made)
+  expect_equal(bundle$provenance$sampling_metadata$ndraws, 10L)
+  expect_equal(bundle$provenance$sampling_metadata$nchains, 4L)
 })
