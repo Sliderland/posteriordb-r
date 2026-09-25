@@ -77,7 +77,7 @@ bundle$model_code
 bundle$posterior
 bundle$reference_draws
 bundle$summary_statistics$mean_value
-bundle$summary_statistics$sd
+bundle$summary_statistics$mean_squared_value
 ```
 
 
@@ -107,7 +107,7 @@ returned with the failure recorded, so you can inspect the report. Its
 reference draws cannot be written until they pass.
 
 When the reference-draw checks pass, the bundle also computes the supported
-summary statistics (`mean_value` and `sd`) from those draws. They are returned
+summary statistics (`mean_value` and `mean_squared_value`) from those draws. They are returned
 in `bundle$summary_statistics`. An unchecked bundle, or a bundle whose checks
 fail, has `summary_statistics = NULL`; this prevents summaries from appearing
 writeable before the required draw checks pass. The summary info objects carry
@@ -182,7 +182,7 @@ write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 
 
 By default, the reference-draw `write_pdb()` method also computes and writes
-the supported summary statistics (`mean_value` and `sd`) using their existing
+the supported summary statistics (`mean_value` and `mean_squared_value`) using their existing
 constructors and writer methods. Data, model, reference-draw, and
 summary-statistic payloads are written with their info files; summary
 statistics are saved under
@@ -207,12 +207,13 @@ write_pdb(
   write_summary_statistics = FALSE
 )
 write_pdb(bundle$summary_statistics$mean_value, pdbl, overwrite = FALSE)
-write_pdb(bundle$summary_statistics$sd, pdbl, overwrite = FALSE)
+write_pdb(bundle$summary_statistics$mean_squared_value, pdbl, overwrite = FALSE)
 ```
 
 The summary payload field names follow the existing PosteriorDB format:
-`mean_value` contains `names`, `mean_value`, and `mcse_mean`; `sd` contains
-`names`, `sd`, and `mcse_sd`. Their info JSON uses the reference-draw metadata
+`mean_value` contains `names`, `mean_value`, and `mcse_mean`;
+`mean_squared_value` contains `names`, `mean_squared_value`, and `mcse_mean`.
+The latter is the mean of squared draws, not a standard deviation. Their info JSON uses the reference-draw metadata
 shape, with `versions$r_summary_statistic` identifying the package version used
 to compute the summaries.
 

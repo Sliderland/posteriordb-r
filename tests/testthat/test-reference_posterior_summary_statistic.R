@@ -36,7 +36,7 @@ test_that("compute and write summary_statistics", {
   expect_silent(rpdc <- check_summary_statistics_draws(x = rpd))
   expect_silent(rpm <- compute_reference_posterior_summary_statistic(rpdc, "mean_value"))
   expect_silent(rpmi <- info(rpm))
-  expect_silent(rps <- compute_reference_posterior_summary_statistic(rpdc, "sd"))
+  expect_silent(rps <- compute_reference_posterior_summary_statistic(rpdc, "mean_squared_value"))
   expect_silent(rpsi <- info(rps))
 
   # Setup posterior
@@ -47,7 +47,7 @@ test_that("compute and write summary_statistics", {
   #remove_pdb(po, pdb_test)
   write_pdb(po, pdb_test)
 
-  # Test write gsd
+  # Test write summary statistics
   info(rpm)$name <- "test_data-test_model"
   expect_silent(write_pdb(rpm, pdb_test))
   # remove_pdb(rpm, pdb_test)
@@ -62,12 +62,14 @@ test_that("compute and write summary_statistics", {
   expect_silent(rpt <- pdb_reference_posterior_summary_statistics(x = "test_data-test_model", pdb = pdb_test))
   expect_equal(rpt$mean_value$mean_value, rpm$mean_value, tolerance = 0.000000000000001)
   expect_equal(rpt$mean_value$mcse_mean, rpm$mcse_mean, tolerance = 0.000000000000001)
+  expect_equal(rpt$mean_squared_value$mean_squared_value, rps$mean_squared_value, tolerance = 0.000000000000001)
+  expect_equal(rpt$mean_squared_value$mcse_mean, rps$mcse_mean, tolerance = 0.000000000000001)
   expect_identical(info(rpm), info(rpt$mean_value))
   expect_identical(rpm$names, rpt$mean_value$names)
 
   # Remove rpd
   expect_silent(remove_pdb(rpt$mean_value, pdb = pdb_test))
-  expect_silent(remove_pdb(rpt$sd, pdb = pdb_test))
+  expect_silent(remove_pdb(rpt$mean_squared_value, pdb = pdb_test))
   pdb_clear_cache(pdb_test)
   expect_error(pdb_reference_posterior_draws("test_data-test_model", pdb_test))
 

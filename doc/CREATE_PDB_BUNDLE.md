@@ -69,7 +69,7 @@ bundle$model_code
 bundle$posterior
 bundle$reference_draws
 bundle$summary_statistics$mean_value
-bundle$summary_statistics$sd
+bundle$summary_statistics$mean_squared_value
 ```
 
 The posterior embeds the data, model code, and reference draws, so its
@@ -97,14 +97,14 @@ inspect the report. Its reference draws cannot be written until they
 pass.
 
 When the reference-draw checks pass, the bundle also computes the
-supported summary statistics (`mean_value` and `sd`) from those draws.
-They are returned in `bundle$summary_statistics`. An unchecked bundle,
-or a bundle whose checks fail, has `summary_statistics = NULL`; this
-prevents summaries from appearing writeable before the required draw
-checks pass. The summary info objects carry the same reference-posterior
-metadata as the draws, with the summary-specific acceptance flags and
-summary-computation version added by the existing summary-statistic
-constructor.
+supported summary statistics (`mean_value` and `mean_squared_value`)
+from those draws. They are returned in `bundle$summary_statistics`. An
+unchecked bundle, or a bundle whose checks fail, has
+`summary_statistics = NULL`; this prevents summaries from appearing
+writeable before the required draw checks pass. The summary info objects
+carry the same reference-posterior metadata as the draws, with the
+summary-specific acceptance flags and summary-computation version added
+by the existing summary-statistic constructor.
 
 The acceptance checks require exactly 10,000 retained draws, at least
 four chains, absolute lag-1 autocorrelation at most 0.05 for every
@@ -171,10 +171,10 @@ write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 ```
 
 By default, the reference-draw `write_pdb()` method also computes and
-writes the supported summary statistics (`mean_value` and `sd`) using
-their existing constructors and writer methods. Data, model,
-reference-draw, and summary-statistic payloads are written with their
-info files; summary statistics are saved under
+writes the supported summary statistics (`mean_value` and
+`mean_squared_value`) using their existing constructors and writer
+methods. Data, model, reference-draw, and summary-statistic payloads are
+written with their info files; summary statistics are saved under
 `reference_posteriors/summary_statistics/<type>/`. The posterior JSON
 records the links and dimensions. `overwrite = FALSE` is the default and
 causes an error if a destination file already exists. Each write happens
@@ -198,14 +198,16 @@ write_pdb(
   write_summary_statistics = FALSE
 )
 write_pdb(bundle$summary_statistics$mean_value, pdbl, overwrite = FALSE)
-write_pdb(bundle$summary_statistics$sd, pdbl, overwrite = FALSE)
+write_pdb(bundle$summary_statistics$mean_squared_value, pdbl, overwrite = FALSE)
 ```
 
 The summary payload field names follow the existing PosteriorDB format:
-`mean_value` contains `names`, `mean_value`, and `mcse_mean`; `sd`
-contains `names`, `sd`, and `mcse_sd`. Their info JSON uses the
-reference-draw metadata shape, with `versions$r_summary_statistic`
-identifying the package version used to compute the summaries.
+`mean_value` contains `names`, `mean_value`, and `mcse_mean`;
+`mean_squared_value` contains `names`, `mean_squared_value`, and
+`mcse_mean`. The latter is the mean of squared draws, not a standard
+deviation. Their info JSON uses the reference-draw metadata shape, with
+`versions$r_summary_statistic` identifying the package version used to
+compute the summaries.
 
 For further details about accepted metadata and arguments, see
 `?create_pdb_bundle`. The constructor requires the actual named Stan

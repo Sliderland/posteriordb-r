@@ -82,7 +82,7 @@ constructor never reads from or writes to it.}
 A `pdb_reference_bundle` list containing `data`, `model_code`,
   `posterior`, `reference_draws`, `summary_statistics`, `diagnostics`, and
   `provenance`. When checks pass, `summary_statistics` is a named list with
-  `mean_value` and `sd` objects; otherwise it is `NULL`. `diagnostics` is
+  `mean_value` and `mean_squared_value` objects; otherwise it is `NULL`. `diagnostics` is
   `NULL` when `check = FALSE`; call [check_reference_posterior_draws()] on
   that bundle to check it later.
 }
@@ -114,7 +114,7 @@ bundle <- create_pdb_bundle(
 )
 bundle$reference_draws
 bundle$summary_statistics$mean_value
-bundle$summary_statistics$sd
+bundle$summary_statistics$mean_squared_value
 ```
 
 Missing names/titles, conflicting structural metadata, unknown fields,

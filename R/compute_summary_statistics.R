@@ -1,10 +1,11 @@
 #' Compute Summary statistics from a reference posterior
 #'
 #' @param rpd a [reference_posterior_summary_statistic] object
-#' @param summary_statistic summary statistic to compute
+#' @param summary_statistic summary statistic to compute: `mean_value` or
+#'   `mean_squared_value`.
 #'
 #' @export
-compute_reference_posterior_summary_statistic <- function(rpd, summary_statistic = "mean"){
+compute_reference_posterior_summary_statistic <- function(rpd, summary_statistic = "mean_value"){
   checkmate::assert_class(rpd, classes = "pdb_reference_posterior_draws")
   rpi <- info(rpd)
   checkmate::assert_class(rpi, classes = "pdb_reference_posterior_info")
@@ -16,15 +17,20 @@ compute_reference_posterior_summary_statistic <- function(rpd, summary_statistic
     res <- as.list(res)
     names(res)[1] <- "names"
     names(res)[2] <- "mean_value"
-    rpi$versions$r_summary_statistic <- paste0("posterior R package, version ", utils::packageVersion("posterior"))
-  } else if (summary_statistic == "sd"){
-    res <- posterior::summarise_draws(rpd, "sd", "mcse_sd")
+  } else if (summary_statistic == "mean_squared_value"){
+    squared_draws <- posterior::as_draws_array(rpd)
+    squared_draws[] <- squared_draws^2
+    res <- posterior::summarise_draws(squared_draws, "mean", "mcse_mean")
     res <- as.list(res)
     names(res)[1] <- "names"
-    rpi$versions$r_summary_statistic <- paste0("posterior R package, version ", utils::packageVersion("posterior"))
+    names(res)[2] <- "mean_squared_value"
   } else {
     stop("Summary statistic is not implemented.")
   }
+  rpi$versions$r_summary_statistic <- paste0(
+    "posterior R package, version ",
+    utils::packageVersion("posterior")
+  )
 
   rpss <- reference_posterior_summary_statistic(res, rpi, summary_statistic)
   rpss
