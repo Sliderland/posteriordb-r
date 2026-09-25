@@ -1,22 +1,27 @@
 make_unchecked_test_bundle <- function(divergence = 0L) {
+  iterations <- 2500L
   set.seed(20260925)
   draws_array <- array(
-    stats::rnorm(10000L * 4L),
-    dim = c(10000L, 4L, 1L),
+    stats::rnorm(iterations * 4L),
+    dim = c(iterations, 4L, 1L),
     dimnames = list(NULL, NULL, "theta")
   )
   sampler_array <- array(
     0,
-    dim = c(10000L, 4L, 3L),
+    dim = c(iterations, 4L, 3L),
     dimnames = list(NULL, NULL, c("divergent__", "energy__", "treedepth__"))
   )
+  sampler_array[, , "energy__"] <- matrix(
+    stats::rnorm(iterations * 4L), nrow = iterations, ncol = 4L
+  ) + rep(seq_len(4L) * 0.25, each = iterations)
+  sampler_array[, , "treedepth__"] <- 5
   if (divergence > 0L) sampler_array[1L, 1L, "divergent__"] <- divergence
 
   extracted <- list(
     draws = posterior::as_draws_array(draws_array),
     sampler_diagnostics = posterior::as_draws_array(sampler_array),
     metadata = list(
-      ndraws = 10000L,
+      ndraws = iterations * 4L,
       nchains = 4L,
       expected_fraction_of_missing_information = rep(0.8, 4L),
       max_treedepth = 10L,
@@ -29,10 +34,10 @@ make_unchecked_test_bundle <- function(divergence = 0L) {
   )
   testthat::local_mocked_bindings(
     extract_rstan_fit = function(fit, checks = "all", strict = TRUE,
-                                 for_bundle = FALSE, need_diagnostics = TRUE,
+                                 for_bundle = FALSE, compute_diagnostics = TRUE,
                                  include = NULL, exclude = NULL, ...) {
       expect_true(for_bundle)
-      expect_false(need_diagnostics)
+      expect_false(compute_diagnostics)
       extracted
     },
     .package = "posteriordb"
