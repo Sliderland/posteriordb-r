@@ -46,7 +46,7 @@
 #' cannot establish that it produced the fit. For example:
 #'
 #' ```r
-#' bundle <- create_pdb_reference_draws(
+#' bundle <- create_pdb_bundle(
 #'   fit, data = stan_data,
 #'   data_info = list(name = "study", title = "Study inputs"),
 #'   model_info = list(name = "normal", title = "Normal model"),
@@ -60,14 +60,14 @@
 #' produce actionable errors. Failed diagnostic candidates are returned with
 #' their failures recorded.
 #' @export
-create_pdb_reference_draws <- function(fit, data = NULL, ...) {
+create_pdb_bundle <- function(fit, data = NULL, ...) {
   validate_bundle_call_dots(list(...))
-  UseMethod("create_pdb_reference_draws", fit)
+  UseMethod("create_pdb_bundle", fit)
 }
 
-#' @rdname create_pdb_reference_draws
+#' @rdname create_pdb_bundle
 #' @export
-create_pdb_reference_draws.stanfit <- function(
+create_pdb_bundle.stanfit <- function(
   fit,
   data = NULL,
   data_info = list(),
@@ -418,9 +418,9 @@ assemble_standalone_fit_bundle <- function(
 }
 
 #' @exportS3Method
-create_pdb_reference_draws.default <- function(fit, ...) {
+create_pdb_bundle.default <- function(fit, ...) {
   stop(
-    "Unsupported fit class. `create_pdb_reference_draws()` currently accepts only `rstan::stanfit`.",
+    "Unsupported fit class. `create_pdb_bundle()` currently accepts only `rstan::stanfit`.",
     call. = FALSE
   )
 }
@@ -465,7 +465,7 @@ validate_bundle_call_dots <- function(dots) {
 }
 
 #' Print a standalone reference-draw bundle
-#' @param x A `pdb_reference_bundle` returned by [create_pdb_reference_draws()].
+#' @param x A `pdb_reference_bundle` returned by [create_pdb_bundle()].
 #' @param ... Unused.
 #' @export
 print.pdb_reference_bundle <- function(x, ...) {
