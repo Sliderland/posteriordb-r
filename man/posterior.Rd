@@ -37,7 +37,7 @@ To setup a posterior object from a list, a minimum och a `pdb_model`,
 `pdb_data`, and a `dimension` element need to be included. See
 `posterior("eight_schools")$dimensions` for an example.
 
-Posteriors returned by [create_pdb_reference_draws()] embed their data, model
+Posteriors returned by [create_pdb_bundle()] embed their data, model
 code, and reference draws. Their normal getters work without a database.
 A NULL connection is valid only with all three embedded objects; embedded
 names and draw dimensions are checked even when a connection is attached.

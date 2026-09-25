@@ -2,6 +2,11 @@
 #'
 #' @description a function to simplify writing to a local pdb.
 #'
+#' @details Writing reference draws requires all recorded reference acceptance
+#'   flags to be `TRUE`. Unchecked or failed reference draws are rejected before
+#'   either their info or draws file is written. This writer does not compute
+#'   diagnostics; ESS and treedepth are informational, not acceptance gates.
+#'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
 #' @param overwrite overwrite existing file?
