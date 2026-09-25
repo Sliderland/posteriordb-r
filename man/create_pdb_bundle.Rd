@@ -5,11 +5,19 @@
 \alias{create_pdb_bundle.stanfit}
 \title{Construct a standalone PosteriorDB reference-draw bundle from a Stan fit}
 \usage{
-create_pdb_bundle(fit, data = NULL, ...)
+create_pdb_bundle(
+  fit,
+  data = NULL,
+  added_by = unname(Sys.info()[["user"]]),
+  added_date = as.Date(Sys.time()),
+  ...
+)
 
 \method{create_pdb_bundle}{stanfit}(
   fit,
   data = NULL,
+  added_by = unname(Sys.info()[["user"]]),
+  added_date = as.Date(Sys.time()),
   data_info = list(),
   model_info = list(),
   posterior_info = list(),
@@ -28,6 +36,14 @@ create_pdb_bundle(fit, data = NULL, ...)
 integer, or logical vectors/arrays as values. `list()` explicitly declares
 an empty input; `NULL` is currently unavailable and errors.}
 
+\item{added_by}{Shared default contributor name for the constructed data,
+model, posterior, and reference-draw metadata. Defaults to the current R
+user. Values supplied in the corresponding metadata lists take precedence.}
+
+\item{added_date}{Shared default contribution date for the constructed
+objects. Defaults to the current date when the function is called.
+Values supplied in the corresponding metadata lists take precedence.}
+
 \item{...}{Named method options: `data_info`, `model_info`,
 `posterior_info`, `reference_info`, `include`, `exclude`, `check`, and
 `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.}
@@ -40,8 +56,9 @@ and `keywords`.}
 supported descriptive fields are `description`, `references`, `urls`,
 `keywords`, `prior`, and `licence`.}
 
-\item{posterior_info}{Named posterior metadata. `added_by` and `added_date`
-provide defaults for the constructed objects. Optional structural fields
+\item{posterior_info}{Named posterior metadata. Optional `added_by` and
+`added_date` values override the shared defaults for the posterior.
+Optional structural fields
 (`name`, `model_name`, `data_name`, `reference_posterior_name`, and
 `dimensions`) are accepted only when they match inferred values.}
 

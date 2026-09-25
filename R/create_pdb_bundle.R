@@ -14,14 +14,21 @@
 #' @param data The exact named Stan input list, with ordinary numeric,
 #'   integer, or logical vectors/arrays as values. `list()` explicitly declares
 #'   an empty input; `NULL` is currently unavailable and errors.
+#' @param added_by Shared default contributor name for the constructed data,
+#'   model, posterior, and reference-draw metadata. Defaults to the current R
+#'   user. Values supplied in the corresponding metadata lists take precedence.
+#' @param added_date Shared default contribution date for the constructed
+#'   objects. Defaults to the current date when the function is called.
+#'   Values supplied in the corresponding metadata lists take precedence.
 #' @param data_info Named data metadata. `name` and `title` are required;
 #'   supported descriptive fields are `description`, `references`, `urls`,
 #'   and `keywords`.
 #' @param model_info Named model metadata. `name` and `title` are required;
 #'   supported descriptive fields are `description`, `references`, `urls`,
 #'   `keywords`, `prior`, and `licence`.
-#' @param posterior_info Named posterior metadata. `added_by` and `added_date`
-#'   provide defaults for the constructed objects. Optional structural fields
+#' @param posterior_info Named posterior metadata. Optional `added_by` and
+#'   `added_date` values override the shared defaults for the posterior.
+#'   Optional structural fields
 #'   (`name`, `model_name`, `data_name`, `reference_posterior_name`, and
 #'   `dimensions`) are accepted only when they match inferred values.
 #' @param reference_info Named human annotations for the reference draws,
@@ -35,8 +42,8 @@
 #'   draw-diagnostic and acceptance-metric calculations.
 #' @param pdb Optional PosteriorDB connection to attach for later use. This
 #'   constructor never reads from or writes to it.
-#' @param ... Named method options: `data_info`, `model_info`,
-#'   `posterior_info`, `reference_info`, `include`, `exclude`, `check`, and
+#' @param ... Named method options: `data_info`, `model_info`, `posterior_info`,
+#'   `reference_info`, `include`, `exclude`, `check`, and
 #'   `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.
 #'
 #' @return A `pdb_reference_bundle` list containing `data`, `model_code`,
@@ -65,7 +72,13 @@
 #' produce actionable errors. Failed diagnostic candidates are returned with
 #' their failures recorded.
 #' @export
-create_pdb_bundle <- function(fit, data = NULL, ...) {
+create_pdb_bundle <- function(
+  fit,
+  data = NULL,
+  added_by = unname(Sys.info()[["user"]]),
+  added_date = as.Date(Sys.time()),
+  ...
+) {
   validate_bundle_call_dots(list(...))
   UseMethod("create_pdb_bundle", fit)
 }
@@ -75,6 +88,8 @@ create_pdb_bundle <- function(fit, data = NULL, ...) {
 create_pdb_bundle.stanfit <- function(
   fit,
   data = NULL,
+  added_by = unname(Sys.info()[["user"]]),
+  added_date = as.Date(Sys.time()),
   data_info = list(),
   model_info = list(),
   posterior_info = list(),
@@ -89,6 +104,8 @@ create_pdb_bundle.stanfit <- function(
     stop("Internal dispatch passed unexpected extra arguments.", call. = FALSE)
   }
   checkmate::assert_flag(check)
+  checkmate::assert_string(added_by)
+  checkmate::assert_class(added_date, "Date")
   if (!is.null(pdb)) {
     checkmate::assert_class(pdb, "pdb")
   }
@@ -209,6 +226,8 @@ create_pdb_bundle.stanfit <- function(
     model_info = model_info,
     posterior_info = posterior_info,
     reference_info = reference_info,
+    added_by = added_by,
+    added_date = added_date,
     include = include,
     exclude = exclude,
     check = check,
@@ -226,6 +245,8 @@ assemble_standalone_fit_bundle <- function(
   model_info,
   posterior_info,
   reference_info,
+  added_by,
+  added_date,
   include = NULL,
   exclude = NULL,
   check = TRUE,
@@ -249,8 +270,8 @@ assemble_standalone_fit_bundle <- function(
   dimensions <- extracted$dimensions[chosen_bases]
   draws <- posterior::as_draws_list(draws_array)
 
-  added_by <- posterior_info$added_by %||% unname(Sys.info()[["user"]])
-  added_date <- posterior_info$added_date %||% Sys.Date()
+  added_by <- added_by %||% unname(Sys.info()[["user"]])
+  added_date <- added_date %||% as.Date(Sys.time())
   checkmate::assert_string(added_by)
   checkmate::assert_class(added_date, "Date")
   data_info <- make_bundle_info(data_info, added_by, added_date)
@@ -344,8 +365,8 @@ assemble_standalone_fit_bundle <- function(
       list(pdb_data = dat, pdb_model_code = mc),
       po_fields,
       list(
-        added_by = added_by,
-        added_date = added_date,
+        added_by = posterior_info$added_by %||% added_by,
+        added_date = posterior_info$added_date %||% added_date,
         embedded_data = dat,
         embedded_model_code = mc,
         embedded_reference_draws = rpd
@@ -512,7 +533,7 @@ validate_bundle_call_dots <- function(dots) {
       (is.null(supplied) || anyNA(supplied) || any(!nzchar(supplied)))
   ) {
     stop(
-      "Arguments after `data` must be named exactly; use `data_info`, `model_info`, `posterior_info`, `reference_info`, `include`, `exclude`, `check`, or `pdb`.",
+      "Arguments after `added_date` must be named exactly; use `data_info`, `model_info`, `posterior_info`, `reference_info`, `include`, `exclude`, `check`, or `pdb`.",
       call. = FALSE
     )
   }
