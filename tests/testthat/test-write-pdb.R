@@ -69,7 +69,13 @@ test_that("write model", {
   expect_silent(write_pdb(mi, pdb_test, overwrite = TRUE))
 
   expect_silent(mit <- pdb_model_info("test_model", pdb_test))
-  expect_identical(mi, mit)
+  expect_named(mit$model_implementations, c("stan", "pymc"))
+  expect_null(mit$model_implementations$pymc)
+  expect_named(
+    mit$model_implementations$stan,
+    c("model_code", "likelihood_code", "stan_version")
+  )
+  expect_false("pymc_version" %in% names(mit$model_implementations$stan))
 
   # Remove model info
   expect_silent(remove_pdb(mi, pdb = pdb_test))

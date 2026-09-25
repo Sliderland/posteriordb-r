@@ -92,8 +92,10 @@ model_code_file_path.pdb_posterior <- function(x, framework, ...) {
   if (!is.null(x$embedded_model_code) && identical(framework(x$embedded_model_code), framework))
     stop("This in-memory posterior is not persisted; its embedded model code has no database file path.", call. = FALSE)
   if (is.null(pdb(x))) stop("No database file path is available for this in-memory posterior.", call. = FALSE)
-  checkmate::assert_choice(framework, names(x$model_info$model_implementations))
-  mcfp <- pdb_cached_local_file_path(pdb(x), x$model_info$model_implementations[[framework]]$model_code)
+  implementations <- x$model_info$model_implementations
+  available <- names(implementations)[!vapply(implementations, is.null, logical(1))]
+  checkmate::assert_choice(framework, available)
+  mcfp <- pdb_cached_local_file_path(pdb(x), implementations[[framework]]$model_code)
   mcfp
 }
 

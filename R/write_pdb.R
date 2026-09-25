@@ -136,8 +136,23 @@ write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
     "name", "model_implementations", "title", "prior", "added_by",
     "added_date", "references", "description", "urls", "keywords", "licence"
   ))
-  x$model_implementations <- lapply(x$model_implementations, complete_info_fields,
-    fields = c("model_code", "likelihood_code", "stan_version", "pymc_version"))
+  implementations <- x$model_implementations
+  if ("stan" %in% names(implementations) && !"pymc" %in% names(implementations)) {
+    implementations["pymc"] <- list(NULL)
+  }
+  for (framework in names(implementations)) {
+    implementation <- implementations[[framework]]
+    if (is.null(implementation)) next
+    fields <- if (framework == "stan") {
+      c("model_code", "likelihood_code", "stan_version")
+    } else if (framework %in% c("pymc", "pymc3")) {
+      "model_code"
+    } else {
+      c("model_code", "likelihood_code", "stan_version", "pymc_version")
+    }
+    implementations[[framework]] <- complete_info_fields(implementation, fields)
+  }
+  x$model_implementations <- implementations
   class(x) <- c(class(x), "list")
   write_json_to_path(x, "models/info", pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
 }

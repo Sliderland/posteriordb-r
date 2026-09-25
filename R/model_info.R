@@ -65,7 +65,10 @@ read_model_info <- function(x, pdb = NULL, ...) {
 print.pdb_model_info <- function(x, ...) {
   cat0("Model: ", x$name, "\n")
   cat0(x$title, "\n")
-  cat0("Frameworks: '", paste(names(x$model_implementations), collapse = "', '"), "'\n")
+  frameworks <- names(x$model_implementations)[!vapply(
+    x$model_implementations, is.null, logical(1)
+  )]
+  cat0("Frameworks: '", paste(frameworks, collapse = "', '"), "'\n")
   invisible(x)
 }
 
@@ -75,8 +78,23 @@ assert_model_info <- function(x){
                           must.include = c("name", "model_implementations", "title", "added_by", "added_date"))
   checkmate::assert_string(x$name)
   checkmate::assert_names(names(x$model_implementations), subset.of = supported_frameworks())
-  for(i in seq_along(x$model_implementations)){
-    checkmate::assert_names(names(x$model_implementations[[i]]), must.include = "model_code", subset.of = c("model_code", "likelihood_code", "stan_version", "pymc_version"))
+  checkmate::assert_true(any(!vapply(x$model_implementations, is.null, logical(1))))
+  for (implementation_name in names(x$model_implementations)) {
+    implementation <- x$model_implementations[[implementation_name]]
+    if (is.null(implementation)) next
+    checkmate::assert_list(implementation)
+    allowed_fields <- if (implementation_name == "stan") {
+      c("model_code", "likelihood_code", "stan_version")
+    } else if (implementation_name %in% c("pymc", "pymc3")) {
+      "model_code"
+    } else {
+      c("model_code", "likelihood_code", "stan_version", "pymc_version")
+    }
+    checkmate::assert_names(
+      names(implementation),
+      must.include = "model_code",
+      subset.of = allowed_fields
+    )
   }
   checkmate::assert_string(x$title)
   checkmate::assert_string(x$added_by)
