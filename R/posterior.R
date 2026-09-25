@@ -15,6 +15,9 @@
 #' A NULL connection is valid only with all three embedded objects; embedded
 #' names and draw dimensions are checked even when a connection is attached.
 #'
+#' List-based posterior construction preserves the optional character fields
+#' `urls`, `references`, and `keywords` when they are supplied.
+#'
 #' @export
 posterior <- function(x, pdb = pdb_default(), ...) {
   UseMethod("posterior")
@@ -74,7 +77,10 @@ as.posterior.list <- function(x, pdb = pdb_default(), ...) {
     names(x), c("embedded_data", "embedded_model_code", "embedded_reference_draws")
   )
   embedded_content <- x[embedded_fields]
-  x <- x[pdb_posterior_must_include()]
+  retained_fields <- c(
+    pdb_posterior_must_include(), "urls", "references", "keywords"
+  )
+  x <- x[intersect(names(x), retained_fields)]
   x[embedded_fields] <- embedded_content
 
   pdb(x) <- pdb
@@ -119,6 +125,9 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_class(x$data_info$added_date, "Date")
   checkmate::assert_class(x$model_info$added_date, "Date")
   checkmate::assert_list(x$model_info, min.len = 1)
+  checkmate::assert_character(x$urls, null.ok = TRUE)
+  checkmate::assert_character(x$references, null.ok = TRUE)
+  checkmate::assert_character(x$keywords, null.ok = TRUE)
 
   embedded <- c("embedded_data", "embedded_model_code", "embedded_reference_draws")
   if (is.null(pdb(x)) && any(vapply(embedded, function(key) is.null(x[[key]]), logical(1))))

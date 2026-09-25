@@ -75,7 +75,9 @@ fit <- rstan::sampling(
 Pass the same input list used for sampling, along with the required
 names and titles for the data and model. `added_by` and `added_date` are
 shared defaults for the objects in the bundle; a value in an individual
-metadata list takes precedence.
+metadata list takes precedence. `posterior_info` also accepts the
+optional character fields `urls`, `references`, and `keywords`; supplied
+values are written to the posterior JSON.
 
 `model_info$prior` is optional descriptive metadata, often a list of
 keywords that points to prior information elsewhere in PosteriorDB. For

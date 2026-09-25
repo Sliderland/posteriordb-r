@@ -34,6 +34,8 @@
 #'   "models/stan/<name>.stan", stan_version = "..."))` to override it.
 #' @param posterior_info Named posterior metadata. Optional `added_by` and
 #'   `added_date` values override the shared defaults for the posterior.
+#'   Optional descriptive fields `urls`, `references`, and `keywords` are
+#'   retained in the posterior info JSON when supplied.
 #'   Optional structural fields
 #'   (`name`, `model_name`, `data_name`, `reference_posterior_name`, and
 #'   `dimensions`) are accepted only when they match inferred values.
@@ -168,7 +170,10 @@ create_pdb_bundle.stanfit <- function(
       "reference_posterior_name",
       "dimensions",
       "added_by",
-      "added_date"
+      "added_date",
+      "urls",
+      "references",
+      "keywords"
     )
   )
   reference_info <- validate_bundle_metadata(
