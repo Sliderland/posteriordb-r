@@ -451,10 +451,12 @@ extract_rstan_sampler_diagnostics <- function(fit, strict = TRUE) {
 }
 
 extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
-                              for_bundle = FALSE, include = NULL,
+                              for_bundle = FALSE, need_diagnostics = TRUE,
+                              include = NULL,
                               exclude = NULL, ...) {
   if (isTRUE(for_bundle)) {
     return(extract_rstan_fit_for_bundle(fit, strict = strict,
+      need_diagnostics = need_diagnostics,
       include = include, exclude = exclude))
   }
   draws <- tryCatch(
@@ -556,10 +558,12 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
 # dimensions contains selected base-variable axes (integer(), scalar); metadata
 # is sampling provenance only. Import-time package versions live separately.
 extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
+                                         need_diagnostics = TRUE,
                                          include = NULL, exclude = NULL) {
   if (!inherits(fit, "stanfit"))
     stop("Bundle extraction requires an `rstan::stanfit`.", call. = FALSE)
   checkmate::assert_flag(strict)
+  checkmate::assert_flag(need_diagnostics)
   include <- validate_variable_selection(include, "include")
   exclude <- validate_variable_selection(exclude, "exclude")
 
@@ -594,9 +598,15 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   if (grepl("#\\s*include\\b", code, perl = TRUE))
     stop("The saved Stan source contains `#include`; bundle extraction requires self-contained source code.", call. = FALSE)
 
-  # Reuse the established extractor once so draws, sampler metrics, and
-  # sampling metadata all describe the same fit snapshot.
-  result <- extract_rstan_fit(fit, checks = "all", strict = strict)
+  # Reuse the established extractor once so draws and sampling metadata all
+  # describe the same fit snapshot. Unchecked bundle extraction must not read
+  # sampler diagnostics or compute BFMI; diagnostic extraction is controlled
+  # explicitly by the bundle caller.
+  result <- extract_rstan_fit(
+    fit,
+    checks = if (need_diagnostics) "all" else character(),
+    strict = strict
+  )
   draws <- result$draws
   if (posterior::nchains(draws) != length(stan_args))
     stop("The saved per-chain inference settings do not match the number of draw chains.", call. = FALSE)
