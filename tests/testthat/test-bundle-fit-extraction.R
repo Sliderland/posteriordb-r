@@ -114,6 +114,23 @@ test_that("unchecked bundle extraction retains sampler inputs without metrics", 
   expect_null(extracted$metadata$expected_fraction_of_missing_information)
 })
 
+test_that("identical per-chain sampling arguments are stored once", {
+  common <- list(
+    list(chain_id = 1L, iter = 100L, warmup = 50L, seed = 7L,
+         algorithm = "NUTS"),
+    list(chain_id = 2L, iter = 100L, warmup = 50L, seed = 7L,
+         algorithm = "NUTS")
+  )
+  expect_identical(posteriordb:::rstan_sampler_arguments(common), list(
+    iter = 100L, warmup = 50L, seed = 7L, algorithm = "NUTS"
+  ))
+
+  chain_specific <- common
+  chain_specific[[2L]]$seed <- 8L
+  expect_named(posteriordb:::rstan_sampler_arguments(chain_specific),
+               c("chain1", "chain2"))
+})
+
 test_that("bundle extraction rejects unsupported provenance and incomplete variables", {
   fit <- make_bundle_extraction_fit()
   testthat::local_mocked_bindings(

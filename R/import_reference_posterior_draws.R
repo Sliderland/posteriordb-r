@@ -1050,13 +1050,21 @@ rstan_common_arg <- function(stan_args, name) {
 
 rstan_sampler_arguments <- function(stan_args) {
   if (!length(stan_args)) return(NULL)
-  lapply(stan_args, function(args) {
+  per_chain <- lapply(stan_args, function(args) {
+    # `chain_id` identifies the chain; it is not a sampling setting. Chain
+    # position is preserved by the names when settings differ by chain.
     keep <- intersect(names(args), c(
-      "chain_id", "iter", "warmup", "thin", "save_warmup", "seed",
+      "iter", "warmup", "thin", "save_warmup", "seed",
       "algorithm", "method", "control", "refresh"
     ))
     drop_null_list_elements(lapply(args[keep], sanitize_metadata_value))
   })
+  if (!any(lengths(per_chain))) return(NULL)
+  if (all(vapply(per_chain, identical, logical(1), y = per_chain[[1L]]))) {
+    return(per_chain[[1L]])
+  }
+  names(per_chain) <- paste0("chain", seq_along(per_chain))
+  per_chain
 }
 
 rstan_method_arguments <- function(metadata) {

@@ -175,7 +175,8 @@ test_that("sampler metadata and diagnostics are retained", {
   expect_equal(metadata$chains, 2)
   expect_equal(metadata$retained_iterations, 10)
   expect_equal(metadata$warmup, 10)
-  expect_true(length(metadata$sampler_arguments) == 2)
+  expect_true(is.list(metadata$sampler_arguments))
+  expect_false("chain_id" %in% names(metadata$sampler_arguments))
   expect_true(all(c(
     "r_hat", "effective_sample_size_bulk", "effective_sample_size_tail",
     "mean_lag1_ac", "divergent_transitions",
