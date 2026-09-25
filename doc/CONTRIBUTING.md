@@ -149,12 +149,6 @@ draws of excellent quality from the posterior. The
 [REFERENCE\_POSTERIOR\_DEFINITION.md](https://github.com/stan-dev/posteriordb/blob/master/doc/REFERENCE_POSTERIOR_DEFINITION.md)
 contain details on quality criteria for reference posteriors.
 
-When you already have an RStan fit and the data and model source used to create
-it, the [`create_pdb_bundle()` guide](CREATE_PDB_BUNDLE.md) describes the
-current bundle workflow, including immediate or deferred diagnostics and the
-required write order. The manual workflow below remains available when working
-with reference-draw objects directly.
-
     pdbl <- pdb_local()
     po <- posterior("test_eight_schools_data-test_eight_schools_model", pdbl)
 
@@ -188,12 +182,6 @@ criteria are fulfilled and add checked diagnostics to the object.
 We can now write the reference posterior draws to the posteriordb.
 
     write_pdb(rp, pdbl, overwrite = TRUE)
-
-The associated posterior must already exist in the database. By default,
-writing the draws also computes and writes the supported summary statistics
-(`mean_value` and `sd`) with their info JSON files. To write those objects
-separately, pass `write_summary_statistics = FALSE` and use the summary
-statistic constructors and `write_pdb()` methods directly.
 
     # We can again check the posterior with
     check_pdb_posterior(po)
