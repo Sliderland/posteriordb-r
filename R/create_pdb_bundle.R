@@ -76,7 +76,7 @@ create_pdb_bundle <- function(
   fit,
   data = NULL,
   added_by = unname(Sys.info()[["user"]]),
-  added_date = as.Date(Sys.time()),
+  added_date = Sys.Date(),
   ...
 ) {
   validate_bundle_call_dots(list(...))
@@ -89,7 +89,7 @@ create_pdb_bundle.stanfit <- function(
   fit,
   data = NULL,
   added_by = unname(Sys.info()[["user"]]),
-  added_date = as.Date(Sys.time()),
+  added_date = Sys.Date(),
   data_info = list(),
   model_info = list(),
   posterior_info = list(),
@@ -271,7 +271,7 @@ assemble_standalone_fit_bundle <- function(
   draws <- posterior::as_draws_list(draws_array)
 
   added_by <- added_by %||% unname(Sys.info()[["user"]])
-  added_date <- added_date %||% as.Date(Sys.time())
+  added_date <- added_date %||% Sys.Date()
   checkmate::assert_string(added_by)
   checkmate::assert_class(added_date, "Date")
   data_info <- make_bundle_info(data_info, added_by, added_date)

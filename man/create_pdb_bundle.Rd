@@ -9,7 +9,7 @@ create_pdb_bundle(
   fit,
   data = NULL,
   added_by = unname(Sys.info()[["user"]]),
-  added_date = as.Date(Sys.time()),
+  added_date = Sys.Date(),
   ...
 )
 
@@ -17,7 +17,7 @@ create_pdb_bundle(
   fit,
   data = NULL,
   added_by = unname(Sys.info()[["user"]]),
-  added_date = as.Date(Sys.time()),
+  added_date = Sys.Date(),
   data_info = list(),
   model_info = list(),
   posterior_info = list(),
