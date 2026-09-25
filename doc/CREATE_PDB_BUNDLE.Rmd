@@ -192,6 +192,12 @@ error if a destination file already exists. Each write happens separately, so
 successful earlier writes remain if a later write fails. Set `overwrite = TRUE`
 only when replacing existing files is intended.
 
+The summary payload field names follow the existing PosteriorDB format:
+`mean_value` contains `names`, `mean_value`, and `mcse_mean`; `sd` contains
+`names`, `sd`, and `mcse_sd`. Their info JSON uses the reference-draw metadata
+shape, with `versions$r_summary_statistic` identifying the package version used
+to compute the summaries.
+
 For further details about accepted metadata and arguments, see
 `?create_pdb_bundle`. The constructor requires the actual named Stan input
 list; it cannot establish that supplied data was the data used to produce the
