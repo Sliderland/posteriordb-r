@@ -237,21 +237,37 @@ generated quantities, excluding `lp__`. Use `include` or `exclude` with base
 variable names to select variables. For example, `include = c("mu", "tau")`
 keeps all saved scalar elements of those variables.
 
-Only write reference draws after all acceptance checks pass. The assertion
-below stops before writing if they are unchecked or failed. Write the data and
-model first, then the posterior. The reference-draw writer requires that
-posterior to exist in the target database before it writes the draws:
+You can write the whole bundle with one call. If diagnostics have not been
+computed yet, this checks the draws first. The data, model, and posterior are
+written either way; reference draws and their summary statistics are written
+only if all acceptance checks pass. The returned report contains the checked
+bundle and records which components were written or skipped:
+
+```{r, eval=FALSE}
+pdbl <- pdb_local()
+write_result <- write_pdb(bundle, pdbl, overwrite = FALSE)
+write_result$written
+write_result$reference_draws_written
+write_result$skipped_reason
+```
+
+When a draw check fails, `write_result$bundle$diagnostics$failures` describes
+the failed checks. A diagnostic error is recorded in
+`write_result$diagnostic_error`; in either case, the three non-draw objects
+are still written. Writing remains sequential, so an error writing one of
+those objects can leave earlier successful writes in place.
+
+You can also write the individual objects manually when you want to control
+the steps separately. The individual reference-draw writer rejects unchecked
+or failed draws and requires the associated posterior JSON to exist first:
 
 ```{r, eval=FALSE}
 assert_checked_reference_posterior_draws(bundle$reference_draws)
-
-pdbl <- pdb_local()
 write_pdb(bundle$data, pdbl, overwrite = FALSE)
 write_pdb(bundle$model_code, pdbl, overwrite = FALSE)
 write_pdb(bundle$posterior, pdbl, overwrite = FALSE)
 write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 ```
-
 
 By default, the reference-draw `write_pdb()` method also computes and writes
 the supported summary statistics (`mean_value` and `mean_squared_value`) using their existing

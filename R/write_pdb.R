@@ -8,8 +8,14 @@
 #'   are rejected before files are written. A successful reference-draw write
 #'   also computes and writes each supported summary statistic by default;
 #'   set `write_summary_statistics = FALSE` to write those objects separately.
-#'   This writer does not rerun diagnostic checks; ESS and treedepth are
-#'   informational, not acceptance gates.
+#'   When `x` is a `pdb_reference_bundle`, `write_pdb()` checks unchecked
+#'   draws, writes the data, model, and posterior, and writes reference draws
+#'   only if all acceptance checks pass. The returned write report includes
+#'   the checked bundle and any skipped components.
+#'   The individual reference-draw writer does not rerun diagnostic checks;
+#'   ESS and treedepth are informational, not acceptance gates. The bundle
+#'   writer runs the full checks first when the bundle has not already been
+#'   checked.
 #'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
@@ -19,10 +25,94 @@
 #'   `FALSE` to write summary-statistic objects separately.
 #' @param type supported reference posterior types.
 #' @param ... further arguments supplied to methods.
+#' @return Existing object writers invisibly return `TRUE`. Writing a
+#'   `pdb_reference_bundle` invisibly returns a `pdb_bundle_write_result` list
+#'   with the checked `bundle`, names of successfully `written` components,
+#'   whether reference draws and summary statistics were written, and any
+#'   diagnostic error or skip reason.
 #' @export
 write_pdb <- function(x, pdb, overwrite = FALSE, ...){
   checkmate::assert_class(pdb, "pdb_local")
   UseMethod("write_pdb")
+}
+
+#' @rdname write_pdb
+#' @export
+write_pdb.pdb_reference_bundle <- function(
+  x, pdb, overwrite = FALSE, write_summary_statistics = TRUE, ...
+) {
+  if (length(list(...))) {
+    stop("`write_pdb()` does not accept extra arguments for a bundle.",
+         call. = FALSE)
+  }
+  checkmate::assert_class(x, "pdb_reference_bundle")
+  checkmate::assert_flag(overwrite)
+  checkmate::assert_flag(write_summary_statistics)
+  checkmate::assert_class(x$data, "pdb_data")
+  checkmate::assert_class(x$model_code, "pdb_model_code")
+  checkmate::assert_class(x$posterior, "pdb_posterior")
+  checkmate::assert_class(x$reference_draws, "pdb_reference_posterior_draws")
+
+  bundle <- x
+  diagnostic_error <- NULL
+  if (is.null(bundle$diagnostics) || !isTRUE(bundle$diagnostics$checked)) {
+    diagnostic_result <- tryCatch(
+      list(bundle = check_reference_posterior_draws(bundle), error = NULL),
+      error = function(error) {
+        list(bundle = NULL, error = conditionMessage(error))
+      }
+    )
+    bundle <- diagnostic_result$bundle %||% bundle
+    diagnostic_error <- diagnostic_result$error
+  }
+
+  write_pdb(bundle$data, pdb = pdb, overwrite = overwrite)
+  write_pdb(bundle$model_code, pdb = pdb, overwrite = overwrite)
+  write_pdb(bundle$posterior, pdb = pdb, overwrite = overwrite)
+  written <- c("data", "model_code", "posterior")
+
+  draws_accepted <- FALSE
+  draw_skip_reason <- diagnostic_error
+  if (is.null(draw_skip_reason)) {
+    acceptance <- tryCatch({
+      assert_checked_reference_posterior_draws(bundle$reference_draws)
+      NULL
+    }, error = identity)
+    if (is.null(acceptance)) {
+      draws_accepted <- TRUE
+    } else {
+      draw_skip_reason <- conditionMessage(acceptance)
+    }
+  }
+
+  if (draws_accepted) {
+    write_pdb(
+      bundle$reference_draws,
+      pdb = pdb,
+      overwrite = overwrite,
+      write_summary_statistics = write_summary_statistics
+    )
+    written <- c("data", "model_code", "posterior", "reference_draws")
+    if (write_summary_statistics) written <- c(written, "summary_statistics")
+  } else {
+    message(paste0(
+      "The data, model, and posterior were written. Reference draws and ",
+      "summary statistics were skipped because the reference-draw checks ",
+      "did not pass.",
+      if (!is.null(draw_skip_reason)) paste0(" Reason: ", draw_skip_reason)
+    ))
+  }
+
+  result <- list(
+    bundle = bundle,
+    written = written,
+    reference_draws_written = draws_accepted,
+    summary_statistics_written = draws_accepted && write_summary_statistics,
+    diagnostic_error = diagnostic_error,
+    skipped_reason = if (draws_accepted) NULL else draw_skip_reason
+  )
+  class(result) <- c("pdb_bundle_write_result", "list")
+  invisible(result)
 }
 
 #' @rdname write_pdb
