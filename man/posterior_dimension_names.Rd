@@ -3,16 +3,14 @@
 %   R/compute_reference_posterior_draws_stan_sampling.R
 \name{posterior_dimension_names}
 \alias{posterior_dimension_names}
-\title{Construct dimension names from a posterior dimension list}
+\title{Get parameter names from PosteriorDB unconstrained dimension counts}
 \usage{
 posterior_dimension_names(x)
 }
 \arguments{
-\item{x}{a named dimensions slot from a [pdb_posterior]}
+\item{x}{a named dimensions slot from a \code{pdb_posterior}, containing positive integer unconstrained parameter counts}
 }
 \description{
-Scalars may be represented by `integer(0)` or `1`; vectors with more than
-one element and higher-dimensional arrays use Stan's indexed variable
-names. The first index varies fastest. A one-element vector cannot be
-distinguished from a scalar in the current PosteriorDB dimension format.
+Returns the base parameter names. Each value in the dimensions list is a
+scalar count of unconstrained coordinates, not a constrained output shape.
 }

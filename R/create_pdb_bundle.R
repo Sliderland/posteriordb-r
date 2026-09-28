@@ -35,6 +35,9 @@
 #'   "models/stan/<name>.stan", stan_version = "..."))` to override it.
 #' @param posterior_info Named posterior metadata. Optional `added_by` and
 #'   `added_date` values override the shared defaults for the posterior.
+#'   The generated `dimensions` map contains unconstrained parameter counts,
+#'   not constrained output shapes. Draw selection still retains every saved
+#'   scalar output column for each selected base variable.
 #'   Optional descriptive fields `urls`, `references`, and `keywords` are
 #'   retained in the posterior info JSON when supplied.
 #'   Optional structural fields
@@ -295,13 +298,10 @@ assemble_standalone_fit_bundle <- function(
   if (!length(chosen)) {
     stop("Variable selection leaves no saved draws.", call. = FALSE)
   }
-  dimensions <- extracted$dimensions[chosen_bases]
-  # PosteriorDB represents scalar parameters with a dimension of 1. Fit
-  # extractors represent them as integer(0), so normalize at the bundle
-  # boundary where PosteriorDB metadata is assembled.
-  dimensions <- lapply(dimensions, function(axes) {
-    if (!length(axes)) 1L else axes
-  })
+  dimensions <- extracted$dimensions[intersect(chosen_bases, names(extracted$dimensions))]
+  if (!length(dimensions)) {
+    stop("The selected draws contain no unconstrained model parameters; posterior dimensions cannot be inferred from derived quantities alone.", call. = FALSE)
+  }
   draws <- posterior::as_draws_list(draws_array)
 
   added_by <- added_by %||% unname(Sys.info()[["user"]])

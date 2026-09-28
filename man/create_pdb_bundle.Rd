@@ -67,6 +67,9 @@ supply `model_implementations = list(stan = list(model_code =
 `added_date` values override the shared defaults for the posterior.
 Optional descriptive fields `urls`, `references`, and `keywords` are
 retained in the posterior info JSON when supplied.
+The generated `dimensions` map contains unconstrained parameter counts,
+not constrained output shapes. Draw selection still retains every saved
+scalar output column for each selected base variable.
 Optional structural fields
 (`name`, `model_name`, `data_name`, `reference_posterior_name`, and
 `dimensions`) are accepted only when they match inferred values.}

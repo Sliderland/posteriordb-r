@@ -40,8 +40,9 @@ The importer always runs the full reference-draw checks. With
 `mean_value` and `mean_squared_value` summaries by default; set
 `write_summary_statistics = FALSE` to skip them. A posterior already
 linked to a different reference-draw object cannot be relinked by this
-call. The importer checks that fit variables and scalar dimensions match
-the posterior specification, but it does not confirm that the fit used
+call. The importer selects every saved scalar column for each declared base
+parameter and verifies the fit's unconstrained parameter counts against the
+posterior specification, but it does not confirm that the fit used
 the exact model source and data linked to that posterior.
 
 Prepare the fit and the exact named Stan input list used for sampling.
@@ -229,7 +230,10 @@ By default, the bundle includes saved parameters, transformed
 parameters, and generated quantities, excluding `lp__`. Use `include` or
 `exclude` with base variable names to select variables. For example,
 `include = c("mu", "tau")` keeps all saved scalar elements of those
-variables.
+variables. The posterior's `dimensions` entries record unconstrained
+parameter counts, which can differ from the number or shape of saved output
+columns (for example, a constrained simplex has one fewer unconstrained
+coordinate than output elements).
 
 You can write the whole bundle with one call. If diagnostics have not
 been computed yet, this checks the draws first. The data, model, and

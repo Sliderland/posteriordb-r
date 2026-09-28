@@ -44,10 +44,14 @@ compute_reference_posterior_draws_stan_sampling <- function(
     backend = backend
   )
   if (identical(backend, "rstan")) {
+    available <- posterior::variables(posterior::as_draws(stan_object))
+    keep_draw_names <- available[sub("\\[.*$", "", available) %in% pdn]
+    missing <- setdiff(pdn, unique(sub("\\[.*$", "", keep_draw_names)))
+    if (length(missing)) stop("The sampled fit is missing posterior parameter(s): ", paste(missing, collapse = ", "), call. = FALSE)
     rpi$versions <- pdb_stan_sampling_versions()
     rpi$diagnostics <- compute_stan_sampling_diagnostics(
       x = stan_object,
-      keep_dimensions = pdn
+      keep_dimensions = keep_draw_names
     )
     rpd <- as.reference_posterior_draws(
       x = stan_object,
@@ -56,10 +60,14 @@ compute_reference_posterior_draws_stan_sampling <- function(
     )
   } else {
     extracted <- extract_external_stan_fit(stan_object)
-    draws <- posterior::subset_draws(extracted$draws, variable = pdn)
+    available <- posterior::variables(extracted$draws)
+    keep_draw_names <- available[sub("\\[.*$", "", available) %in% pdn]
+    missing <- setdiff(pdn, unique(sub("\\[.*$", "", keep_draw_names)))
+    if (length(missing)) stop("The sampled fit is missing posterior parameter(s): ", paste(missing, collapse = ", "), call. = FALSE)
+    draws <- posterior::subset_draws(extracted$draws, variable = keep_draw_names)
     rpi$diagnostics <- compute_stan_sampling_diagnostics(
       x = draws,
-      keep_dimensions = pdn,
+      keep_dimensions = keep_draw_names,
       sampler_diagnostics = extracted$sampler_diagnostics,
       expected_fraction_of_missing_information =
         extracted$metadata$expected_fraction_of_missing_information,
@@ -72,7 +80,7 @@ compute_reference_posterior_draws_stan_sampling <- function(
       pdb = pdb
     )
   }
-  subset(rpd, variable = pdn)
+  subset(rpd, variable = keep_draw_names)
 }
 
 stan_fit_sampling_versions <- function(metadata) {
@@ -228,62 +236,15 @@ sampler_params_to_draws_array <- function(sampler_params) {
 }
 
 
-#' Construct dimension names from a posterior dimension list
-#'
-#' Scalars may be represented by `integer(0)` or `1`; vectors with more than
-#' one element and higher-dimensional arrays use Stan's indexed variable
-#' names. The first index varies fastest. A one-element vector cannot be
-#' distinguished from a scalar in the current PosteriorDB dimension format.
+#' Get parameter names from PosteriorDB unconstrained dimension counts
 #'
 #' @param x a named dimensions slot from a [pdb_posterior]
 posterior_dimension_names <- function(x) {
   checkmate::assert_list(x, min.len = 1L)
   checkmate::assert_named(x)
   checkmate::assert_character(names(x), min.chars = 1L, unique = TRUE)
-
-  dn <- Map(
-    function(parameter, dims) {
-      # RStan represents scalars as integer(0)
-      if (length(dims) == 0L) {
-        return(parameter)
-      }
-
-      checkmate::assert_integerish(
-        dims,
-        lower = 1,
-        upper = .Machine$integer.max,
-        min.len = 1,
-        any.missing = FALSE
-      )
-
-      dims <- as.integer(dims)
-
-      # Scalar explicitly represented as 1
-      if (length(dims) == 1L && dims == 1L) {
-        return(parameter)
-      }
-
-      indices <- do.call(
-        expand.grid,
-        c(
-          lapply(dims, seq_len),
-          KEEP.OUT.ATTRS = FALSE,
-          stringsAsFactors = FALSE
-        )
-      )
-
-      paste0(
-        parameter,
-        "[",
-        apply(indices, 1L, paste, collapse = ","),
-        "]"
-      )
-    },
-    names(x),
-    x
-  )
-
-  unlist(dn, use.names = FALSE)
+  validate_posterior_dimension_counts(x)
+  names(x)
 }
 
 #' Extract relevant stan versions

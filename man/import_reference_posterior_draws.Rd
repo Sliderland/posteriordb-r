@@ -24,7 +24,7 @@ import_reference_posterior_draws(
 \item{pdb}{a local PosteriorDB object. Required when `write = TRUE`; when
 `write = FALSE`, it is used to resolve a posterior name.}
 
-\item{dimensions}{optional named PosteriorDB dimension list.}
+\item{dimensions}{optional named list of unconstrained parameter counts.}
 
 \item{policy}{reserved for a future diagnostic policy; must currently be
 `NULL`.}
@@ -55,9 +55,10 @@ posterior must already exist in the local database. Existing data and model
 files are not rewritten.
 }
 \details{
-The importer verifies that the fit contains the scalar variables and shapes
-declared by the posterior, but it does not compare the fit's Stan source code
-or sampling data with the source and data linked to that posterior.
+The importer selects all scalar output columns for each base variable in the
+posterior and verifies its unconstrained parameter count. It does not compare
+the fit's Stan source code or sampling data with the source and data linked to
+that posterior.
 }
 \examples{
 \dontrun{

@@ -40,7 +40,8 @@ To setup a posterior object from a list, a minimum och a `pdb_model`,
 Posteriors returned by [create_pdb_bundle()] embed their data, model
 code, and reference draws. Their normal getters work without a database.
 A NULL connection is valid only with all three embedded objects; embedded
-names and draw dimensions are checked even when a connection is attached.
+names are checked even when a connection is attached. `dimensions` stores
+one unconstrained parameter count per parameter, not output shapes.
 
 List-based posterior construction preserves the optional character fields
 `urls`, `references`, and `keywords` when they are supplied. When writing a
