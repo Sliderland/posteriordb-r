@@ -1,9 +1,12 @@
 #' Construct a standalone PosteriorDB reference-draw bundle from a Stan fit
 #'
 #' Build linked data, model, posterior, and reference-draw objects around an
-#' already sampled `rstan::stanfit`. This function does not compile, sample,
-#' access a database, or write files. Supply the actual Stan input list and
-#' human labels; data recovery is reserved for a future backend.
+#' already sampled `rstan::stanfit`. The default workflow accepts the actual
+#' Stan input list and human labels. Existing database objects can also be
+#' reused, either as objects or names. This function does not resample the fit
+#' or write files; it reads named records through the package getters and may
+#' recompile the model only to recover dimensions from a fit with a stale
+#' compiled pointer.
 #'
 #' The default variable selection includes saved parameters, transformed
 #' parameters, and generated quantities, except `lp__`. `include` and
@@ -11,9 +14,14 @@
 #' saved scalar elements of an array parameter.
 #'
 #' @param fit A completed `rstan::stanfit` object.
-#' @param data The exact named Stan input list, with ordinary numeric,
-#'   integer, or logical vectors/arrays as values. `list()` explicitly declares
-#'   an empty input; `NULL` is currently unavailable and errors.
+#' @param data The exact named Stan input list, a `pdb_data` object, or the
+#'   name of saved data in `pdb`. `list()` explicitly declares an empty input;
+#'   `NULL` is currently unavailable and errors unless recovered from a
+#'   supplied posterior object.
+#' @param model_code Optional `pdb_model_code` object or saved model name.
+#'   Its Stan source must match the source embedded in `fit`.
+#' @param posterior Optional `pdb_posterior` object or saved posterior name.
+#'   Its linked data/model and unconstrained dimensions must match the bundle.
 #' @param added_by Shared default contributor name for the constructed data,
 #'   model, posterior, and reference-draw metadata. Defaults to the current R
 #'   user. Values supplied in the corresponding metadata lists take precedence.
@@ -52,9 +60,9 @@
 #' @param check Whether to evaluate the package's reference-draw acceptance
 #'   checks. `FALSE` leaves the candidate explicitly unchecked and skips
 #'   draw-diagnostic and acceptance-metric calculations.
-#' @param pdb Optional PosteriorDB connection to attach for later use. This
-#'   constructor never reads from or writes to it.
-#' @param ... Named method options: `data_info`, `model_info`, `posterior_info`,
+#' @param pdb Optional PosteriorDB connection used to retrieve named objects
+#'   and attach the resulting bundle. This constructor never writes to it.
+#' @param ... Named method options: `model_code`, `posterior`, `data_info`, `model_info`, `posterior_info`,
 #'   `reference_info`, `include`, `exclude`, `check`, and
 #'   `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.
 #'
@@ -65,9 +73,20 @@
 #'   `NULL` when `check = FALSE`; call [check_reference_posterior_draws()] on
 #'   that bundle to check it later.
 #' @details
+#' The default workflow uses a Stan input list and data/model metadata.
+#' Alternatively, `data` can be a `pdb_data` object or saved data name, and
+#' `model_code` and `posterior` can each be supplied as existing objects or
+#' saved names. A supplied posterior can provide linked data and model code
+#' when `data` and `model_code` are omitted. Database names are resolved with
+#' the package's normal getters. Supplied objects are checked against the fit
+#' source, links, and inferred unconstrained dimensions.
+#'
 #' The bundle embeds its content in memory and remains usable before database
 #' persistence. Supplied data is recorded as caller-supplied; this function
-#' cannot establish that it produced the fit. With `check = FALSE`, raw
+#' cannot establish that it produced the fit. If a serialized RStan fit has
+#' lost its compiled pointer, the model source can be recompiled with the
+#' supplied data to recover unconstrained parameter counts; the saved fit is
+#' not resampled. With `check = FALSE`, raw
 #' sampler diagnostics are retained so [check_reference_posterior_draws()]
 #' can check the bundle later without rerunning sampling. For example:
 #'
@@ -104,6 +123,8 @@ create_pdb_bundle <- function(
 create_pdb_bundle.stanfit <- function(
   fit,
   data = NULL,
+  model_code = NULL,
+  posterior = NULL,
   added_by = unname(Sys.info()[["user"]]),
   added_date = Sys.Date(),
   data_info = list(),
@@ -125,8 +146,43 @@ create_pdb_bundle.stanfit <- function(
   if (!is.null(pdb)) {
     checkmate::assert_class(pdb, "pdb")
   }
+  if (is.character(data) && length(data) == 1L) {
+    data <- if (is.null(pdb)) pdb_data(data) else pdb_data(data, pdb = pdb)
+  }
+  if (is.character(model_code) && length(model_code) == 1L) {
+    model_code <- if (is.null(pdb)) {
+      pdb_model_code(model_code, framework = "stan")
+    } else {
+      pdb_model_code(model_code, framework = "stan", pdb = pdb)
+    }
+  }
+  if (is.character(posterior) && length(posterior) == 1L) {
+    posterior <- if (is.null(pdb)) pdb_posterior(posterior) else pdb_posterior(posterior, pdb = pdb)
+  }
+  if (!is.null(model_code)) checkmate::assert_class(model_code, "pdb_model_code")
+  if (!is.null(posterior)) checkmate::assert_class(posterior, "pdb_posterior")
+  if (!is.null(posterior)) {
+    if (is.null(data)) data <- get_data(posterior)
+    if (is.null(model_code)) model_code <- model_code(posterior, framework = "stan")
+  }
   resolved_data <- resolve_standalone_fit_data(fit, data)
   data <- resolved_data$data
+  existing_data <- resolved_data$object
+  if (!is.null(existing_data)) {
+    if (length(data_info)) stop("When `data` is an existing `pdb_data` object or name, its metadata is used; omit `data_info`.", call. = FALSE)
+    data_info <- unclass(info(existing_data))
+  }
+  if (!is.null(model_code)) {
+    if (length(model_info)) stop("When `model_code` is an existing model-code object or name, its metadata is used; omit `model_info`.", call. = FALSE)
+    if (!identical(framework(model_code), "stan")) stop("`model_code` must contain Stan source.", call. = FALSE)
+    model_info <- unclass(info(model_code))
+  }
+  if (!is.null(posterior)) {
+    if (length(posterior_info)) stop("When `posterior` is an existing posterior object or name, its metadata is used; omit `posterior_info`.", call. = FALSE)
+    posterior_fields <- c("name", "model_name", "data_name", "reference_posterior_name",
+      "dimensions", "added_by", "added_date", "urls", "references", "keywords")
+    posterior_info <- unclass(posterior)[intersect(names(unclass(posterior)), posterior_fields)]
+  }
   validate_stan_input_data(data, "data")
   data_info <- validate_bundle_metadata(
     data_info,
@@ -248,7 +304,8 @@ create_pdb_bundle.stanfit <- function(
     for_bundle = TRUE,
     compute_diagnostics = check,
     include = include,
-    exclude = exclude
+    exclude = exclude,
+    data = data
   )
   assemble_standalone_fit_bundle(
     extracted = extracted,
@@ -263,7 +320,10 @@ create_pdb_bundle.stanfit <- function(
     exclude = exclude,
     check = check,
     pdb = pdb,
-    expected_data_file = expected_data_file
+    expected_data_file = expected_data_file,
+    existing_data = existing_data,
+    existing_model_code = model_code,
+    existing_posterior = posterior
   )
 }
 
@@ -282,7 +342,10 @@ assemble_standalone_fit_bundle <- function(
   exclude = NULL,
   check = TRUE,
   pdb = NULL,
-  expected_data_file
+  expected_data_file,
+  existing_data = NULL,
+  existing_model_code = NULL,
+  existing_posterior = NULL
 ) {
   data <- resolved_data$data
   draws_array <- extracted$draws
@@ -321,11 +384,16 @@ assemble_standalone_fit_bundle <- function(
   }
   model_info$framework <- NULL
   model_info$model_implementations <- NULL
-  dat <- as.pdb_data(data, info = as.pdb_data_info(data_info))
+  dat <- existing_data %||% as.pdb_data(data, info = as.pdb_data_info(data_info))
   mi <- as.pdb_model_info(c(model_info, list(framework = "stan")))
   mi$model_implementations$stan["stan_version"] <- list(stan_version)
   code <- extracted$source
-  mc <- as.pdb_model_code(code, info = mi, framework = "stan")
+  if (!is.null(existing_model_code) &&
+      !identical(trimws(as.character(existing_model_code)), trimws(code))) {
+    stop("The supplied model code does not match the source embedded in `fit`.", call. = FALSE)
+  }
+  mc <- existing_model_code %||% as.pdb_model_code(code, info = mi, framework = "stan")
+  if (!identical(info(mc)$name, model_info$name)) stop("The supplied model-code name conflicts with the resolved model metadata.", call. = FALSE)
   if (!is.null(pdb)) {
     pdb(dat) <- pdb
     pdb(mc) <- pdb
@@ -352,6 +420,17 @@ assemble_standalone_fit_bundle <- function(
         call. = FALSE
       )
     }
+  }
+  if (!is.null(existing_posterior)) {
+    expected_fields <- c(name = "name", model_name = "model_name", data_name = "data_name")
+    conflicts <- expected_fields[vapply(names(expected_fields), function(key) {
+      !identical(existing_posterior[[key]], structural[[key]])
+    }, logical(1))]
+    if (length(conflicts)) stop("The supplied posterior does not link to the resolved data and model objects.", call. = FALSE)
+    if (!identical(existing_posterior$dimensions, dimensions)) stop("The supplied posterior's unconstrained dimensions do not match the fitted model and selected variables.", call. = FALSE)
+    existing_posterior$embedded_data <- dat
+    existing_posterior$embedded_model_code <- mc
+    existing_posterior$embedded_reference_draws <- rpd
   }
   po_fields <- posterior_info[setdiff(
     names(posterior_info),
@@ -404,7 +483,7 @@ assemble_standalone_fit_bundle <- function(
     diagnostic_report$failures <- NULL
   }
   summary_statistics <- bundle_summary_statistics(rpd)
-  po <- as.pdb_posterior(
+  po <- existing_posterior %||% as.pdb_posterior(
     c(
       structural,
       list(pdb_data = dat, pdb_model_code = mc),
@@ -590,6 +669,8 @@ create_pdb_bundle.default <- function(fit, ...) {
 validate_bundle_call_dots <- function(dots) {
   allowed <- c(
     "data_info",
+    "model_code",
+    "posterior",
     "model_info",
     "posterior_info",
     "reference_info",
@@ -604,7 +685,7 @@ validate_bundle_call_dots <- function(dots) {
       (is.null(supplied) || anyNA(supplied) || any(!nzchar(supplied)))
   ) {
     stop(
-      "Arguments after `added_date` must be named exactly; use `data_info`, `model_info`, `posterior_info`, `reference_info`, `include`, `exclude`, `check`, or `pdb`.",
+      "Arguments after `added_date` must be named exactly; use `data_info`, `model_code`, `model_info`, `posterior`, `posterior_info`, `reference_info`, `include`, `exclude`, `check`, or `pdb`.",
       call. = FALSE
     )
   }
@@ -684,6 +765,12 @@ resolve_standalone_fit_data <- function(fit, data) {
       )
     }
   }
+  object <- NULL
+  if (inherits(data, "pdb_data")) {
+    object <- data
+    data <- lapply(seq_along(object), function(i) object[[i]])
+    names(data) <- names(object)
+  }
   if (!is.list(data)) {
     stop(
       "",
@@ -705,7 +792,7 @@ resolve_standalone_fit_data <- function(fit, data) {
       call. = FALSE
     )
   }
-  list(data = data, source = source)
+  list(data = data, source = source, object = object)
 }
 
 # Future recovery belongs at this narrow boundary. NULL means unavailable;

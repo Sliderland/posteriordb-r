@@ -16,6 +16,8 @@ create_pdb_bundle(
 \method{create_pdb_bundle}{stanfit}(
   fit,
   data = NULL,
+  model_code = NULL,
+  posterior = NULL,
   added_by = unname(Sys.info()[["user"]]),
   added_date = Sys.Date(),
   data_info = list(),
@@ -32,9 +34,16 @@ create_pdb_bundle(
 \arguments{
 \item{fit}{A completed `rstan::stanfit` object.}
 
-\item{data}{The exact named Stan input list, with ordinary numeric,
-integer, or logical vectors/arrays as values. `list()` explicitly declares
-an empty input; `NULL` is currently unavailable and errors.}
+\item{data}{The exact named Stan input list, a `pdb_data` object, or the
+name of saved data in `pdb`. `list()` explicitly declares an empty input;
+`NULL` is currently unavailable and errors unless recovered from a
+supplied posterior object.}
+
+\item{model_code}{Optional `pdb_model_code` object or saved model name.
+Its Stan source must match the source embedded in `fit`.}
+
+\item{posterior}{Optional `pdb_posterior` object or saved posterior name.
+Its linked data/model and unconstrained dimensions must match the bundle.}
 
 \item{added_by}{Shared default contributor name for the constructed data,
 model, posterior, and reference-draw metadata. Defaults to the current R
@@ -44,7 +53,7 @@ user. Values supplied in the corresponding metadata lists take precedence.}
 objects. Defaults to the current date when the function is called.
 Values supplied in the corresponding metadata lists take precedence.}
 
-\item{...}{Named method options: `data_info`, `model_info`, `posterior_info`,
+\item{...}{Named method options: `model_code`, `posterior`, `data_info`, `model_info`, `posterior_info`,
 `reference_info`, `include`, `exclude`, `check`, and
 `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.}
 
@@ -87,8 +96,8 @@ Diagnostics and `checks_made` are calculated internally.}
 checks. `FALSE` leaves the candidate explicitly unchecked and skips
 draw-diagnostic and acceptance-metric calculations.}
 
-\item{pdb}{Optional PosteriorDB connection to attach for later use. This
-constructor never reads from or writes to it.}
+\item{pdb}{Optional PosteriorDB connection used to retrieve named objects
+and attach the resulting bundle. This constructor never writes to it.}
 }
 \value{
 A `pdb_reference_bundle` list containing `data`, `model_code`,
@@ -100,9 +109,12 @@ A `pdb_reference_bundle` list containing `data`, `model_code`,
 }
 \description{
 Build linked data, model, posterior, and reference-draw objects around an
-already sampled `rstan::stanfit`. This function does not compile, sample,
-access a database, or write files. Supply the actual Stan input list and
-human labels; data recovery is reserved for a future backend.
+already sampled `rstan::stanfit`. The default workflow accepts the actual
+Stan input list and human labels. Existing database objects can also be
+reused, either as objects or names. This function does not resample the fit
+or write files; it reads named records through the package getters and may
+recompile the model only to recover dimensions from a fit with a stale
+compiled pointer.
 }
 \details{
 The default variable selection includes saved parameters, transformed
@@ -111,9 +123,20 @@ parameters, and generated quantities, except `lp__`. `include` and
 saved scalar elements of an array parameter.
 
 
+The default workflow uses a Stan input list and data/model metadata.
+Alternatively, `data` can be a `pdb_data` object or saved data name, and
+`model_code` and `posterior` can each be supplied as existing objects or
+saved names. A supplied posterior can provide linked data and model code
+when `data` and `model_code` are omitted. Database names are resolved with
+the package's normal getters. Supplied objects are checked against the fit
+source, links, and inferred unconstrained dimensions.
+
 The bundle embeds its content in memory and remains usable before database
 persistence. Supplied data is recorded as caller-supplied; this function
-cannot establish that it produced the fit. With `check = FALSE`, raw
+cannot establish that it produced the fit. If a serialized RStan fit has
+lost its compiled pointer, the model source can be recompiled with the
+supplied data to recover unconstrained parameter counts; the saved fit is
+not resampled. With `check = FALSE`, raw
 sampler diagnostics are retained so [check_reference_posterior_draws()]
 can check the bundle later without rerunning sampling. For example:
 

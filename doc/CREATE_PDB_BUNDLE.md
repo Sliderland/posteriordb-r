@@ -5,17 +5,23 @@
 `create_pdb_bundle()` builds linked data, model, posterior, and
 reference-draw objects around an already sampled `rstan::stanfit`. The
 result is an R list that you can inspect and check before writing any of
-its objects. The function does not compile or sample a model, read from
-a database, or write files. The current implementation supports RStan
-`stanfit` objects.
+its objects. The function does not resample the fit or write files. It
+supports the existing list-based workflow by default, and can reuse
+existing data, model-code, or posterior objects (or retrieve them by
+name from a database). It currently supports RStan `stanfit` objects.
 
 Choose the workflow based on whether the data, model, and posterior
 records already exist:
 
-- Use `create_pdb_bundle()` to construct new linked data, model,
-  posterior, and reference-draw objects from a fit. Supply the data list
-  and metadata; the function builds everything in memory and leaves
-  persistence to you.
+- Use `create_pdb_bundle()` to construct linked objects from a fit. The
+  standard workflow supplies the Stan data list plus `data_info` and
+  `model_info`; the function builds everything in memory and leaves
+  persistence to you. If records already exist, pass `data` as a
+  `pdb_data` object or saved data name, and pass `model_code` and/or
+  `posterior` as existing objects or saved names. A supplied posterior
+  can provide its linked data and model code automatically. Existing
+  model source must match the fit, and posterior links and unconstrained
+  parameter counts must match.
 - Use `import_reference_posterior_draws()` when you already have a
   PosteriorDB posterior and want to import a completed fit for it. This
   supports RStan and CmdStanR fits, checks them, and can write the draws
@@ -40,10 +46,31 @@ The importer always runs the full reference-draw checks. With
 `mean_value` and `mean_squared_value` summaries by default; set
 `write_summary_statistics = FALSE` to skip them. A posterior already
 linked to a different reference-draw object cannot be relinked by this
-call. The importer selects every saved scalar column for each declared base
-parameter and verifies the fit's unconstrained parameter counts against the
-posterior specification, but it does not confirm that the fit used
-the exact model source and data linked to that posterior.
+call. The importer selects every saved scalar column for each declared
+base parameter and verifies the fit’s unconstrained parameter counts
+against the posterior specification, but it does not confirm that the
+fit used the exact model source and data linked to that posterior.
+
+To build from saved data and model records while constructing the
+missing posterior and reference draws, use:
+
+``` r
+pdbl <- pdb_local("/path/to/posterior_database")
+bundle <- create_pdb_bundle(
+  fit,
+  data = "existing_data",
+  model_code = "existing_model",
+  pdb = pdbl,
+  check = FALSE
+)
+```
+
+You can pass `pdb_data`, `pdb_model_code`, and `pdb_posterior` objects
+instead of names. If only `posterior` is supplied, its linked data and
+model code are obtained with `get_data()` and `model_code()`. The
+ordinary list plus metadata workflow remains the default. When reusing
+an object, omit its corresponding metadata list; the object’s existing
+information is retained.
 
 Prepare the fit and the exact named Stan input list used for sampling.
 The eight schools example below follows the model in `CONTRIBUTING.md`:
@@ -230,10 +257,10 @@ By default, the bundle includes saved parameters, transformed
 parameters, and generated quantities, excluding `lp__`. Use `include` or
 `exclude` with base variable names to select variables. For example,
 `include = c("mu", "tau")` keeps all saved scalar elements of those
-variables. The posterior's `dimensions` entries record unconstrained
-parameter counts, which can differ from the number or shape of saved output
-columns (for example, a constrained simplex has one fewer unconstrained
-coordinate than output elements).
+variables. The posterior’s `dimensions` entries record unconstrained
+parameter counts, which can differ from the number or shape of saved
+output columns (for example, a constrained simplex has one fewer
+unconstrained coordinate than output elements).
 
 You can write the whole bundle with one call. If diagnostics have not
 been computed yet, this checks the draws first. The data, model, and

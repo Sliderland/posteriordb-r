@@ -531,11 +531,11 @@ extract_rstan_sampler_diagnostics <- function(fit, strict = TRUE) {
 extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
                               for_bundle = FALSE, compute_diagnostics = TRUE,
                               include = NULL,
-                              exclude = NULL, ...) {
+                              exclude = NULL, data = NULL, ...) {
   if (isTRUE(for_bundle)) {
     return(extract_rstan_fit_for_bundle(fit, strict = strict,
       compute_diagnostics = compute_diagnostics,
-      include = include, exclude = exclude))
+      include = include, exclude = exclude, data = data))
   }
   draws <- tryCatch(
     posterior::as_draws_array(fit),
@@ -638,7 +638,8 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
 # contains fit-declared shapes used only to validate saved draw completeness.
 extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
                                          compute_diagnostics = TRUE,
-                                         include = NULL, exclude = NULL) {
+                                         include = NULL, exclude = NULL,
+                                         data = NULL) {
   if (!inherits(fit, "stanfit"))
     stop("Bundle extraction requires an `rstan::stanfit`.", call. = FALSE)
   checkmate::assert_flag(strict)
@@ -745,7 +746,16 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     validate_rstan_saved_coverage(base, saved, axes)
     axes
   }), selected_bases)
-  parameter_counts <- infer_unconstrained_parameter_counts_from_fit(fit)
+  parameter_counts <- tryCatch(
+    infer_unconstrained_parameter_counts_from_fit(fit),
+    error = function(error) {
+      if (is.null(data)) stop(error)
+      # Serialized stanfit objects may retain draws and source but lose their
+      # compiled model instance. Recompile from source and the supplied data;
+      # this recovers parameter coordinates without resampling the saved fit.
+      infer_posterior_dimensions(code, data, backend = "rstan")
+    }
+  )
   dimensions <- parameter_counts[intersect(selected_bases, names(parameter_counts))]
   if (!length(dimensions))
     stop("The selected variables contain no unconstrained model parameters.", call. = FALSE)
