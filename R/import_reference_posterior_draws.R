@@ -672,7 +672,9 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   if (length(chain_ids) > 1L && !anyNA(chain_ids) && anyDuplicated(chain_ids))
     stop("Merged `stanfit` objects with repeated chain IDs are not supported for bundle extraction.", call. = FALSE)
 
-  code <- rstan_fit_slot(rstan_fit_slot(fit, "stanmodel"), "model_code")
+  code <- as.character(
+    rstan_fit_slot(rstan_fit_slot(fit, "stanmodel"), "model_code")
+  )
   if (is.null(code) || length(code) != 1L || is.na(code) || !nzchar(code))
     stop("The `stanfit` does not expose its saved Stan source code.", call. = FALSE)
   if (grepl("#\\s*include\\b", code, perl = TRUE))

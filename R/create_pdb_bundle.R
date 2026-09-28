@@ -406,7 +406,10 @@ assemble_standalone_fit_bundle <- function(
   mi$model_implementations$stan["stan_version"] <- list(stan_version)
   code <- extracted$source
   if (!is.null(existing_model_code) &&
-      !identical(trimws(as.character(existing_model_code)), trimws(code))) {
+      !identical(
+        normalize_stan_model_code(existing_model_code),
+        normalize_stan_model_code(code)
+      )) {
     stop("The supplied model code does not match the source embedded in `fit`.", call. = FALSE)
   }
   mc <- existing_model_code %||% as.pdb_model_code(code, info = mi, framework = "stan")
@@ -1035,4 +1038,10 @@ bundle_acceptance_flags <- function() {
     efmi_above_0_2 = TRUE,
     no_divergent_transitions = TRUE
   )
+}
+
+normalize_stan_model_code <- function(x) {
+  code <- paste(as.character(x), collapse = "\n")
+  code <- gsub("\r\n?", "\n", code)
+  sub("\n+$", "", code)
 }
