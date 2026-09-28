@@ -286,6 +286,27 @@ keeps all saved scalar elements of those variables. The posterior's
 from the number or shape of saved output columns (for example, a constrained
 simplex has one fewer unconstrained coordinate than output elements).
 
+The `dimensions` map describes the model parameters that have unconstrained
+coordinates; it is not a complete inventory of every variable saved in the
+draws. Transformed parameters and generated quantities can be present in the
+draw payload without appearing in this map. Use `include` and `exclude` to
+choose which saved variables are retained and used for the bundle's draw
+diagnostics. In particular, exclude a generated quantity if it is not useful
+for diagnosing the fit.
+
+For an existing fit, the package can infer the named unconstrained counts
+directly from either supported fit class:
+
+```{r, eval=FALSE}
+rstan_dimensions <- infer_unconstrained_parameter_counts_from_fit(rstan_fit)
+cmdstanr_dimensions <- infer_unconstrained_parameter_counts_from_fit(cmdstanr_fit)
+```
+
+The same helper dispatches on fit class and returns one count per model
+parameter. If there is no fit object, `infer_posterior_dimensions()` can infer
+counts from Stan source and data; see `?infer_posterior_dimensions` for its
+backend-specific compile behavior.
+
 You can write the whole bundle with one call. If diagnostics have not been
 computed yet, this checks the draws first. The data, model, and posterior are
 written either way; reference draws and their summary statistics are written
