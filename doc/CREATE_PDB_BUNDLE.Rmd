@@ -14,8 +14,9 @@ objects around an already sampled `rstan::stanfit`. The result is an R list
 that you can inspect and check before writing any of its objects. The function
 does not resample the fit or write files. It supports the existing list-based
 workflow by default, and can reuse existing data, model-code, or posterior
-objects (or retrieve them by name from a database). It currently supports
-RStan `stanfit` objects.
+objects (or retrieve them by name from a database). It currently accepts
+RStan `stanfit` objects; `import_reference_posterior_draws()` also accepts
+CmdStanR fits.
 
 Choose the workflow based on whether the data, model, and posterior records
 already exist:
@@ -77,6 +78,11 @@ code are obtained with `get_data()` and `model_code()`. The ordinary list plus
 metadata workflow remains the default. When reusing an object, omit its
 corresponding metadata list. If both are supplied, the function warns and
 uses the existing object's metadata, ignoring the corresponding list.
+When supplying an existing posterior, its `dimensions` must use the fork's
+current meaning: one scalar unconstrained-parameter count per model parameter.
+Older PosteriorDB entries that store output shapes may fail validation and
+cannot be passed through unchanged. The selected variables and their inferred
+counts must also agree with the supplied posterior.
 
 Prepare the fit and the exact named Stan input list used for sampling. The
 eight schools example below follows the model in `CONTRIBUTING.md`:
@@ -175,8 +181,15 @@ bundle$summary_statistics$mean_squared_value
 The posterior embeds the data, model code, and reference draws, so its getters
 work before persistence. `bundle$provenance` records how the input data was
 obtained, the fit class, selected variables, and sampling metadata. Passing a
-`pdb` connection only attaches it to the objects; it does not read or write
-database files.
+`pdb` connection attaches it to the objects; when a saved object name is
+supplied, the connection is also used to retrieve that object. Construction
+never writes database files.
+
+If a serialized RStan fit has lost its compiled model pointer, bundle
+construction recompiles the saved Stan source and uses the supplied data to
+recover unconstrained parameter counts. This does not resample or replace the
+fit's saved draws. RStan may print `the number of chains is less than 1;
+sampling not done` during this dimension-recovery step; that is expected.
 
 Choose when to compute diagnostics
 ----------------------------------
@@ -293,6 +306,27 @@ the failed checks. A diagnostic error is recorded in
 are still written. Writing remains sequential, so an error writing one of
 those objects can leave earlier successful writes in place.
 
+The bundle writer attempts to write all three non-draw objects even when they
+were loaded from the same database. Therefore, with the default
+`overwrite = FALSE`, writing such a bundle back to that database will fail on
+the first existing destination file it encounters. The writer does not compare
+the existing file's contents with the supplied object, so even an identical
+object is a collision. It writes data, then model code, then posterior; if a
+later object conflicts, earlier successful writes are left in place. There is
+no rollback. To add accepted draws to a database that already has the matching
+data, model, and posterior, write only the reference-draw object:
+
+```{r, eval=FALSE}
+write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
+```
+
+The associated posterior JSON must already exist. This individual draw write
+also writes both supported summary statistics by default. Use the whole-bundle
+writer when the destination does not already contain conflicting objects, or
+when replacing them with `overwrite = TRUE` is intended. That option replaces
+files at the bundle's destination names; it does not merge metadata or protect
+against replacing a different object's files that use those same names.
+
 You can also write the individual objects manually when you want to control
 the steps separately. The individual reference-draw writer rejects unchecked
 or failed draws and requires the associated posterior JSON to exist first:
@@ -343,5 +377,7 @@ to compute the summaries.
 
 For further details about accepted metadata and arguments, see
 `?create_pdb_bundle`. The constructor requires the actual named Stan input
-list; it cannot establish that supplied data was the data used to produce the
-fit.
+list for the default workflow. Alternatively, pass an existing `pdb_data`
+object or its saved name, or supply a posterior whose linked data can be
+retrieved. In all cases, the function cannot establish that the supplied data
+was the data used to produce the fit.
