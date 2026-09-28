@@ -58,7 +58,10 @@ infer_unconstrained_parameter_counts_from_fit <- function(fit, include = NULL, e
   if (inherits(fit, "stanfit")) {
     instance <- tryCatch(fit@.MISC$stan_fit_instance, error = function(e) NULL)
     if (is.null(instance)) stop("The `stanfit` does not expose its compiled model instance and unconstrained parameter names.", call. = FALSE)
-    unconstrained_names <- tryCatch(instance$unconstrained_param_names(TRUE, TRUE), error = function(e) NULL)
+    # These flags include transformed parameters and generated quantities. The
+    # PosteriorDB dimensions map describes model parameters, and get_num_upars()
+    # counts only their unconstrained coordinates, so request parameters only.
+    unconstrained_names <- tryCatch(instance$unconstrained_param_names(FALSE, FALSE), error = function(e) NULL)
     expected <- tryCatch(rstan::get_num_upars(fit), error = function(e) NA_integer_)
     if (is.null(unconstrained_names) || !length(unconstrained_names) || length(unconstrained_names) != expected)
       stop("RStan did not return a complete, consistent set of unconstrained parameter names.", call. = FALSE)
