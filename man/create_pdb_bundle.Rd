@@ -129,7 +129,9 @@ Alternatively, `data` can be a `pdb_data` object or saved data name, and
 saved names. A supplied posterior can provide linked data and model code
 when `data` and `model_code` are omitted. Database names are resolved with
 the package's normal getters. Supplied objects are checked against the fit
-source, links, and inferred unconstrained dimensions.
+source, links, and inferred unconstrained dimensions. If an existing object
+and its corresponding `*_info` list are both supplied, a warning is issued
+and the existing object's metadata takes precedence.
 
 The bundle embeds its content in memory and remains usable before database
 persistence. Supplied data is recorded as caller-supplied; this function

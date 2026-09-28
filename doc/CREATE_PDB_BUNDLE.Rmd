@@ -75,7 +75,8 @@ You can pass `pdb_data`, `pdb_model_code`, and `pdb_posterior` objects
 instead of names. If only `posterior` is supplied, its linked data and model
 code are obtained with `get_data()` and `model_code()`. The ordinary list plus
 metadata workflow remains the default. When reusing an object, omit its
-corresponding metadata list; the object's existing information is retained.
+corresponding metadata list. If both are supplied, the function warns and
+uses the existing object's metadata, ignoring the corresponding list.
 
 Prepare the fit and the exact named Stan input list used for sampling. The
 eight schools example below follows the model in `CONTRIBUTING.md`:

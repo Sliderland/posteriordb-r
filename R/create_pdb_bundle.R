@@ -79,7 +79,9 @@
 #' saved names. A supplied posterior can provide linked data and model code
 #' when `data` and `model_code` are omitted. Database names are resolved with
 #' the package's normal getters. Supplied objects are checked against the fit
-#' source, links, and inferred unconstrained dimensions.
+#' source, links, and inferred unconstrained dimensions. If an existing object
+#' and its corresponding `*_info` list are both supplied, a warning is issued
+#' and the existing object's metadata takes precedence.
 #'
 #' The bundle embeds its content in memory and remains usable before database
 #' persistence. Supplied data is recorded as caller-supplied; this function
@@ -169,16 +171,31 @@ create_pdb_bundle.stanfit <- function(
   data <- resolved_data$data
   existing_data <- resolved_data$object
   if (!is.null(existing_data)) {
-    if (length(data_info)) stop("When `data` is an existing `pdb_data` object or name, its metadata is used; omit `data_info`.", call. = FALSE)
+    if (length(data_info)) {
+      warning(
+        "Both an existing PosteriorDB data object and `data_info` were supplied; using the object's metadata and ignoring `data_info`.",
+        call. = FALSE
+      )
+    }
     data_info <- unclass(info(existing_data))
   }
   if (!is.null(model_code)) {
-    if (length(model_info)) stop("When `model_code` is an existing model-code object or name, its metadata is used; omit `model_info`.", call. = FALSE)
+    if (length(model_info)) {
+      warning(
+        "Both an existing PosteriorDB model-code object and `model_info` were supplied; using the object's metadata and ignoring `model_info`.",
+        call. = FALSE
+      )
+    }
     if (!identical(framework(model_code), "stan")) stop("`model_code` must contain Stan source.", call. = FALSE)
     model_info <- unclass(info(model_code))
   }
   if (!is.null(posterior)) {
-    if (length(posterior_info)) stop("When `posterior` is an existing posterior object or name, its metadata is used; omit `posterior_info`.", call. = FALSE)
+    if (length(posterior_info)) {
+      warning(
+        "Both an existing PosteriorDB posterior object and `posterior_info` were supplied; using the object's metadata and ignoring `posterior_info`.",
+        call. = FALSE
+      )
+    }
     posterior_fields <- c("name", "model_name", "data_name", "reference_posterior_name",
       "dimensions", "added_by", "added_date", "urls", "references", "keywords")
     posterior_info <- unclass(posterior)[intersect(names(unclass(posterior)), posterior_fields)]
