@@ -151,7 +151,8 @@ create_pdb_bundle.stanfit <- function(
   if (is.character(data) && length(data) == 1L) {
     data <- if (is.null(pdb)) pdb_data(data) else pdb_data(data, pdb = pdb)
   }
-  if (is.character(model_code) && length(model_code) == 1L) {
+  if (is.character(model_code) && length(model_code) == 1L &&
+      !inherits(model_code, "pdb_model_code")) {
     model_code <- if (is.null(pdb)) {
       pdb_model_code(model_code, framework = "stan")
     } else {
@@ -432,7 +433,8 @@ assemble_standalone_fit_bundle <- function(
   )
   for (key in intersect(names(posterior_info), names(structural))) {
     expected <- structural[[key]]
-    if (!identical(posterior_info[[key]], expected)) {
+    if (!is.null(posterior_info[[key]]) &&
+        !identical(posterior_info[[key]], expected)) {
       stop(
         "`posterior_info$",
         key,
@@ -442,15 +444,16 @@ assemble_standalone_fit_bundle <- function(
     }
   }
   if (!is.null(existing_posterior)) {
-    expected_fields <- c(name = "name", model_name = "model_name", data_name = "data_name")
+    expected_fields <- c(
+      name = "name", model_name = "model_name", data_name = "data_name",
+      reference_posterior_name = "reference_posterior_name"
+    )
     conflicts <- expected_fields[vapply(names(expected_fields), function(key) {
-      !identical(existing_posterior[[key]], structural[[key]])
+      !is.null(existing_posterior[[key]]) &&
+        !identical(existing_posterior[[key]], structural[[key]])
     }, logical(1))]
     if (length(conflicts)) stop("The supplied posterior does not link to the resolved data and model objects.", call. = FALSE)
     if (!identical(existing_posterior$dimensions, dimensions)) stop("The supplied posterior's unconstrained dimensions do not match the fitted model and selected variables.", call. = FALSE)
-    existing_posterior$embedded_data <- dat
-    existing_posterior$embedded_model_code <- mc
-    existing_posterior$embedded_reference_draws <- rpd
   }
   po_fields <- posterior_info[setdiff(
     names(posterior_info),
@@ -503,6 +506,13 @@ assemble_standalone_fit_bundle <- function(
     diagnostic_report$failures <- NULL
   }
   summary_statistics <- bundle_summary_statistics(rpd)
+  if (!is.null(existing_posterior)) {
+    existing_posterior$reference_posterior_name <- structural$reference_posterior_name
+    existing_posterior$embedded_data <- dat
+    existing_posterior$embedded_model_code <- mc
+    existing_posterior$embedded_reference_draws <- rpd
+    assert_pdb_posterior(existing_posterior)
+  }
   po <- existing_posterior %||% as.pdb_posterior(
     c(
       structural,
