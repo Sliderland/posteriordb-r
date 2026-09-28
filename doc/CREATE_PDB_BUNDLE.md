@@ -299,16 +299,20 @@ infer counts from Stan source and data; see
 `?infer_posterior_dimensions` for its backend-specific compile behavior.
 
 You can write the whole bundle with one call. If diagnostics have not
-been computed yet, this checks the draws first. The data, model, and
-posterior are written either way; reference draws and their summary
-statistics are written only if all acceptance checks pass. The returned
-report contains the checked bundle and records which components were
-written or skipped:
+been computed yet, this checks the draws first. New data, model, and
+posterior objects are written either way; records reused from the
+destination database are left in place. Reference draws and their
+summary statistics are written only if all acceptance checks pass.
+Before writing, the bundle writer checks every planned output path,
+including info files, payloads, and summaries:
 
 ``` r
 pdbl <- pdb_local()
 write_result <- write_pdb(bundle, pdbl, overwrite = FALSE)
 write_result$written
+write_result$reused
+write_result$collisions
+write_result$overwritten
 write_result$reference_draws_written
 write_result$skipped_reason
 ```
@@ -316,20 +320,26 @@ write_result$skipped_reason
 When a draw check fails, `write_result$bundle$diagnostics$failures`
 describes the failed checks. A diagnostic error is recorded in
 `write_result$diagnostic_error`; in either case, the three non-draw
-objects are still written. Writing remains sequential, so an error
-writing one of those objects can leave earlier successful writes in
-place.
+components are written or reused, while draws and summaries are skipped.
 
-The bundle writer attempts to write all three non-draw objects even when
-they were loaded from the same database. Therefore, with the default
-`overwrite = FALSE`, writing such a bundle back to that database will
-fail on the first existing destination file it encounters. The writer
-does not compare the existing file’s contents with the supplied object,
-so even an identical object is a collision. It writes data, then model
-code, then posterior; if a later object conflicts, earlier successful
-writes are left in place. There is no rollback. To add accepted draws to
-a database that already has the matching data, model, and posterior,
-write only the reference-draw object:
+If a planned file already exists, `overwrite = FALSE` stops before
+writing any bundle files and reports all colliding paths.
+`overwrite = TRUE` still runs the same preflight, reports those paths in
+`write_result$collisions`, and allows replacement of newly constructed
+components. Data, model, or posterior objects reused from the
+destination database are instead left in place and reported in
+`write_result$reused`; the bundle writer never overwrites those records.
+If a reused object comes from another database and the target has no
+files with that name, it can be copied to the target. Partial or
+ambiguous same-name files for a reused object stop the operation
+regardless of `overwrite`.
+
+After preflight, the writes remain sequential in data, model, posterior,
+then reference-draw and summary order. Preflight prevents file-name
+collisions from causing a partial write, but a later serialization or
+filesystem error can still leave earlier successful writes in place. To
+add accepted draws to a database that already has the matching data,
+model, and posterior, write only the reference-draw object:
 
 ``` r
 write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)

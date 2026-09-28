@@ -676,22 +676,15 @@ write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = T
     nm <- name
   }
 
-  if(info) {
-    nm <- paste0(nm, ".info.", type)
-  } else {
-    nm <- paste0(nm, ".", type)
-  }
-
-  path <- strsplit(path, "/")[[1]]
-  dp <- file.path(pdb_endpoint(pdb), do.call(file.path, as.list(path)))
-  fp <- file.path(dp, nm)
-  zfp <- paste0(fp, ".zip")
+  fp <- pdb_write_output_path(
+    pdb, path, type, nm, zip = FALSE, info = info
+  )
+  output_path <- pdb_write_output_path(
+    pdb, path, type, nm, zip = zip, info = info
+  )
+  dp <- dirname(fp)
   if(!checkmate::test_directory_exists(dp)) dir.create(dp, recursive = TRUE)
-  if(zip){
-    checkmate::assert_path_for_output(zfp, overwrite = overwrite)
-  } else {
-    checkmate::assert_path_for_output(fp, overwrite = overwrite)
-  }
+  checkmate::assert_path_for_output(output_path, overwrite = overwrite)
 
   if(type == "json"){
     out <- jsonlite::toJSON(x, pretty = TRUE, auto_unbox = TRUE, null = "null", digits = NA, encoding = "UTF-8")
@@ -707,10 +700,34 @@ write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = T
   writeLines(text = out, con = fp, useBytes = TRUE)
 
   if(zip){
-    zip(files = fp, zipfile = zfp, flags = "-jq")
+    zip(files = fp, zipfile = output_path, flags = "-jq")
     file.remove(fp)
   }
   return(invisible(TRUE))
+}
+
+# Return the final file path used by `write_to_path()`. Keeping path
+# construction here lets bundle preflight inspect the same destinations as
+# the existing S3 writers without creating directories or files.
+pdb_write_output_path <- function(pdb, path, type, name, zip = FALSE,
+                                 info = TRUE) {
+  checkmate::assert_class(pdb, "pdb_local")
+  checkmate::assert_string(path)
+  checkmate::assert_string(type)
+  checkmate::assert_string(name)
+  checkmate::assert_flag(zip)
+  checkmate::assert_flag(info)
+  filename <- if (info) {
+    paste0(name, ".info.", type)
+  } else {
+    paste0(name, ".", type)
+  }
+  path_parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
+  filepath <- file.path(
+    pdb_endpoint(pdb),
+    do.call(file.path, as.list(c(path_parts, filename)))
+  )
+  if (zip) paste0(filepath, ".zip") else filepath
 }
 
 #' @rdname write_to_path

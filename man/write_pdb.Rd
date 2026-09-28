@@ -55,8 +55,10 @@ and write all supported summary statistics. Defaults to `TRUE`; set to
 Existing object writers invisibly return `TRUE`. Writing a
   `pdb_reference_bundle` invisibly returns a `pdb_bundle_write_result` list
   with the checked `bundle`, names of successfully `written` components,
-  whether reference draws and summary statistics were written, and any
-  diagnostic error or skip reason.
+  names of reused and overwritten components, the preflight `collisions`
+  (destination paths found to exist before writes), whether reference draws
+  and summary statistics were written, and any diagnostic error or skip
+  reason.
 }
 \description{
 a function to simplify writing to a local pdb.
@@ -76,5 +78,9 @@ Writing reference draws requires all recorded reference acceptance
   The individual reference-draw writer does not rerun diagnostic checks;
   ESS and treedepth are informational, not acceptance gates. The bundle
   writer runs the full checks first when the bundle has not already been
-  checked.
+  checked. It preflights every destination before writing. Existing files
+  for new components cause an error when `overwrite = FALSE`; with
+  `overwrite = TRUE`, the complete set is detected before any replacement
+  begins. Components reused from the target database are skipped and are
+  never overwritten by the bundle writer.
 }

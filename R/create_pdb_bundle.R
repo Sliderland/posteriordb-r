@@ -506,6 +506,11 @@ assemble_standalone_fit_bundle <- function(
     diagnostic_report$failures <- NULL
   }
   summary_statistics <- bundle_summary_statistics(rpd)
+  reused_components <- c(
+    data = bundle_component_is_database_backed(existing_data),
+    model_code = bundle_component_is_database_backed(existing_model_code),
+    posterior = bundle_component_is_database_backed(existing_posterior)
+  )
   if (!is.null(existing_posterior)) {
     existing_posterior$reference_posterior_name <- structural$reference_posterior_name
     existing_posterior$embedded_data <- dat
@@ -542,6 +547,7 @@ assemble_standalone_fit_bundle <- function(
       data_source = resolved_data$source,
       fit_class = extracted$fit_class,
       selected_variables = chosen,
+      reused_components = reused_components,
       sampling_metadata = extracted$metadata,
       imported_at = Sys.time(),
       import_versions = c(
@@ -552,6 +558,10 @@ assemble_standalone_fit_bundle <- function(
   )
   class(bundle) <- c("pdb_reference_bundle", "list")
   bundle
+}
+
+bundle_component_is_database_backed <- function(x) {
+  !is.null(x) && !is.null(tryCatch(pdb(x), error = function(error) NULL))
 }
 
 #' @rdname check_reference_posterior_draws
