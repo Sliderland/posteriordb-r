@@ -6,7 +6,7 @@ test_that("bundle acceptance agrees with writers and retains single-chain metric
     dimnames = list(NULL, NULL, c("divergent__", "treedepth__"))))
   extracted <- list(draws = values, sampler_diagnostics = sampler,
     metadata = list(expected_fraction_of_missing_information = rep(.5, 4), max_treedepth = 10),
-    dimensions = list(theta = integer()), source = "parameters { real theta; } model { theta ~ normal(0,1); }",
+    dimensions = list(theta = 1L), source = "parameters { real theta; } model { theta ~ normal(0,1); }",
     fit_class = "stanfit", import_versions = list())
   testthat::local_mocked_bindings(extract_rstan_fit = function(...) extracted)
   make <- function(check = TRUE, ...) create_pdb_bundle(

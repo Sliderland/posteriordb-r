@@ -954,7 +954,11 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
       pdb, "posteriors", paste0(linked_posterior$name, ".json")
     ))
   }
-  existing <- file.exists(final_files)
+  # The linked posterior is an existing record that this operation may need
+  # to update atomically. `overwrite = FALSE` governs collisions with new
+  # reference-draw and summary-statistic files, not that required link update.
+  collision_files <- c(final_info, final_draws, summary_files)
+  existing <- file.exists(collision_files)
   if (any(existing) && !overwrite) {
     stop(
       "Reference-posterior files already exist; use `overwrite = TRUE` to replace them.",

@@ -27,7 +27,7 @@ make_unchecked_test_bundle <- function(divergence = 0L) {
       method_arguments = list()
     ),
     source = "parameters { real theta; } model { theta ~ normal(0, 1); }",
-    dimensions = list(theta = integer()),
+    dimensions = list(theta = 1L),
     fit_class = "stanfit",
     import_versions = list(R = "test", rstan = "test", posterior = "test")
   )
@@ -80,6 +80,7 @@ test_that("an unchecked bundle can be checked later and becomes writable when ac
     dir.create(file.path(root, folder), recursive = TRUE)
   }
   pdb <- pdb_local(root, cache_path = file.path(root, "cache"))
+  expect_silent(write_pdb(checked$posterior, pdb))
   expect_silent(write_pdb(checked$reference_draws, pdb))
 })
 

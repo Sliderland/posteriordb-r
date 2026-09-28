@@ -626,6 +626,15 @@ read_info_json.character <- function(x, path, pdb, ...){
 
   po <- read_json_from_pdb(fn, path, pdb, simplifyVector = TRUE)
 
+  # jsonlite simplifies non-empty arrays of strings to character vectors, but
+  # represents an empty JSON array as list(). The info schema uses these
+  # optional fields as string arrays, so normalize the empty case on read.
+  for (field in c("references", "urls", "keywords")) {
+    if (is.list(po[[field]]) && length(po[[field]]) == 0L) {
+      po[[field]] <- character()
+    }
+  }
+
   po$added_date <- as.Date(po$added_date)
   class(po) <- paste0("pdb_", gsub(x = path, pattern = "/", "_"))
   po

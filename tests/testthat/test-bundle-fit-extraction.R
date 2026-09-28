@@ -1,9 +1,7 @@
-test_that("bundle dimension names preserve scalar and singleton axes", {
-  dimensions <- list(mu = integer(), theta = 1L, beta = c(2L, 3L))
-  expect_identical(posteriordb:::bundle_dimension_names(dimensions), c(
-    "mu", "theta[1]", "beta[1,1]", "beta[2,1]", "beta[1,2]",
-    "beta[2,2]", "beta[1,3]", "beta[2,3]"
-  ))
+test_that("bundle dimension names are base variables with unconstrained counts", {
+  dimensions <- list(mu = 1L, theta = 1L, beta = 6L)
+  expect_identical(posteriordb:::bundle_dimension_names(dimensions),
+                   c("mu", "theta", "beta"))
 })
 
 test_that("bundle extraction validates complete declared array coverage", {
@@ -22,12 +20,20 @@ test_that("bundle extraction validates complete declared array coverage", {
       "beta[1,3]", "beta[2,3]", "beta[2,3]"), c(2L, 3L)), "partial")
 })
 
-test_that("bundle dimensions retain declared scalar axes", {
+test_that("bundle dimension names do not expand scalar or array axes", {
   expect_identical(posteriordb:::bundle_dimension_names(list(theta = 1L)),
-                   "theta[1]")
-  expect_identical(posteriordb:::bundle_dimension_names(list(mu = integer())),
+                   "theta")
+  expect_identical(posteriordb:::bundle_dimension_names(list(mu = 1L)),
                    "mu")
 })
+
+bundle_fit_count_mock <- function(fit, include = NULL, exclude = NULL) {
+  counts <- stats::setNames(rep(list(1L), length(fit$par_dims)), names(fit$par_dims))
+  excluded <- if (is.null(exclude)) character() else exclude
+  selected <- setdiff(if (is.null(include)) names(counts) else include,
+                      excluded)
+  counts[selected]
+}
 
 make_bundle_extraction_fit <- function(dimensions = list(mu = integer(), theta = 1L),
                                        variables = c("mu", "theta[1]"),
@@ -58,6 +64,7 @@ test_that("bundle extraction selects draws and keeps sampling provenance", {
   testthat::local_mocked_bindings(
     rstan_fit_slot = function(fit, slot_name) fit[[slot_name]],
     rstan_fit_stan_args = function(fit) fit$stan_args,
+    infer_unconstrained_parameter_counts_from_fit = bundle_fit_count_mock,
     extract_rstan_fit = function(fit, checks = "all", strict = TRUE, ...) {
       list(draws = fit$.draws, sampler_diagnostics = fit$.sampler,
         metadata = list(nchains = 2L, expected_fraction_of_missing_information = c(.3, .4),
@@ -86,6 +93,7 @@ test_that("unchecked bundle extraction retains sampler inputs without metrics", 
   testthat::local_mocked_bindings(
     rstan_fit_slot = function(fit, slot_name) fit[[slot_name]],
     rstan_fit_stan_args = function(fit) fit$stan_args,
+    infer_unconstrained_parameter_counts_from_fit = bundle_fit_count_mock,
     extract_rstan_fit = function(fit, checks = "all", strict = TRUE, ...) {
       expect_length(checks, 0L)
       list(
@@ -136,6 +144,7 @@ test_that("bundle extraction rejects unsupported provenance and incomplete varia
   testthat::local_mocked_bindings(
     rstan_fit_slot = function(fit, slot_name) fit[[slot_name]],
     rstan_fit_stan_args = function(fit) fit$stan_args,
+    infer_unconstrained_parameter_counts_from_fit = bundle_fit_count_mock,
     extract_rstan_fit = function(fit, checks = "all", strict = TRUE, ...) {
       list(draws = fit$.draws, sampler_diagnostics = fit$.sampler, metadata = list())
     }

@@ -66,3 +66,35 @@ test_that("model info constructor ", {
   expect_silent(mi <- as.pdb_model_info(x))
   checkmate::expect_class(mi, "pdb_model_info")
 })
+
+test_that("unused non-Stan implementation details are preserved and ignored", {
+  model_info <- list(
+    name = "stan-with-other-framework",
+    model_implementations = list(
+      stan = list(model_code = "models/stan/example.stan", stan_version = ">=2.26.0"),
+      pymc = list(model_code = "models/pymc/example.py", pymc_version = ">=5.0", extra = "ignored")
+    ),
+    title = "Test model",
+    added_by = "testthat",
+    added_date = as.Date("2026-09-28")
+  )
+
+  model <- as.pdb_model_info(model_info)
+
+  expect_identical(model$model_implementations$pymc$pymc_version, ">=5.0")
+  expect_identical(model$model_implementations$stan$stan_version, ">=2.26.0")
+})
+
+test_that("empty optional string arrays from JSON are normalized", {
+  testthat::local_mocked_bindings(read_json_from_pdb = function(...) {
+    list(name = "empty-fields", added_date = "2026-09-28",
+         references = list(), urls = list(), keywords = list())
+  }, .package = "posteriordb")
+  fake_pdb <- structure(list(), class = c("pdb_local", "pdb"))
+
+  info <- posteriordb:::read_info_json("empty-fields", "posteriors", fake_pdb)
+
+  expect_identical(info$references, character())
+  expect_identical(info$urls, character())
+  expect_identical(info$keywords, character())
+})

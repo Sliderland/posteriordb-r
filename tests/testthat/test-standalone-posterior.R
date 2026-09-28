@@ -38,8 +38,8 @@ test_that("embedded content is validated with and without an attached database",
     expect_error(assert_pdb_posterior(bad), "data link")
     bad <- po
     pdb(bad) <- connection
-    bad$dimensions <- list(theta = 2L)
-    expect_error(assert_pdb_posterior(bad), "dimensions")
+    bad$dimensions <- list(other_parameter = 1L)
+    expect_error(assert_pdb_posterior(bad), "missing parameter variables")
     bad <- po
     pdb(bad) <- connection
     bad$reference_posterior_name <- "wrong"

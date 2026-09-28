@@ -2,7 +2,8 @@ test_that("standalone bundle argument and metadata errors are actionable", {
   fake <- structure(list(), class = "not_a_fit")
   expect_error(create_pdb_bundle(fake), "only `rstan::stanfit`")
   expect_error(resolve_standalone_fit_data(fake, NULL), "`data` is required")
-  expect_equal(resolve_standalone_fit_data(fake, list()), list(data = list(), source = "caller-supplied"))
+  expect_equal(resolve_standalone_fit_data(fake, list()),
+               list(data = list(), source = "caller-supplied", object = NULL))
   expect_error(resolve_standalone_fit_data(fake, list(x = 1, x = 2)), "unique")
   expect_error(validate_stan_input_data(list(x = data.frame(y = 1)), "data"), "ordinary numeric")
   expect_error(validate_stan_input_data(list(x = new.env()), "data"), "ordinary numeric")
@@ -12,8 +13,10 @@ test_that("standalone bundle argument and metadata errors are actionable", {
   expect_invisible(validate_stan_input_data(list(x = array(1:4, c(2L, 2L)), flag = c(TRUE, FALSE)), "data"))
   recovery <- list(x = 1)
   testthat::local_mocked_bindings(recover_stanfit_data = function(fit) recovery)
-  expect_equal(resolve_standalone_fit_data(fake, NULL), list(data = list(x = 1), source = "fit-recovered"))
-  expect_equal(resolve_standalone_fit_data(fake, list()), list(data = list(), source = "caller-supplied"))
+  expect_equal(resolve_standalone_fit_data(fake, NULL),
+               list(data = list(x = 1), source = "fit-recovered", object = NULL))
+  expect_equal(resolve_standalone_fit_data(fake, list()),
+               list(data = list(), source = "caller-supplied", object = NULL))
   recovery <- "bad"
   expect_error(resolve_standalone_fit_data(fake, NULL), "Recovered `data` must be a list")
   expect_error(resolve_standalone_fit_data(fake, "bad"), "Supplied `data` must be a list")
@@ -43,7 +46,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
     model_info = list(name = "unit-model", title = "Unit model"), check = FALSE)
   expect_s3_class(bundle, "pdb_reference_bundle")
   expect_identical(bundle$posterior$dimensions$mu, 1L)
-  expect_identical(bundle$posterior$dimensions$beta, c(2L, 3L))
+  expect_identical(bundle$posterior$dimensions$beta, 6L)
   expect_true(all(c("mu", "twice_mu", "prediction", "constant", "beta[2,3]") %in%
                   posterior::variables(bundle$reference_draws)))
   expect_true(is.null(pdb(bundle$data)))
@@ -151,7 +154,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
     list(data_info = list(name = "d", title = "D"), data_info = list(name = "d", title = "D")))),
     "Duplicate argument")
   expect_error(do.call(create_pdb_bundle, list(fit = fit, data = list(),
-    list(name = "d", title = "D"))), "must be named exactly")
+    list(name = "d", title = "D"))), "Must inherit from class 'pdb_model_code'")
 })
 
 test_that("unchecked bundles skip diagnostic calculation", {
@@ -169,7 +172,7 @@ test_that("unchecked bundles skip diagnostic calculation", {
       list(
         draws = draws,
         sampler_diagnostics = NULL,
-        dimensions = list(mu = integer()),
+        dimensions = list(mu = 1L),
         source = "parameters { real mu; } model {}",
         metadata = list(
           ndraws = 10L, nchains = 4L, max_treedepth = NULL,

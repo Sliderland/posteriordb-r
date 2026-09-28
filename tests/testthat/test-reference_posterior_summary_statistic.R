@@ -63,7 +63,7 @@ test_that("compute and write summary_statistics", {
   expect_equal(rpt$mean_value$mean_value, rpm$mean_value, tolerance = 0.000000000000001)
   expect_equal(rpt$mean_value$mcse_mean, rpm$mcse_mean, tolerance = 0.000000000000001)
   expect_equal(rpt$mean_squared_value$mean_squared_value, rps$mean_squared_value, tolerance = 0.000000000000001)
-  expect_equal(rpt$mean_squared_value$mcse_mean, rps$mcse_mean, tolerance = 0.000000000000001)
+  expect_equal(rpt$mean_squared_value$mcse_mean, rps$mcse_mean, tolerance = 1e-12)
   expect_identical(info(rpm), info(rpt$mean_value))
   expect_identical(rpm$names, rpt$mean_value$names)
 

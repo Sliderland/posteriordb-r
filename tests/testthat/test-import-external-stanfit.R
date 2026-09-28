@@ -16,6 +16,13 @@ linked_local_pdb <- function() {
   writeLines("{}", file.path(root, "alias", "posteriors.json"))
   dir.create(file.path(root, "data", "info"), recursive = TRUE)
   dir.create(file.path(root, "models", "info"), recursive = TRUE)
+  for (folder in c(
+    "reference_posteriors/draws/info", "reference_posteriors/draws/draws",
+    unlist(lapply(posteriordb:::supported_summary_statistic_types(), function(type) c(
+      file.path("reference_posteriors", "summary_statistics", type, "info"),
+      file.path("reference_posteriors", "summary_statistics", type, type)
+    )), use.names = FALSE)
+  )) dir.create(file.path(root, folder), recursive = TRUE, showWarnings = FALSE)
   jsonlite::write_json(list(
     name = "external-data",
     data_file = "data/data/external-data.json",
@@ -83,7 +90,7 @@ external_posterior_fixture <- function() {
     list(
       name = "external-fit-test",
       reference_posterior_name = NULL,
-      dimensions = list(A = c(2, 2))
+      dimensions = list(A = 4L)
     ),
     class = "pdb_posterior"
   )
@@ -131,7 +138,7 @@ test_that("matrix dimensions are explicit and missing declarations fail", {
       fit,
       po,
       pdb = empty_local_pdb(),
-      dimensions = list(A = c(2, 2), missing = 1)
+      dimensions = list(A = 4L, missing = 1L)
     ),
     "disagree with the posterior's declared dimensions"
   )
@@ -140,7 +147,7 @@ test_that("matrix dimensions are explicit and missing declarations fail", {
       fit,
       po,
       pdb = empty_local_pdb(),
-      dimensions = list(declared = integer())
+      dimensions = list(declared = 1L)
     ),
     "disagree with the posterior's declared dimensions"
   )
@@ -253,18 +260,21 @@ checked_import_fixture <- function(seed) {
 
 test_that("the transactional writer round trips checked draws and refreshes the cache", {
   source_draws <- checked_import_fixture(123)
-  pdb <- empty_local_pdb()
+  pdb <- linked_local_pdb()
+  linked <- posterior("external-data-external-model", pdb)
 
   expect_silent(posteriordb:::write_imported_reference_posterior_draws(
     source_draws,
     pdb = pdb,
-    overwrite = FALSE
+    overwrite = FALSE,
+    linked_posterior = linked
   ))
   expect_error(
     posteriordb:::write_imported_reference_posterior_draws(
       source_draws,
       pdb = pdb,
-      overwrite = FALSE
+      overwrite = FALSE,
+      linked_posterior = posterior("external-data-external-model", pdb)
     ),
     "already exist"
   )
@@ -275,7 +285,8 @@ test_that("the transactional writer round trips checked draws and refreshes the 
   expect_silent(posteriordb:::write_imported_reference_posterior_draws(
     replacement,
     pdb = pdb,
-    overwrite = TRUE
+    overwrite = TRUE,
+    linked_posterior = posterior("external-data-external-model", pdb)
   ))
 
   round_trip <- posteriordb:::read_reference_posterior_draws(
@@ -315,9 +326,10 @@ test_that("public import links new reference draws to the existing posterior", {
 
 test_that("a failed final verification restores both existing files", {
   source_draws <- checked_import_fixture(123)
-  pdb <- empty_local_pdb()
+  pdb <- linked_local_pdb()
   posteriordb:::write_imported_reference_posterior_draws(
-    source_draws, pdb = pdb, overwrite = FALSE
+    source_draws, pdb = pdb, overwrite = FALSE,
+    linked_posterior = posterior("external-data-external-model", pdb)
   )
   info_file <- file.path(pdb$pdb_local_endpoint, "reference_posteriors", "draws",
                          "info", "external-import-round-trip.info.json")
@@ -335,7 +347,8 @@ test_that("a failed final verification restores both existing files", {
   )
   expect_error(
     posteriordb:::write_imported_reference_posterior_draws(
-      checked_import_fixture(456), pdb = pdb, overwrite = TRUE
+      checked_import_fixture(456), pdb = pdb, overwrite = TRUE,
+      linked_posterior = posterior("external-data-external-model", pdb)
     ),
     "injected final verification failure"
   )
@@ -351,9 +364,6 @@ test_that("a failed linked import restores the posterior record", {
   post_file <- file.path(pdb$pdb_local_endpoint, "posteriors",
                          paste0(post_name, ".json"))
   original_record <- readBin(post_file, "raw", n = file.info(post_file)$size)
-  posteriordb:::write_imported_reference_posterior_draws(
-    source_draws, pdb = pdb, overwrite = FALSE
-  )
   original_verifier <- posteriordb:::verify_imported_reference_posterior
   testthat::local_mocked_bindings(
     verify_imported_reference_posterior = function(pdb, expected, fresh_cache = FALSE) {
@@ -399,6 +409,15 @@ cmdstanr_fit_fixture <- function(iterations = 40L, chains = 2L) {
   fit <- new.env(parent = emptyenv())
   fit$draws <- function(inc_warmup = FALSE, format = "draws_array", ...) {
     posterior::as_draws_array(draws)
+  }
+  fit$unconstrain_draws <- function(variables = NULL, format = "draws_array", ...) {
+    unconstrained <- posterior::as_draws_array(draws)
+    if (!is.null(variables)) {
+      unconstrained <- posterior::subset_draws(
+        unconstrained, variable = variables, regex = FALSE
+      )
+    }
+    unconstrained
   }
   fit$sampler_diagnostics <- function(inc_warmup = FALSE, format = "draws_array", ...) {
     posterior::as_draws_array(sampler)

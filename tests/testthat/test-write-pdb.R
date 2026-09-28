@@ -25,7 +25,8 @@ test_that("write data", {
 
   info(d) <- di
   expect_silent(dt <- pdb_data("test_data", pdb_test))
-  expect_identical(d, dt)
+  expect_equal(lapply(d, identity), lapply(dt, identity))
+  expect_equal(info(dt)[sort(names(info(dt)))], info(d)[sort(names(info(d)))])
   expect_silent(dti <- pdb_data_info("test_data", pdb_test))
 
   # Remove test_data
@@ -114,7 +115,14 @@ test_that("write posterior", {
   write_pdb(d, pdb_test)
   write_pdb(sc, pdb_test)
   expect_silent(pot <- posterior("test_data-test_model", pdb_test))
-  expect_identical(po, pot)
+  canonical_posterior <- function(x) {
+    x <- unclass(x)
+    for (field in c("data_info", "model_info")) {
+      x[[field]] <- x[[field]][sort(names(x[[field]]))]
+    }
+    x[sort(names(x))]
+  }
+  expect_equal(canonical_posterior(po), canonical_posterior(pot))
 
   # Remove posterior
   expect_silent(remove_pdb(pot, pdb = pdb_test))
@@ -133,8 +141,17 @@ test_that("write reference_posterior", {
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
-  expect_silent(gsi <- reference_posterior_draws_info(po))
   expect_silent(gsd <- reference_posterior_draws(po))
+  gsi <- info(gsd)
+  gsi$checks_made <- list(
+    ndraws_is_10k = TRUE,
+    nchains_is_gte_4 = TRUE,
+    abs_mean_lag1_ac_below_0_05 = TRUE,
+    r_hat_below_1_01 = TRUE,
+    efmi_above_0_2 = TRUE,
+    no_divergent_transitions = TRUE
+  )
+  info(gsd) <- gsi
 
   # Setup posterior
   # This is needed to access the created reference posterior

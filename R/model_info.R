@@ -83,10 +83,12 @@ assert_model_info <- function(x){
     implementation <- x$model_implementations[[implementation_name]]
     if (is.null(implementation)) next
     checkmate::assert_list(implementation)
+    # This package's fit import and model-code access workflows use Stan.
+    # Preserve other implementation metadata from PosteriorDB without
+    # validating framework-specific fields that these workflows ignore.
+    if (implementation_name %in% c("pymc", "pymc3")) next
     allowed_fields <- if (implementation_name == "stan") {
       c("model_code", "stan_version")
-    } else if (implementation_name %in% c("pymc", "pymc3")) {
-      "model_code"
     } else {
       c("model_code", "stan_version", "pymc_version")
     }
