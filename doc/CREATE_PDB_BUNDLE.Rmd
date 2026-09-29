@@ -2,38 +2,42 @@
 output:
   rmarkdown::md_document:
     variant: gfm
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 <!-- CREATE_PDB_BUNDLE.md is generated from CREATE_PDB_BUNDLE.Rmd. Please edit that file. -->
 
-Create and contribute a reference-draw bundle
-============================================
+# Create and contribute a reference-draw bundle
 
-`create_pdb_bundle()` builds linked data, model, posterior, and reference-draw
-objects around an already sampled `rstan::stanfit`. The result is an R list
-that you can inspect and check before writing any of its objects. The function
-does not resample the fit or write files. It supports the existing list-based
-workflow by default, and can reuse existing data, model-code, or posterior
-objects (or retrieve them by name from a database). It currently accepts
-RStan `stanfit` objects; `import_reference_posterior_draws()` also accepts
-CmdStanR fits.
+`create_pdb_bundle()` builds linked data, model, posterior, and
+reference-draw objects around an already sampled `rstan::stanfit`, with
+support for `cmdstanr::cmdstanMCMC` hopefully coming soon. The result is
+an R list that you can inspect and check before writing any of its
+objects. The function does not resample the fit or write files. It
+supports the existing list-based workflow by default, and can reuse
+existing data, model-code, or posterior objects (or retrieve them by
+name from a database). It currently accepts RStan `stanfit` objects;
+`import_reference_posterior_draws()` also accepts CmdStanR fits.
 
-Choose the workflow based on whether the data, model, and posterior records
-already exist:
+Choose the workflow based on whether the data, model, and posterior
+records already exist:
 
 - Use `create_pdb_bundle()` to construct linked objects from a fit. The
   standard workflow supplies the Stan data list plus `data_info` and
   `model_info`; the function builds everything in memory and leaves
-  persistence to you. If records already exist, pass `data` as a `pdb_data`
-  object or saved data name, and pass `model_code` and/or `posterior` as
-  existing objects or saved names. A supplied posterior can provide its linked
-  data and model code automatically. Existing model source must match the fit,
-  and posterior links and unconstrained parameter counts must match.
-- Use `import_reference_posterior_draws()` when you already have a PosteriorDB
-  posterior and want to import a completed fit for it. This supports RStan and
-  CmdStanR fits, checks them, and can write the draws and summaries while
-  linking them to the existing posterior. It does not rewrite the existing
-  data, model, or posterior payloads.
+  persistence to you. If records already exist, pass `data` as a
+  `pdb_data` object or saved data name, and pass `model_code` and/or
+  `posterior` as existing objects or saved names. A supplied posterior
+  can provide its linked data and model code automatically. Existing
+  model source must match the fit, and posterior links and unconstrained
+  parameter counts must match.
+- Use `import_reference_posterior_draws()` when you already have a
+  PosteriorDB posterior and want to import a completed fit for it. This
+  supports RStan and CmdStanR fits, checks them, and can write the draws
+  and summaries while linking them to the existing posterior. It does
+  not rewrite the existing data, model, or posterior payloads.
 
 For example, to import into an existing posterior in a local database:
 
@@ -48,18 +52,18 @@ imported_draws <- import_reference_posterior_draws(
 )
 ```
 
-The importer always runs the full reference-draw checks. With `write = TRUE`,
-it writes only if those checks pass. It writes both `mean_value` and
-`mean_squared_value` summaries by default; set `write_summary_statistics =
-FALSE` to skip them. A posterior already linked to a different reference-draw
-object cannot be relinked by this call. The importer selects every saved
-scalar column for each declared base parameter and verifies the fit's
-unconstrained parameter counts against the posterior specification, but it does not
-confirm that the fit used the exact model source and data linked to that
-posterior.
+The importer always runs the full reference-draw checks. With
+`write = TRUE`, it writes only if those checks pass. It writes both
+`mean_value` and `mean_squared_value` summaries by default; set
+`write_summary_statistics = FALSE` to skip them. A posterior already
+linked to a different reference-draw object cannot be relinked by this
+call. The importer selects every saved scalar column for each declared
+base parameter and verifies the fit's unconstrained parameter counts
+against the posterior specification, but it does not confirm that the
+fit used the exact model source and data linked to that posterior.
 
-To build from saved data and model records while constructing the missing
-posterior and reference draws, use:
+To build from saved data and model records while constructing the
+missing posterior and reference draws, use:
 
 ```{r, eval=FALSE}
 pdbl <- pdb_local("/path/to/posterior_database")
@@ -73,19 +77,20 @@ bundle <- create_pdb_bundle(
 ```
 
 You can pass `pdb_data`, `pdb_model_code`, and `pdb_posterior` objects
-instead of names. If only `posterior` is supplied, its linked data and model
-code are obtained with `get_data()` and `model_code()`. The ordinary list plus
-metadata workflow remains the default. When reusing an object, omit its
-corresponding metadata list. If both are supplied, the function warns and
-uses the existing object's metadata, ignoring the corresponding list.
-When supplying an existing posterior, its `dimensions` must use the fork's
-current meaning: one scalar unconstrained-parameter count per model parameter.
-Older PosteriorDB entries that store output shapes may fail validation and
-cannot be passed through unchanged. The selected variables and their inferred
+instead of names. If only `posterior` is supplied, its linked data and
+model code are obtained with `get_data()` and `model_code()`. The
+ordinary list plus metadata workflow remains the default. When reusing
+an object, omit its corresponding metadata list. If both are supplied,
+the function warns and uses the existing object's metadata, ignoring the
+corresponding list. When supplying an existing posterior, its
+`dimensions` must use the fork's current meaning: one scalar
+unconstrained-parameter count per model parameter. Older PosteriorDB
+entries that store output shapes may fail validation and cannot be
+passed through unchanged. The selected variables and their inferred
 counts must also agree with the supplied posterior.
 
-Prepare the fit and the exact named Stan input list used for sampling. The
-eight schools example below follows the model in `CONTRIBUTING.md`:
+Prepare the fit and the exact named Stan input list used for sampling.
+The eight schools example below follows the model in `CONTRIBUTING.md`:
 
 ```{r, eval=FALSE}
 library(posteriordb)
@@ -112,30 +117,29 @@ fit <- rstan::sampling(
 )
 ```
 
+Pass the same input list used for sampling, along with the required
+names and titles for the data and model. `added_by` and `added_date` are
+shared defaults for the objects in the bundle; a value in an individual
+metadata list takes precedence. `posterior_info` also accepts the
+optional character fields `urls`, `references`, and `keywords`; supplied
+values are written to the posterior JSON. If posterior keywords are
+omitted, the posterior JSON writes `"keywords": null`.
 
-Pass the same input list used for sampling, along with the required names and
-titles for the data and model. `added_by` and `added_date` are shared defaults
-for the objects in the bundle; a value in an individual metadata list takes
-precedence. `posterior_info` also accepts the optional character fields
-`urls`, `references`, and `keywords`; supplied values are written to the
-posterior JSON. If posterior keywords are omitted, the posterior JSON writes
-`"keywords": null`.
+`model_info$prior` is optional descriptive metadata, often a list of
+keywords that points to prior information elsewhere in PosteriorDB. For
+example, pass `prior = list(keywords = "stan_recommended_35dbfe6")` when
+that reference is known. The bundle does not infer prior distributions
+from the Stan source; if no prior metadata is supplied, the written
+model info omits `prior`. The model writer does not emit a
+`likelihood_code` entry. Optional model metadata is written only when
+supplied; the writer does not add a `pymc` entry or a `pymc_version` by
+default. If model keywords are omitted, the model info JSON writes
+`"keywords": null`. The bundle API defaults the Stan implementation's
+`stan_version` to `">=2.26.0"`. You can override this by supplying the
+`stan_version` inside `model_info$model_implementations$stan`, while
+keeping `model_code` equal to the inferred path, for example:
 
-`model_info$prior` is optional descriptive metadata, often a list of keywords
-that points to prior information elsewhere in PosteriorDB. For example, pass
-`prior = list(keywords = "stan_recommended_35dbfe6")` when that reference is
-known. The bundle does not infer prior distributions from the Stan source; if
-no prior metadata is supplied, the written model info omits `prior`. The model
-writer does not emit a `likelihood_code` entry. Optional model metadata is
-written only when supplied; the writer does not add a `pymc` entry or a
-`pymc_version` by default. If model keywords are omitted, the model info JSON
-writes `"keywords": null`. The bundle
-API defaults the Stan implementation's `stan_version` to `">=2.26.0"`. You
-can override this by supplying the `stan_version` inside
-`model_info$model_implementations$stan`, while keeping `model_code` equal to
-the inferred path, for example:
-
-```r
+``` r
 model_info = list(
   name = "normal",
   title = "Normal model",
@@ -165,7 +169,6 @@ bundle <- create_pdb_bundle(
 )
 ```
 
-
 The constructor returns all four objects in memory:
 
 ```{r, eval=FALSE}
@@ -177,25 +180,24 @@ bundle$summary_statistics$mean_value
 bundle$summary_statistics$mean_squared_value
 ```
 
-
-The posterior embeds the data, model code, and reference draws, so its getters
-work before persistence. `bundle$provenance` records how the input data was
-obtained, the fit class, selected variables, and sampling metadata. Passing a
-`pdb` connection attaches it to the objects; when a saved object name is
-supplied, the connection is also used to retrieve that object. Construction
-never writes database files.
+The posterior embeds the data, model code, and reference draws, so its
+getters work before persistence. `bundle$provenance` records how the
+input data was obtained, the fit class, selected variables, and sampling
+metadata. Passing a `pdb` connection attaches it to the objects; when a
+saved object name is supplied, the connection is also used to retrieve
+that object. Construction never writes database files.
 
 If a serialized RStan fit has lost its compiled model pointer, bundle
-construction recompiles the saved Stan source and uses the supplied data to
-recover unconstrained parameter counts. This does not resample or replace the
-fit's saved draws. RStan may print `the number of chains is less than 1;
-sampling not done` during this dimension-recovery step; that is expected.
+construction recompiles the saved Stan source and uses the supplied data
+to recover unconstrained parameter counts. This does not resample or
+replace the fit's saved draws. RStan may print
+`the number of chains is less than 1; sampling not done` during this
+dimension-recovery step; that is expected.
 
-Choose when to compute diagnostics
-----------------------------------
+## Choose when to compute diagnostics
 
-`check = TRUE` is the default. It calculates the reference-draw diagnostic
-report during bundle creation. The report is available as:
+`check = TRUE` is the default. It calculates the reference-draw
+diagnostic report during bundle creation. The report is available as:
 
 ```{r, eval=FALSE}
 bundle$diagnostics$metrics
@@ -203,34 +205,35 @@ bundle$diagnostics$status
 bundle$diagnostics$failures
 ```
 
-
-`status` contains one logical value per acceptance check. `failures` identifies
-which checks failed and, where relevant, which variables or chains were
-responsible. A failed check does not prevent bundle creation: the bundle is
-returned with the failure recorded, so you can inspect the report. Its
-reference draws cannot be written until they pass.
-
-When the reference-draw checks pass, the bundle also computes the supported
-summary statistics (`mean_value` and `mean_squared_value`) from those draws. They are returned
-in `bundle$summary_statistics`. An unchecked bundle, or a bundle whose checks
-fail, has `summary_statistics = NULL`; this prevents summaries from appearing
-writeable before the required draw checks pass. The summary info objects carry
-the same reference-posterior metadata as the draws, with the summary-specific
-acceptance flags and summary-computation version added by the existing
-summary-statistic constructor.
-
-The acceptance checks require exactly 10,000 retained draws, at least four
-chains, absolute lag-1 autocorrelation at most 0.05 for every retained
-variable, R-hat at most 1.01 for every variable, E-FMI at least 0.2 for every
-chain, and no divergent transitions. Bulk and tail ESS are also calculated and
-stored as diagnostic metrics, but ESS bounds do not decide whether the draws
+`status` contains one logical value per acceptance check. `failures`
+identifies which checks failed and, where relevant, which variables or
+chains were responsible. A failed check does not prevent bundle
+creation: the bundle is returned with the failure recorded, so you can
+inspect the report. Its reference draws cannot be written until they
 pass.
 
-Set `check = FALSE` to create the objects without calculating the diagnostic
-metrics or evaluating acceptance checks. The bundle has `diagnostics = NULL`
-and its reference draws have no acceptance flags. Sampler diagnostics are
-retained in memory for a later check; sampling is not repeated. Unchecked draws
-are not writable.
+When the reference-draw checks pass, the bundle also computes the
+supported summary statistics (`mean_value` and `mean_squared_value`)
+from those draws. They are returned in `bundle$summary_statistics`. An
+unchecked bundle, or a bundle whose checks fail, has
+`summary_statistics = NULL`; this prevents summaries from appearing
+writeable before the required draw checks pass. The summary info objects
+carry the same reference-posterior metadata as the draws, with the
+summary-specific acceptance flags and summary-computation version added
+by the existing summary-statistic constructor.
+
+The acceptance checks require exactly 10,000 retained draws, at least
+four chains, absolute lag-1 autocorrelation at most 0.05 for every
+retained variable, R-hat at most 1.01 for every variable, E-FMI at least
+0.2 for every chain, and no divergent transitions. Bulk and tail ESS are
+also calculated and stored as diagnostic metrics, but ESS bounds do not
+decide whether the draws pass.
+
+Set `check = FALSE` to create the objects without calculating the
+diagnostic metrics or evaluating acceptance checks. The bundle has
+`diagnostics = NULL` and its reference draws have no acceptance flags.
+Sampler diagnostics are retained in memory for a later check; sampling
+is not repeated. Unchecked draws are not writable.
 
 ```{r, eval=FALSE}
 unchecked <- create_pdb_bundle(
@@ -245,10 +248,9 @@ is.null(unchecked$diagnostics)  # TRUE
 info(unchecked$reference_draws)$checks_made  # NULL
 ```
 
-
 To defer the check, pass the unchecked bundle to
-`check_reference_posterior_draws()`. It returns an updated bundle with the
-report and result attached:
+`check_reference_posterior_draws()`. It returns an updated bundle with
+the report and result attached:
 
 ```{r, eval=FALSE}
 bundle <- check_reference_posterior_draws(unchecked)
@@ -256,15 +258,14 @@ bundle$diagnostics$status
 bundle$diagnostics$failures
 ```
 
-
-The bundle workflow currently supports checking the full set of acceptance
-criteria during construction or checking that full set later. It does not
-provide a way to select one criterion for a bundle check. For investigating an
-individual check on a sampled RStan or CmdStanR fit before importing it, use
-`reference_draw_diagnostics()` and `passes_reference_draw_checks()`. These
-functions accept a `checks` selector such as `"mean_lag1_ac"`; passing one
-check does not establish full reference-draw acceptance or make a draw object
-writable.
+The bundle workflow currently supports checking the full set of
+acceptance criteria during construction or checking that full set later.
+It does not provide a way to select one criterion for a bundle check.
+For investigating an individual check on a sampled RStan or CmdStanR fit
+before importing it, use `reference_draw_diagnostics()` and
+`passes_reference_draw_checks()`. These functions accept a `checks`
+selector such as `"mean_lag1_ac"`; passing one check does not establish
+full reference-draw acceptance or make a draw object writable.
 
 ```{r, eval=FALSE}
 report <- reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
@@ -275,27 +276,27 @@ report$failures
 passes_reference_draw_checks(fit, checks = "mean_lag1_ac")
 ```
 
-Choose variables and write the objects
---------------------------------------
+## Choose variables and write the objects
 
-By default, the bundle includes saved parameters, transformed parameters, and
-generated quantities, excluding `lp__`. Use `include` or `exclude` with base
-variable names to select variables. For example, `include = c("mu", "tau")`
-keeps all saved scalar elements of those variables. The posterior's
-`dimensions` entries record unconstrained parameter counts, which can differ
-from the number or shape of saved output columns (for example, a constrained
-simplex has one fewer unconstrained coordinate than output elements).
+By default, the bundle includes saved parameters, transformed
+parameters, and generated quantities, excluding `lp__`. Use `include` or
+`exclude` with base variable names to select variables. For example,
+`include = c("mu", "tau")` keeps all saved scalar elements of those
+variables. The posterior's `dimensions` entries record unconstrained
+parameter counts, which can differ from the number or shape of saved
+output columns (for example, a constrained simplex has one fewer
+unconstrained coordinate than output elements).
 
-The `dimensions` map describes the model parameters that have unconstrained
-coordinates; it is not a complete inventory of every variable saved in the
-draws. Transformed parameters and generated quantities can be present in the
-draw payload without appearing in this map. Use `include` and `exclude` to
-choose which saved variables are retained and used for the bundle's draw
-diagnostics. In particular, exclude a generated quantity if it is not useful
-for diagnosing the fit.
+The `dimensions` map describes the model parameters that have
+unconstrained coordinates; it is not a complete inventory of every
+variable saved in the draws. Transformed parameters and generated
+quantities can be present in the draw payload without appearing in this
+map. Use `include` and `exclude` to choose which saved variables are
+retained and used for the bundle's draw diagnostics. In particular,
+exclude a generated quantity if it is not useful for diagnosing the fit.
 
-For an existing fit, the package can infer the named unconstrained counts
-directly from either supported fit class:
+For an existing fit, the package can infer the named unconstrained
+counts directly from either supported fit class:
 
 ```{r, eval=FALSE}
 rstan_dimensions <- infer_unconstrained_parameter_counts_from_fit(rstan_fit)
@@ -303,16 +304,17 @@ cmdstanr_dimensions <- infer_unconstrained_parameter_counts_from_fit(cmdstanr_fi
 ```
 
 The same helper dispatches on fit class and returns one count per model
-parameter. If there is no fit object, `infer_posterior_dimensions()` can infer
-counts from Stan source and data; see `?infer_posterior_dimensions` for its
-backend-specific compile behavior.
+parameter. If there is no fit object, `infer_posterior_dimensions()` can
+infer counts from Stan source and data; see
+`?infer_posterior_dimensions` for its backend-specific compile behavior.
 
-You can write the whole bundle with one call. If diagnostics have not been
-computed yet, this checks the draws first. New data, model, and posterior
-objects are written either way; records reused from the destination database
-are left in place. Reference draws and their summary statistics are written
-only if all acceptance checks pass. Before writing, the bundle writer checks
-every planned output path, including info files, payloads, and summaries:
+You can write the whole bundle with one call. If diagnostics have not
+been computed yet, this checks the draws first. New data, model, and
+posterior objects are written either way; records reused from the
+destination database are left in place. Reference draws and their
+summary statistics are written only if all acceptance checks pass.
+Before writing, the bundle writer checks every planned output path,
+including info files, payloads, and summaries:
 
 ```{r, eval=FALSE}
 pdbl <- pdb_local()
@@ -325,43 +327,46 @@ write_result$reference_draws_written
 write_result$skipped_reason
 ```
 
-When a draw check fails, `write_result$bundle$diagnostics$failures` describes
-the failed checks. A diagnostic error is recorded in
-`write_result$diagnostic_error`; in either case, the three non-draw components
-are written or reused, while draws and summaries are skipped.
+When a draw check fails, `write_result$bundle$diagnostics$failures`
+describes the failed checks. A diagnostic error is recorded in
+`write_result$diagnostic_error`; in either case, the three non-draw
+components are written or reused, while draws and summaries are skipped.
 
-If a planned file already exists, `overwrite = FALSE` stops before writing any
-bundle files and reports all colliding paths. `overwrite = TRUE` still runs the
-same preflight, reports those paths in `write_result$collisions`, and allows
-replacement of newly constructed components. Data, model, or posterior
-objects reused from the destination database are instead left in place and
-reported in `write_result$reused`; the bundle writer never overwrites those
-records. If a reused object comes from another database and the target has no
-files with that name, it can be copied to the target. Partial or ambiguous
-same-name files for a reused object stop the operation regardless of
-`overwrite`.
+If a planned file already exists, `overwrite = FALSE` stops before
+writing any bundle files and reports all colliding paths.
+`overwrite = TRUE` still runs the same preflight, reports those paths in
+`write_result$collisions`, and allows replacement of newly constructed
+components. Data, model, or posterior objects reused from the
+destination database are instead left in place and reported in
+`write_result$reused`; the bundle writer never overwrites those records.
+If a reused object comes from another database and the target has no
+files with that name, it can be copied to the target. Partial or
+ambiguous same-name files for a reused object stop the operation
+regardless of `overwrite`.
 
-After preflight, the writes remain sequential in data, model, posterior, then
-reference-draw and summary order. Preflight prevents file-name collisions from
-causing a partial write, but a later serialization or filesystem error can
-still leave earlier successful writes in place. To add accepted draws to a
-database that already has the matching data, model, and posterior, write only
-the reference-draw object:
+After preflight, the writes remain sequential in data, model, posterior,
+then reference-draw and summary order. Preflight prevents file-name
+collisions from causing a partial write, but a later serialization or
+filesystem error can still leave earlier successful writes in place. To
+add accepted draws to a database that already has the matching data,
+model, and posterior, write only the reference-draw object:
 
 ```{r, eval=FALSE}
 write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 ```
 
-The associated posterior JSON must already exist. This individual draw write
-also writes both supported summary statistics by default. Use the whole-bundle
-writer when the destination does not already contain conflicting objects, or
-when replacing them with `overwrite = TRUE` is intended. That option replaces
-files at the bundle's destination names; it does not merge metadata or protect
-against replacing a different object's files that use those same names.
+The associated posterior JSON must already exist. This individual draw
+write also writes both supported summary statistics by default. Use the
+whole-bundle writer when the destination does not already contain
+conflicting objects, or when replacing them with `overwrite = TRUE` is
+intended. That option replaces files at the bundle's destination names;
+it does not merge metadata or protect against replacing a different
+object's files that use those same names.
 
-You can also write the individual objects manually when you want to control
-the steps separately. The individual reference-draw writer rejects unchecked
-or failed draws and requires the associated posterior JSON to exist first:
+You can also write the individual objects manually when you want to
+control the steps separately. The individual reference-draw writer
+rejects unchecked or failed draws and requires the associated posterior
+JSON to exist first:
 
 ```{r, eval=FALSE}
 assert_checked_reference_posterior_draws(bundle$reference_draws)
@@ -371,23 +376,25 @@ write_pdb(bundle$posterior, pdbl, overwrite = FALSE)
 write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 ```
 
-By default, the reference-draw `write_pdb()` method also computes and writes
-the supported summary statistics (`mean_value` and `mean_squared_value`) using their existing
-constructors and writer methods. Data, model, reference-draw, and
-summary-statistic payloads are written with their info files; summary
-statistics are saved under
-`reference_posteriors/summary_statistics/<type>/`. The posterior JSON records
-the links and dimensions. `overwrite = FALSE` is the default and causes an
-error if a destination file already exists. Each write happens separately, so
-successful earlier writes remain if a later write fails. Set `overwrite = TRUE`
-only when replacing existing files is intended.
+By default, the reference-draw `write_pdb()` method also computes and
+writes the supported summary statistics (`mean_value` and
+`mean_squared_value`) using their existing constructors and writer
+methods. Data, model, reference-draw, and summary-statistic payloads are
+written with their info files; summary statistics are saved under
+`reference_posteriors/summary_statistics/<type>/`. The posterior JSON
+records the links and dimensions. `overwrite = FALSE` is the default and
+causes an error if a destination file already exists. Each write happens
+separately, so successful earlier writes remain if a later write fails.
+Set `overwrite = TRUE` only when replacing existing files is intended.
 
-If the associated posterior JSON is missing, writing reference draws stops
-before writing any reference-draw or summary-statistic files. This ensures the
-saved reference posterior is linked from an existing posterior entry.
+If the associated posterior JSON is missing, writing reference draws
+stops before writing any reference-draw or summary-statistic files. This
+ensures the saved reference posterior is linked from an existing
+posterior entry.
 
-To save only the draws in that call, use `write_summary_statistics = FALSE`.
-You can then write the summary objects from the checked bundle individually:
+To save only the draws in that call, use
+`write_summary_statistics = FALSE`. You can then write the summary
+objects from the checked bundle individually:
 
 ```{r, eval=FALSE}
 write_pdb(
@@ -402,14 +409,15 @@ write_pdb(bundle$summary_statistics$mean_squared_value, pdbl, overwrite = FALSE)
 
 The summary payload field names follow the existing PosteriorDB format:
 `mean_value` contains `names`, `mean_value`, and `mcse_mean`;
-`mean_squared_value` contains `names`, `mean_squared_value`, and `mcse_mean`.
-The latter is the mean of squared draws, not a standard deviation. Their info JSON uses the reference-draw metadata
-shape, with `versions$r_summary_statistic` identifying the package version used
-to compute the summaries.
+`mean_squared_value` contains `names`, `mean_squared_value`, and
+`mcse_mean`. The latter is the mean of squared draws, not a standard
+deviation. Their info JSON uses the reference-draw metadata shape, with
+`versions$r_summary_statistic` identifying the package version used to
+compute the summaries.
 
 For further details about accepted metadata and arguments, see
-`?create_pdb_bundle`. The constructor requires the actual named Stan input
-list for the default workflow. Alternatively, pass an existing `pdb_data`
-object or its saved name, or supply a posterior whose linked data can be
-retrieved. In all cases, the function cannot establish that the supplied data
-was the data used to produce the fit.
+`?create_pdb_bundle`. The constructor requires the actual named Stan
+input list for the default workflow. Alternatively, pass an existing
+`pdb_data` object or its saved name, or supply a posterior whose linked
+data can be retrieved. In all cases, the function cannot establish that
+the supplied data was the data used to produce the fit.
