@@ -65,6 +65,33 @@ test_that("model info constructor ", {
 
   expect_silent(mi <- as.pdb_model_info(x))
   checkmate::expect_class(mi, "pdb_model_info")
+  expect_identical(
+    mi$model_implementations$stan,
+    list(
+      model_code = "models/stan/test_eight_schools_model.stan",
+      stan_version = ">=2.26.0"
+    )
+  )
+})
+
+test_that("model info accepts explicit implementations with framework shorthand", {
+  explicit <- list(
+    stan = list(
+      model_code = "models/stan/custom.stan",
+      stan_version = ">=2.30.0"
+    )
+  )
+  model <- as.pdb_model_info(list(
+    name = "custom",
+    title = "Custom model",
+    framework = "stan",
+    model_implementations = explicit,
+    added_by = "testthat",
+    added_date = as.Date("2026-09-29")
+  ))
+
+  expect_identical(model$model_implementations, explicit)
+  expect_false("framework" %in% names(model))
 })
 
 test_that("unused non-Stan implementation details are preserved and ignored", {

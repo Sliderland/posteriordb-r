@@ -12,10 +12,9 @@ editor_options:
 # Create and contribute a reference-draw bundle
 
 `create_pdb_bundle()` builds linked data, model, posterior, and
-reference-draw objects around an already sampled `rstan::stanfit`, with
-support for `cmdstanr::cmdstanMCMC` hopefully coming soon. The result is
-an R list that you can inspect and check before writing any of its
-objects. The function does not resample the fit or write files. It
+reference-draw objects around an already sampled `rstan::stanfit`. The
+result is an R list that you can inspect and check before writing any of
+its objects. The function does not resample the fit or write files. It
 supports the existing list-based workflow by default, and can reuse
 existing data, model-code, or posterior objects (or retrieve them by
 name from a database). It currently accepts RStan `stanfit` objects;
@@ -124,6 +123,23 @@ metadata list takes precedence. `posterior_info` also accepts the
 optional character fields `urls`, `references`, and `keywords`; supplied
 values are written to the posterior JSON. If posterior keywords are
 omitted, the posterior JSON writes `"keywords": null`.
+
+For model metadata, `framework = "stan"` is a convenience form: the
+bundle constructor creates `model_implementations$stan` for you, using
+`models/stan/<model name>.stan` and `stan_version = ">=2.26.0"`. You do
+not need to build that nested list for the usual Stan workflow. If you
+prefer to supply `model_implementations` yourself, that remains
+supported; the Stan `model_code` path must match the path inferred from
+the model name, and an explicit `stan_version` is retained. For example,
+this shorthand is sufficient:
+
+```{r, eval=FALSE}
+model_info = list(
+  name = "normal",
+  title = "Normal model",
+  framework = "stan"
+)
+```
 
 `model_info$prior` is optional descriptive metadata, often a list of
 keywords that points to prior information elsewhere in PosteriorDB. For

@@ -115,6 +115,23 @@ optional character fields `urls`, `references`, and `keywords`; supplied
 values are written to the posterior JSON. If posterior keywords are
 omitted, the posterior JSON writes `"keywords": null`.
 
+For model metadata, `framework = "stan"` is a convenience form: the
+bundle constructor creates `model_implementations$stan` for you, using
+`models/stan/<model name>.stan` and `stan_version = ">=2.26.0"`. You do
+not need to build that nested list for the usual Stan workflow. If you
+prefer to supply `model_implementations` yourself, that remains
+supported; the Stan `model_code` path must match the path inferred from
+the model name, and an explicit `stan_version` is retained. For example,
+this shorthand is sufficient:
+
+``` r
+model_info = list(
+  name = "normal",
+  title = "Normal model",
+  framework = "stan"
+)
+```
+
 `model_info$prior` is optional descriptive metadata, often a list of
 keywords that points to prior information elsewhere in PosteriorDB. For
 example, pass `prior = list(keywords = "stan_recommended_35dbfe6")` when

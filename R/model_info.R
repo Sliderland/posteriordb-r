@@ -1,6 +1,11 @@
 #' Access data and model information
 #'
-#' @param x a object to access information for.
+#' @param x An object to access information for, or a named list to convert.
+#'   For list input, `framework = "stan"` creates the Stan entry in
+#'   `model_implementations` using the conventional model-code path and the
+#'   default `stan_version = ">=2.26.0"`. A caller-supplied
+#'   `model_implementations` list is retained as provided; if `framework` is
+#'   also supplied, that implementation must be present in the list.
 #' @param pdb a \code{pdb} object.
 #' @param ... further arguments to methods.
 #'
@@ -40,12 +45,31 @@ model_info.character <- function(x, pdb = pdb_default(), ...) {
 #' @export
 as.model_info.list <- function(x, pdb = NULL, ...) {
   class(x) <- "pdb_model_info"
-  if(!is.null(x$framework)){
-    checkmate::assert_null(x$model_implementations)
-    mi <- list(list("model_code" = paste0("models/", x$framework,"/", x$name, ".",
-                supported_frameworks_file_extension(x$framework))))
-    x$model_implementations <- mi
-    names(x$model_implementations) <- x$framework
+  if (!is.null(x$framework)) {
+    framework <- x$framework
+    checkmate::assert_string(framework)
+    checkmate::assert_choice(framework, supported_frameworks())
+
+    if (is.null(x$model_implementations)) {
+      implementation <- list(
+        model_code = paste0(
+          "models/", framework, "/", x$name, ".",
+          supported_frameworks_file_extension(framework)
+        )
+      )
+      if (identical(framework, "stan")) {
+        implementation$stan_version <- ">=2.26.0"
+      }
+      x$model_implementations <- stats::setNames(
+        list(implementation), framework
+      )
+    } else {
+      checkmate::assert_list(x$model_implementations)
+      checkmate::assert_names(
+        names(x$model_implementations),
+        must.include = framework
+      )
+    }
     x$framework <- NULL
   }
   assert_model_info(x)

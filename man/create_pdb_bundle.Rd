@@ -39,12 +39,6 @@ name of saved data in `pdb`. `list()` explicitly declares an empty input;
 `NULL` is currently unavailable and errors unless recovered from a
 supplied posterior object.}
 
-\item{model_code}{Optional `pdb_model_code` object or saved model name.
-Its Stan source must match the source embedded in `fit`.}
-
-\item{posterior}{Optional `pdb_posterior` object or saved posterior name.
-Its linked data/model and unconstrained dimensions must match the bundle.}
-
 \item{added_by}{Shared default contributor name for the constructed data,
 model, posterior, and reference-draw metadata. Defaults to the current R
 user. Values supplied in the corresponding metadata lists take precedence.}
@@ -57,6 +51,12 @@ Values supplied in the corresponding metadata lists take precedence.}
 `reference_info`, `include`, `exclude`, `check`, and
 `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.}
 
+\item{model_code}{Optional `pdb_model_code` object or saved model name.
+Its Stan source must match the source embedded in `fit`.}
+
+\item{posterior}{Optional `pdb_posterior` object or saved posterior name.
+Its linked data/model and unconstrained dimensions must match the bundle.}
+
 \item{data_info}{Named data metadata. `name` and `title` are required;
 supported descriptive fields are `description`, `references`, `urls`,
 and `keywords`.}
@@ -68,17 +68,20 @@ prior metadata to record (for example, `list(keywords = "prior-key")`);
 the constructor does not infer priors from Stan code. When written, an
 unspecified prior is omitted, no `likelihood_code` entry is emitted, and
 omitted model `keywords` are written as `null`.
-The Stan implementation uses `stan_version = ">=2.26.0"` by default;
-supply `model_implementations = list(stan = list(model_code =
-"models/stan/<name>.stan", stan_version = "..."))` to override it.}
+Set `framework = "stan"` to have the constructor build
+`model_implementations$stan` using the conventional
+`models/stan/<name>.stan` path and `stan_version = ">=2.26.0"` default.
+You can instead supply `model_implementations` yourself; an explicit
+Stan implementation must use the inferred model-code path, and its
+`stan_version` overrides the default when provided.}
 
 \item{posterior_info}{Named posterior metadata. Optional `added_by` and
 `added_date` values override the shared defaults for the posterior.
-Optional descriptive fields `urls`, `references`, and `keywords` are
-retained in the posterior info JSON when supplied.
 The generated `dimensions` map contains unconstrained parameter counts,
 not constrained output shapes. Draw selection still retains every saved
 scalar output column for each selected base variable.
+Optional descriptive fields `urls`, `references`, and `keywords` are
+retained in the posterior info JSON when supplied.
 Optional structural fields
 (`name`, `model_name`, `data_name`, `reference_posterior_name`, and
 `dimensions`) are accepted only when they match inferred values.}

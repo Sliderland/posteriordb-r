@@ -38,9 +38,12 @@
 #'   the constructor does not infer priors from Stan code. When written, an
 #'   unspecified prior is omitted, no `likelihood_code` entry is emitted, and
 #'   omitted model `keywords` are written as `null`.
-#'   The Stan implementation uses `stan_version = ">=2.26.0"` by default;
-#'   supply `model_implementations = list(stan = list(model_code =
-#'   "models/stan/<name>.stan", stan_version = "..."))` to override it.
+#'   Set `framework = "stan"` to have the constructor build
+#'   `model_implementations$stan` using the conventional
+#'   `models/stan/<name>.stan` path and `stan_version = ">=2.26.0"` default.
+#'   You can instead supply `model_implementations` yourself; an explicit
+#'   Stan implementation must use the inferred model-code path, and its
+#'   `stan_version` overrides the default when provided.
 #' @param posterior_info Named posterior metadata. Optional `added_by` and
 #'   `added_date` values override the shared defaults for the posterior.
 #'   The generated `dimensions` map contains unconstrained parameter counts,
