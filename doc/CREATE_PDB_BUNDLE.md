@@ -317,24 +317,25 @@ passes_reference_draw_checks(fit, checks = "mean_lag1_ac")
 By default, the bundle includes saved parameters, transformed
 parameters, and generated quantities, excluding `lp__`: this is the
 `include = NULL` default. `include = "all"` is an equivalent bundle
-option; `c("all")` means exactly the same thing. The name `"all"` is
-reserved when used alone as a bundle selection; `exclude` still applies
-to derived outputs. Use `include = character(0)` to retain only the
-complete parameter block. In R, `c()` is `NULL`, so `include = c()`
-selects all outputs rather than parameter-block-only draws. Use
-`include` or `exclude` with base variable names to select additional
-outputs. For example, `include = c("mu", "tau")` keeps those variables
-**and every inferred parameter-block variable**. `include = "theta"` can
-additionally retain all elements of a transformed parameter or generated
-quantity. Excluding an inferred parameter-block variable is an error;
-derived outputs can be excluded. The same retained selection is used for
-immediate or deferred diagnostics and summary statistics. The
-posterior’s `dimensions` entries always describe the complete inferred
-parameter block and are unaffected by selection of derived outputs.
-These entries record unconstrained parameter counts, which can differ
-from the number or shape of saved output columns (for example, a
-constrained simplex has one fewer unconstrained coordinate than output
-elements).
+option; `c("all")` means exactly the same thing. Use `include = "none"`
+or `include = character(0)` to retain only the complete parameter block,
+with no additional outputs. `c("none")` is equivalent to `"none"`. The
+names `"all"` and `"none"` are reserved when used alone as bundle
+selections; `exclude` still applies to derived outputs. In R, `c()` is
+`NULL`, so `include = c()` selects all outputs rather than
+parameter-block-only draws. Use `include` or `exclude` with base
+variable names to select additional outputs. For example,
+`include = c("mu", "tau")` keeps those variables **and every inferred
+parameter-block variable**. `include = "theta"` can additionally retain
+all elements of a transformed parameter or generated quantity. Excluding
+an inferred parameter-block variable is an error; derived outputs can be
+excluded. The same retained selection is used for immediate or deferred
+diagnostics and summary statistics. The posterior’s `dimensions` entries
+always describe the complete inferred parameter block and are unaffected
+by selection of derived outputs. These entries record unconstrained
+parameter counts, which can differ from the number or shape of saved
+output columns (for example, a constrained simplex has one fewer
+unconstrained coordinate than output elements).
 
 The `dimensions` map describes the model parameters that have
 unconstrained coordinates; it is not a complete inventory of every

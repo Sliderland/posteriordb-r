@@ -64,9 +64,10 @@
 #' @param include Optional character vector of saved base variable names to
 #'   retain in addition to all inferred parameter-block variables. `NULL`
 #'   retains all saved model outputs except `lp__`; `"all"` (or `c("all")`)
-#'   is an alias for NULL. The name `"all"` is reserved for this selection.
-#'   `character(0)` retains
-#'   only parameter-block variables; `c()` is NULL and therefore selects all.
+#'   is an alias for NULL. `"none"` (or `c("none")`) is an alias for
+#'   `character(0)`: retain only parameter-block variables, with no additional
+#'   outputs. `"all"` and `"none"` are reserved when used alone.
+#'   `c()` is NULL and therefore selects all.
 #' @param exclude Optional character vector of base variable names to omit.
 #'   Exclusion takes precedence over inclusion for derived outputs; excluding
 #'   an inferred parameter-block variable is an error.
@@ -383,6 +384,7 @@ assemble_standalone_fit_bundle <- function(
   all_vars <- setdiff(posterior::variables(draws_array), "lp__")
   bases <- unique(sub("\\[.*$", "", all_vars))
   if (identical(include, "all")) include <- NULL
+  if (identical(include, "none")) include <- character(0)
   include <- validate_variable_selection(include, "include")
   exclude <- validate_variable_selection(exclude, "exclude")
   chosen_bases <- setdiff(

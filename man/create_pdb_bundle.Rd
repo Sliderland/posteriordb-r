@@ -94,9 +94,10 @@ Diagnostics and `checks_made` are calculated internally.}
 \item{include}{Optional character vector of saved base variable names to
 retain in addition to all inferred parameter-block variables. `NULL`
 retains all saved model outputs except `lp__`; `"all"` (or `c("all")`)
-is an alias for NULL. The name `"all"` is reserved for this selection.
-`character(0)` retains
-only parameter-block variables; `c()` is NULL and therefore selects all.}
+is an alias for NULL. `"none"` (or `c("none")`) is an alias for
+`character(0)`: retain only parameter-block variables, with no additional
+outputs. `"all"` and `"none"` are reserved when used alone.
+`c()` is NULL and therefore selects all.}
 
 \item{exclude}{Optional character vector of base variable names to omit.
 Exclusion takes precedence over inclusion for derived outputs; excluding

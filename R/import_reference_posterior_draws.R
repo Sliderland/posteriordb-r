@@ -697,6 +697,7 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   checkmate::assert_flag(strict)
   checkmate::assert_flag(compute_diagnostics)
   if (identical(include, "all")) include <- NULL
+  if (identical(include, "none")) include <- character(0)
   include <- validate_variable_selection(include, "include")
   exclude <- validate_variable_selection(exclude, "exclude")
 

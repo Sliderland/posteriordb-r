@@ -324,10 +324,11 @@ passes_reference_draw_checks(fit, checks = "mean_lag1_ac")
 By default, the bundle includes saved parameters, transformed
 parameters, and generated quantities, excluding `lp__`: this is the
 `include = NULL` default. `include = "all"` is an equivalent bundle option;
-`c("all")` means exactly the same thing. The name `"all"` is reserved when
-used alone as a bundle selection; `exclude` still applies to derived outputs.
-Use `include = character(0)` to retain only the
-complete parameter block. In R, `c()` is `NULL`, so `include = c()` selects
+`c("all")` means exactly the same thing. Use `include = "none"` or
+`include = character(0)` to retain only the complete parameter block, with
+no additional outputs. `c("none")` is equivalent to `"none"`. The names
+`"all"` and `"none"` are reserved when used alone as bundle selections;
+`exclude` still applies to derived outputs. In R, `c()` is `NULL`, so `include = c()` selects
 all outputs rather than parameter-block-only draws. Use `include` or
 `exclude` with base variable names to select additional outputs. For example,
 `include = c("mu", "tau")` keeps those variables **and every inferred
