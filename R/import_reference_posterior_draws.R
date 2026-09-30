@@ -2,13 +2,17 @@
 #'
 #' Sampling is deliberately kept outside this package. This function accepts a
 #' completed post-warmup `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object,
-#' keeps only the variables declared by the PosteriorDB posterior, computes the
+#' keeps the variables declared by the PosteriorDB posterior plus optional
+#' additional outputs selected with `include`, computes the
 #' usual reference-posterior diagnostics, and returns the in-memory object
 #' without writing to a database. For CmdStanR, calling this function reads the
 #' draws and sampler diagnostics from the fit's CSV output files.
-#' All saved scalar output columns for each declared base parameter are retained.
-#' The fit's unconstrained parameter counts must match the posterior
-#' specification. The importer does not verify that the fit used the posterior's
+#' All saved scalar output columns for each selected base variable are retained.
+#' Selected outputs are diagnosed and included in any written summaries.
+#' All inferred parameter-block variables and variables named in posterior
+#' dimensions are always retained. Declared counts for actual model parameters
+#' must match the fit's unconstrained counts; dimensions naming derived outputs
+#' are permitted when those outputs are saved in the fit. The importer does not verify that the fit used the posterior's
 #' model source code or data.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
@@ -16,6 +20,15 @@
 #' @param pdb a local or remote PosteriorDB connection used to resolve a name.
 #' @param dimensions optional named list of unconstrained parameter counts. When omitted,
 #'   `posterior$dimensions` is authoritative.
+#' @param include Optional character vector of additional saved base variable
+#'   names to retain, diagnose, and summarize. Names in posterior dimensions
+#'   and inferred parameter-block variables are always added. `NULL` retains
+#'   these required variables without any additional outputs.
+#' @param exclude Optional character vector of saved base variable names to
+#'   omit from the additional selection. Exclusion takes precedence over
+#'   inclusion, but excluding a dimension or parameter-block variable raises
+#'   an error. Unknown
+#'   names raise errors; base names select every indexed column.
 #' @param policy reserved for a future diagnostic policy; must currently be
 #'   `NULL` so the package's acceptance checks cannot be mistaken for a
 #'   caller-supplied policy.
@@ -31,6 +44,8 @@ as_reference_posterior_draws <- function(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 ) {
   UseMethod("as_reference_posterior_draws", fit)
@@ -44,10 +59,13 @@ as_reference_posterior_draws.stanfit <- function(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 ) {
   as_reference_posterior_draws_external(
-    fit, posterior, pdb, dimensions, policy, ...
+    fit, posterior, pdb, dimensions, policy,
+    include = include, exclude = exclude, ...
   )
 }
 
@@ -59,10 +77,13 @@ as_reference_posterior_draws.CmdStanMCMC <- function(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 ) {
   as_reference_posterior_draws_external(
-    fit, posterior, pdb, dimensions, policy, ...
+    fit, posterior, pdb, dimensions, policy,
+    include = include, exclude = exclude, ...
   )
 }
 
@@ -72,6 +93,8 @@ as_reference_posterior_draws_external <- function(
   pdb,
   dimensions,
   policy,
+  include = NULL,
+  exclude = NULL,
   ...
 ) {
   checkmate::assert_class(pdb, "pdb")
@@ -112,21 +135,22 @@ as_reference_posterior_draws_external <- function(
   }
 
   fitted_counts <- infer_unconstrained_parameter_counts_from_fit(fit)
-  missing_counts <- setdiff(keep_dimensions, names(fitted_counts))
   common <- intersect(keep_dimensions, names(fitted_counts))
   mismatched_counts <- common[vapply(common, function(nm)
     !identical(as.integer(posterior_dimensions[[nm]]), as.integer(fitted_counts[[nm]])), logical(1))]
-  if (length(missing_counts) || length(mismatched_counts)) {
-    details <- c(if (length(missing_counts)) paste("missing:", paste(missing_counts, collapse = ", ")),
-                 if (length(mismatched_counts)) paste("unconstrained counts differ:", paste(mismatched_counts, collapse = ", ")))
+  if (length(mismatched_counts)) {
+    details <- paste("unconstrained counts differ:", paste(mismatched_counts, collapse = ", "))
     stop("The fitted model does not match the posterior's declared parameter dimensions (", paste(details, collapse = "; "), ").", call. = FALSE)
   }
 
+  selected_bases <- resolve_import_variable_selection(
+    extracted$draws, union(keep_dimensions, names(fitted_counts)), include, exclude
+  )
   draws <- filter_external_posterior_draws(
     extracted$draws,
-    keep_dimensions = keep_dimensions
+    keep_dimensions = selected_bases
   )
-  validate_external_posterior_draws(draws, keep_dimensions)
+  validate_external_posterior_draws(draws, selected_bases)
   selected_draw_names <- posterior::variables(draws)
 
   diagnostics <- compute_stan_sampling_diagnostics(
@@ -184,6 +208,8 @@ as_reference_posterior_draws_from_stanfit <- function(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 ) {
   as_reference_posterior_draws(
@@ -192,6 +218,8 @@ as_reference_posterior_draws_from_stanfit <- function(
     pdb = pdb,
     dimensions = dimensions,
     policy = policy,
+    include = include,
+    exclude = exclude,
     ...
   )
 }
@@ -204,6 +232,8 @@ as_reference_posterior_draws_from_cmdstanr <- function(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 ) {
   as_reference_posterior_draws(
@@ -212,6 +242,8 @@ as_reference_posterior_draws_from_cmdstanr <- function(
     pdb = pdb,
     dimensions = dimensions,
     policy = policy,
+    include = include,
+    exclude = exclude,
     ...
   )
 }
@@ -230,7 +262,14 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #' files are not rewritten.
 #'
 #' The importer selects all scalar output columns for each base variable in the
-#' posterior and verifies its unconstrained parameter count. It does not compare
+#' posterior dimensions plus additional outputs named in `include`. `exclude`
+#' may remove additional outputs, but cannot remove dimension variables or
+#' inferred parameter-block variables, which are always retained.
+#' Diagnostics and summaries use the resulting selection. The importer verifies
+#' declared unconstrained counts for actual parameter-block variables. Dimensions
+#' may also name saved derived outputs; these have no independent unconstrained
+#' counts to compare. Additional outputs may be
+#' transformed parameters or generated quantities. It does not compare
 #' the fit's Stan source code
 #' or sampling data with the source and data linked to that posterior.
 #'
@@ -239,6 +278,15 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #' @param pdb a local PosteriorDB object. Required when `write = TRUE`; when
 #'   `write = FALSE`, it is used to resolve a posterior name.
 #' @param dimensions optional named list of unconstrained parameter counts.
+#' @param include Optional character vector of additional saved base variable
+#'   names to retain, diagnose, and summarize. Names in posterior dimensions
+#'   and inferred parameter-block variables are always added. `NULL` retains
+#'   these required variables without any additional outputs.
+#' @param exclude Optional character vector of saved base variable names to
+#'   omit from the additional selection. Exclusion takes precedence over
+#'   inclusion, but excluding a dimension or parameter-block variable raises
+#'   an error. Unknown
+#'   names raise errors; base names select every indexed column.
 #' @param policy reserved for a future diagnostic policy; must currently be
 #'   `NULL`.
 #' @param write whether to write the validated result to `pdb`.
@@ -268,6 +316,8 @@ import_reference_posterior_draws <- function(
   write = FALSE,
   overwrite = FALSE,
   write_summary_statistics = TRUE,
+  include = NULL,
+  exclude = NULL,
   ...
 ) {
   checkmate::assert_flag(write)
@@ -282,6 +332,8 @@ import_reference_posterior_draws <- function(
     pdb = pdb,
     dimensions = dimensions,
     policy = policy,
+    include = include,
+    exclude = exclude,
     ...
   )
 
@@ -297,8 +349,8 @@ import_reference_posterior_draws <- function(
   target_posterior <- pdb_posterior(posterior_name, pdb = pdb)
   target_bases <- posterior_dimension_names(validate_import_dimensions(target_posterior$dimensions))
   imported_bases <- unique(sub("\\[.*$", "", posterior::variables(rpd)))
-  if (!setequal(imported_bases, target_bases)) {
-    stop("Imported variables disagree with the target database's posterior dimensions.",
+  if (length(setdiff(target_bases, imported_bases))) {
+    stop("Imported variables are missing the target database's posterior dimensions.",
          call. = FALSE)
   }
   write_imported_reference_posterior_draws(
@@ -829,6 +881,29 @@ validate_import_dimensions <- function(dimensions) {
   validate_posterior_dimension_counts(dimensions)
 }
 
+# Selection is shared by both fit backends. Dimensions remain mandatory;
+# additional saved outputs need not contribute unconstrained coordinates.
+resolve_import_variable_selection <- function(draws, required, include = NULL,
+                                              exclude = NULL) {
+  include <- validate_variable_selection(include, "include")
+  exclude <- validate_variable_selection(exclude, "exclude")
+  available <- unique(sub("\\[.*$", "", posterior::variables(draws)))
+  for (argument in c("include", "exclude")) {
+    values <- if (argument == "include") include else exclude
+    unknown <- setdiff(values, available)
+    if (length(unknown)) {
+      stop("Unknown saved base variable(s) in `", argument, "`: ",
+           paste(unknown, collapse = ", "), call. = FALSE)
+    }
+  }
+  protected <- intersect(required, exclude)
+  if (length(protected)) {
+    stop("Cannot exclude required posterior dimensions or parameter-block variables: ",
+         paste(protected, collapse = ", "), call. = FALSE)
+  }
+  setdiff(union(required, include), exclude %||% character())
+}
+
 filter_external_posterior_draws <- function(draws, keep_dimensions) {
   available <- posterior::variables(draws)
   available_bases <- unique(sub("\\[.*$", "", available))
@@ -848,7 +923,7 @@ validate_external_posterior_draws <- function(draws, keep_dimensions) {
   checkmate::assert_class(draws, "draws_array")
   retained_bases <- unique(sub("\\[.*$", "", posterior::variables(draws)))
   if (!setequal(retained_bases, keep_dimensions)) {
-    stop("The retained posterior base-variable names do not match the declared dimensions.", call. = FALSE)
+    stop("The retained posterior base-variable names do not match the requested selection.", call. = FALSE)
   }
   if (posterior::nchains(draws) < 1L || posterior::ndraws(draws) < 1L) {
     stop("The external Stan fit has no complete post-warmup chains.", call. = FALSE)

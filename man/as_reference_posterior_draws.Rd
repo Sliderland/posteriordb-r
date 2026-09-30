@@ -14,6 +14,8 @@ as_reference_posterior_draws(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 )
 
@@ -23,6 +25,8 @@ as_reference_posterior_draws(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 )
 
@@ -32,6 +36,8 @@ as_reference_posterior_draws(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 )
 
@@ -41,6 +47,8 @@ as_reference_posterior_draws_from_stanfit(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 )
 
@@ -50,6 +58,8 @@ as_reference_posterior_draws_from_cmdstanr(
   pdb = pdb_default(),
   dimensions = NULL,
   policy = NULL,
+  include = NULL,
+  exclude = NULL,
   ...
 )
 }
@@ -60,12 +70,23 @@ as_reference_posterior_draws_from_cmdstanr(
 
 \item{pdb}{a local or remote PosteriorDB connection used to resolve a name.}
 
-\item{dimensions}{optional named PosteriorDB dimension list. When omitted,
+\item{dimensions}{optional named list of unconstrained parameter counts. When omitted,
 `posterior$dimensions` is authoritative.}
 
 \item{policy}{reserved for a future diagnostic policy; must currently be
 `NULL` so the package's acceptance checks cannot be mistaken for a
 caller-supplied policy.}
+
+\item{include}{Optional character vector of additional saved base variable
+names to retain, diagnose, and summarize. Names in posterior dimensions
+and inferred parameter-block variables are always added. `NULL` retains
+these required variables without any additional outputs.}
+
+\item{exclude}{Optional character vector of saved base variable names to
+omit from the additional selection. Exclusion takes precedence over
+inclusion, but excluding a dimension or parameter-block variable raises
+an error. Unknown
+names raise errors; base names select every indexed column.}
 
 \item{...}{optional metadata fields such as `comments`, `added_by`,
 `added_date`, and `sampling_timestamp`.}
@@ -78,11 +99,16 @@ A `pdb_reference_posterior_draws` object. If a required check fails,
 \description{
 Sampling is deliberately kept outside this package. This function accepts a
 completed post-warmup `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object,
-keeps only the variables declared by the PosteriorDB posterior, computes the
+keeps the variables declared by the PosteriorDB posterior plus optional
+additional outputs selected with `include`, computes the
 usual reference-posterior diagnostics, and returns the in-memory object
 without writing to a database. For CmdStanR, calling this function reads the
 draws and sampler diagnostics from the fit's CSV output files.
-The fit's retained scalar variable names and shapes must match the posterior
-specification. The importer does not verify that the fit used the posterior's
+All saved scalar output columns for each selected base variable are retained.
+Selected outputs are diagnosed and included in any written summaries.
+All inferred parameter-block variables and variables named in posterior
+dimensions are always retained. Declared counts for actual model parameters
+must match the fit's unconstrained counts; dimensions naming derived outputs
+are permitted when those outputs are saved in the fit. The importer does not verify that the fit used the posterior's
 model source code or data.
 }

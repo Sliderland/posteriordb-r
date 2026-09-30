@@ -96,7 +96,7 @@ external_posterior_fixture <- function() {
   )
 }
 
-test_that("an externally sampled stanfit is filtered to declared scalar variables", {
+test_that("an externally sampled stanfit retains all essential parameter variables", {
   fit <- external_fit_fixture()
   po <- external_posterior_fixture()
   rpd <- as_reference_posterior_draws(
@@ -108,7 +108,7 @@ test_that("an externally sampled stanfit is filtered to declared scalar variable
   expect_s3_class(rpd, "pdb_reference_posterior_draws")
   expect_equal(
     posterior::variables(rpd),
-    c("A[1,1]", "A[2,1]", "A[1,2]", "A[2,2]")
+    c("A[1,1]", "A[2,1]", "A[1,2]", "A[2,2]", "declared", "undeclared")
   )
   expect_false(any(c(
     "lp__", "accept_stat__", "stepsize__", "treedepth__", "n_leapfrog__",
@@ -446,7 +446,7 @@ test_that("CmdStanR MCMC fits are imported through their CSV-backed methods", {
     fit, posterior, pdb = empty_local_pdb()
   )
   expect_s3_class(rpd, "pdb_reference_posterior_draws")
-  expect_equal(posterior::variables(rpd), "alpha")
+  expect_equal(posterior::variables(rpd), c("alpha", "undeclared"))
   expect_equal(info(rpd)$inference$method_arguments$iter, 50L)
   expect_equal(info(rpd)$inference$method_arguments$warmup, 10L)
   expect_true("expected_fraction_of_missing_information" %in%

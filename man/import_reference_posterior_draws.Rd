@@ -13,6 +13,8 @@ import_reference_posterior_draws(
   write = FALSE,
   overwrite = FALSE,
   write_summary_statistics = TRUE,
+  include = NULL,
+  exclude = NULL,
   ...
 )
 }
@@ -37,6 +39,17 @@ import_reference_posterior_draws(
 statistics (`mean_value` and `mean_squared_value`) when `write = TRUE`.
 Defaults to `TRUE`.}
 
+\item{include}{Optional character vector of additional saved base variable
+names to retain, diagnose, and summarize. Names in posterior dimensions
+and inferred parameter-block variables are always added. `NULL` retains
+these required variables without any additional outputs.}
+
+\item{exclude}{Optional character vector of saved base variable names to
+omit from the additional selection. Exclusion takes precedence over
+inclusion, but excluding a dimension or parameter-block variable raises
+an error. Unknown
+names raise errors; base names select every indexed column.}
+
 \item{...}{optional metadata fields forwarded to the conversion function.}
 }
 \value{
@@ -56,9 +69,16 @@ files are not rewritten.
 }
 \details{
 The importer selects all scalar output columns for each base variable in the
-posterior and verifies its unconstrained parameter count. It does not compare
-the fit's Stan source code or sampling data with the source and data linked to
-that posterior.
+posterior dimensions plus additional outputs named in `include`. `exclude`
+may remove additional outputs, but cannot remove dimension variables or
+inferred parameter-block variables, which are always retained.
+Diagnostics and summaries use the resulting selection. The importer verifies
+declared unconstrained counts for actual parameter-block variables. Dimensions
+may also name saved derived outputs; these have no independent unconstrained
+counts to compare. Additional outputs may be
+transformed parameters or generated quantities. It does not compare
+the fit's Stan source code
+or sampling data with the source and data linked to that posterior.
 }
 \examples{
 \dontrun{

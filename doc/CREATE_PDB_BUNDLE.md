@@ -48,9 +48,38 @@ The importer always runs the full reference-draw checks. With
 `write_summary_statistics = FALSE` to skip them. A posterior already
 linked to a different reference-draw object cannot be relinked by this
 call. The importer selects every saved scalar column for each declared
-base parameter and verifies the fit’s unconstrained parameter counts
-against the posterior specification, but it does not confirm that the
-fit used the exact model source and data linked to that posterior.
+base variable in posterior dimensions, and always retains all inferred
+parameter-block variables. Declared counts for actual model parameters
+must match the fit’s unconstrained counts. Dimensions may also name
+saved derived outputs, which have no independent unconstrained counts to
+compare. The importer does not confirm that the fit used the exact model
+source and data linked to that posterior.
+
+To retain additional saved outputs, pass base names through `include`:
+
+``` r
+imported_draws <- import_reference_posterior_draws(
+  fit, posterior = "existing_data-existing_model", pdb = pdbl,
+  include = c("theta", "log_lik"), write = FALSE
+)
+```
+
+Every variable named in `posterior$dimensions`, and every
+parameter-block variable inferred from the fit, is retained
+automatically even if omitted from `include`. Additional outputs may be
+transformed parameters or generated quantities; all their indexed
+columns are retained. `exclude` removes additional selections and takes
+precedence over `include`, but excluding a dimensions or parameter-block
+variable is an error. Unknown names are errors. Without these arguments,
+only those required variables are retained. This can retain more
+variables than older importer versions. Diagnostics and written
+summaries cover the retained selection, not omitted outputs. Existing
+dimensions are not changed. Required variables missing from the saved
+fit cause an error. Retaining the complete parameter block provides the
+inputs needed by the experimental reconstruction function, but the
+importer does not itself reconstruct outputs or verify model/data
+identity. Random generated quantities cannot generally be recovered
+exactly.
 
 To build from saved data and model records while constructing the
 missing posterior and reference draws, use:
