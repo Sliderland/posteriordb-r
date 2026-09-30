@@ -75,8 +75,8 @@ test_that("bundle extraction selects draws and keeps sampling provenance", {
     }
   )
   extracted <- posteriordb:::extract_rstan_fit_for_bundle(fit, strict = FALSE, include = "theta")
-  expect_identical(posterior::variables(extracted$draws), "theta[1]")
-  expect_identical(extracted$dimensions, list(theta = 1L))
+  expect_identical(posterior::variables(extracted$draws), c("mu", "theta[1]"))
+  expect_identical(extracted$dimensions, list(mu = 1L, theta = 1L))
   expect_identical(extracted$fit_class, "stanfit")
   expect_identical(extracted$source, fit$stanmodel$model_code)
   expect_identical(extracted$metadata$expected_fraction_of_missing_information, c(.3, .4))
@@ -182,5 +182,6 @@ test_that("bundle extraction rejects unsupported provenance and incomplete varia
   zero$.draws <- posterior::as_draws_array(array(rnorm(16), c(8, 2, 1),
     dimnames = list(NULL, NULL, "mu")))
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(zero), "zero-sized")
-  expect_silent(posteriordb:::extract_rstan_fit_for_bundle(zero, exclude = "theta"))
+  expect_error(posteriordb:::extract_rstan_fit_for_bundle(zero, exclude = "theta"),
+               "Cannot exclude parameter-block variables")
 })

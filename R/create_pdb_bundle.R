@@ -11,7 +11,10 @@
 #' The default variable selection includes saved parameters, transformed
 #' parameters, and generated quantities, except `lp__`. `include` and
 #' `exclude` select base variable names, so `include = "theta"` retains all
-#' saved scalar elements of an array parameter.
+#' saved scalar elements of an array parameter. All inferred parameter-block
+#' variables are always retained, diagnosed, and summarized, even when omitted
+#' from `include`. Excluding them is an error. Derived outputs do not change
+#' the inferred posterior dimensions.
 #'
 #' @param fit A completed `rstan::stanfit` object.
 #' @param data The exact named Stan input list, a `pdb_data` object, or the
@@ -58,8 +61,13 @@
 #'   such as `comments`, `added_by`, and `added_date`. The inference method
 #'   and version provenance are derived from the current R environment.
 #'   Diagnostics and `checks_made` are calculated internally.
-#' @param include Optional character vector of base variable names to retain.
+#' @param include Optional character vector of saved base variable names to
+#'   retain in addition to all inferred parameter-block variables. `NULL`
+#'   retains all saved model outputs except `lp__`. `character(0)` retains
+#'   only parameter-block variables; `c()` is NULL and therefore selects all.
 #' @param exclude Optional character vector of base variable names to omit.
+#'   Exclusion takes precedence over inclusion for derived outputs; excluding
+#'   an inferred parameter-block variable is an error.
 #' @param check Whether to evaluate the package's reference-draw acceptance
 #'   checks. `FALSE` leaves the candidate explicitly unchecked and skips
 #'   draw-diagnostic and acceptance-metric calculations.
@@ -375,14 +383,14 @@ assemble_standalone_fit_bundle <- function(
   include <- validate_variable_selection(include, "include")
   exclude <- validate_variable_selection(exclude, "exclude")
   chosen_bases <- setdiff(
-    if (is.null(include)) bases else include,
+    union(if (is.null(include)) bases else include, names(extracted$dimensions)),
     exclude %||% character()
   )
   chosen <- all_vars
   if (!length(chosen)) {
     stop("Variable selection leaves no saved draws.", call. = FALSE)
   }
-  dimensions <- extracted$dimensions[intersect(chosen_bases, names(extracted$dimensions))]
+  dimensions <- extracted$dimensions
   if (!length(dimensions)) {
     stop("The selected draws contain no unconstrained model parameters; posterior dimensions cannot be inferred from derived quantities alone.", call. = FALSE)
   }
@@ -982,7 +990,8 @@ validate_variable_selection <- function(x, arg) {
   if (is.null(x)) {
     return(NULL)
   }
-  checkmate::assert_character(x, any.missing = FALSE, min.len = 1L)
+  checkmate::assert_character(x, any.missing = FALSE,
+                              min.len = if (arg == "include") 0L else 1L)
   if (any(!nzchar(x)) || anyDuplicated(x)) {
     stop(
       "`",

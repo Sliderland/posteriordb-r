@@ -766,8 +766,23 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     stop("Unknown Stan variable(s) in `include`: ", paste(setdiff(include, declared_bases), collapse = ", "), call. = FALSE)
   if (!is.null(exclude) && length(setdiff(exclude, declared_bases)))
     stop("Unknown Stan variable(s) in `exclude`: ", paste(setdiff(exclude, declared_bases), collapse = ", "), call. = FALSE)
-  selected_bases <- setdiff(if (is.null(include)) declared_bases else include,
-                            exclude %||% character())
+  parameter_counts <- tryCatch(
+    infer_unconstrained_parameter_counts_from_fit(fit),
+    error = function(error) {
+      if (is.null(data)) stop(error)
+      # Serialized stanfit objects may retain draws and source but lose their
+      # compiled model instance. Recompile from source and the supplied data;
+      # this recovers parameter coordinates without resampling the saved fit.
+      infer_posterior_dimensions(code, data, backend = "rstan")
+    }
+  )
+  protected <- intersect(names(parameter_counts), exclude)
+  if (length(protected))
+    stop("Cannot exclude parameter-block variables: ", paste(protected, collapse = ", "), call. = FALSE)
+  selected_bases <- setdiff(
+    union(if (is.null(include)) declared_bases else include, names(parameter_counts)),
+    exclude %||% character()
+  )
   if (!length(selected_bases)) stop("Variable selection leaves no saved draws.", call. = FALSE)
   invalid_axes <- selected_bases[vapply(selected_bases, function(base) {
     axes <- declared[[base]]
@@ -800,17 +815,7 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     validate_rstan_saved_coverage(base, saved, axes)
     axes
   }), selected_bases)
-  parameter_counts <- tryCatch(
-    infer_unconstrained_parameter_counts_from_fit(fit),
-    error = function(error) {
-      if (is.null(data)) stop(error)
-      # Serialized stanfit objects may retain draws and source but lose their
-      # compiled model instance. Recompile from source and the supplied data;
-      # this recovers parameter coordinates without resampling the saved fit.
-      infer_posterior_dimensions(code, data, backend = "rstan")
-    }
-  )
-  dimensions <- parameter_counts[intersect(selected_bases, names(parameter_counts))]
+  dimensions <- parameter_counts
   if (!length(dimensions))
     stop("The selected variables contain no unconstrained model parameters.", call. = FALSE)
   selected <- scalar_names[sub("\\[.*$", "", scalar_names) %in% selected_bases]

@@ -91,9 +91,14 @@ such as `comments`, `added_by`, and `added_date`. The inference method
 and version provenance are derived from the current R environment.
 Diagnostics and `checks_made` are calculated internally.}
 
-\item{include}{Optional character vector of base variable names to retain.}
+\item{include}{Optional character vector of saved base variable names to
+retain in addition to all inferred parameter-block variables. `NULL`
+retains all saved model outputs except `lp__`. `character(0)` retains
+only parameter-block variables; `c()` is NULL and therefore selects all.}
 
-\item{exclude}{Optional character vector of base variable names to omit.}
+\item{exclude}{Optional character vector of base variable names to omit.
+Exclusion takes precedence over inclusion for derived outputs; excluding
+an inferred parameter-block variable is an error.}
 
 \item{check}{Whether to evaluate the package's reference-draw acceptance
 checks. `FALSE` leaves the candidate explicitly unchecked and skips
@@ -123,7 +128,10 @@ compiled pointer.
 The default variable selection includes saved parameters, transformed
 parameters, and generated quantities, except `lp__`. `include` and
 `exclude` select base variable names, so `include = "theta"` retains all
-saved scalar elements of an array parameter.
+saved scalar elements of an array parameter. All inferred parameter-block
+variables are always retained, diagnosed, and summarized, even when omitted
+from `include`. Excluding them is an error. Derived outputs do not change
+the inferred posterior dimensions.
 
 
 The default workflow uses a Stan input list and data/model metadata.
