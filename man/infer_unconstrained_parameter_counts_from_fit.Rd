@@ -4,10 +4,14 @@
 \alias{infer_unconstrained_parameter_counts_from_fit}
 \title{Infer unconstrained parameter counts from a fitted Stan model}
 \usage{
-infer_unconstrained_parameter_counts_from_fit(fit, include = NULL, exclude = NULL)
+infer_unconstrained_parameter_counts_from_fit(
+  fit,
+  include = NULL,
+  exclude = NULL
+)
 }
 \arguments{
-\item{fit}{An \code{rstan::stanfit} or \code{cmdstanr::CmdStanMCMC} object.}
+\item{fit}{An `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.}
 
 \item{include}{Optional base parameter names to retain.}
 
@@ -17,7 +21,5 @@ infer_unconstrained_parameter_counts_from_fit(fit, include = NULL, exclude = NUL
 A named list of positive integer unconstrained parameter counts.
 }
 \description{
-Infer the number of unconstrained coordinates for each parameter directly
-from a completed Stan fit.
+Infer unconstrained parameter counts from a fitted Stan model
 }
-\seealso{\code{\link{infer_posterior_dimensions}}}

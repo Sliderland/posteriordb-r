@@ -8,9 +8,8 @@
 posterior_dimension_names(x)
 }
 \arguments{
-\item{x}{a named dimensions slot from a \code{pdb_posterior}, containing positive integer unconstrained parameter counts}
+\item{x}{a named dimensions slot from a [pdb_posterior]}
 }
 \description{
-Returns the base parameter names. Each value in the dimensions list is a
-scalar count of unconstrained coordinates, not a constrained output shape.
+Get parameter names from PosteriorDB unconstrained dimension counts
 }

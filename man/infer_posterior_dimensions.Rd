@@ -5,22 +5,27 @@
 \title{Infer unconstrained posterior parameter counts from Stan code and data}
 \usage{
 infer_posterior_dimensions(
-  model_code, data, include = NULL, exclude = NULL,
-  backend = c("rstan", "cmdstanr"), iter = 4L
+  model_code,
+  data,
+  include = NULL,
+  exclude = NULL,
+  backend = c("rstan", "cmdstanr"),
+  iter = 4L
 )
 }
 \arguments{
-\item{model_code}{Stan source as a string or \code{pdb_model_code} object.}
+\item{model_code}{Stan source as a string or `pdb_model_code` object.}
 
-\item{data}{A named list of Stan data or a \code{pdb_data} object.}
+\item{data}{A named list of Stan data or a `pdb_data` object.}
 
 \item{include}{Optional base parameter names to retain.}
 
 \item{exclude}{Base parameter names to omit.}
 
-\item{backend}{Stan backend, either \code{"rstan"} or \code{"cmdstanr"}.}
+\item{backend}{Stan backend, either `"rstan"` or `"cmdstanr"`.}
 
-\item{iter}{Total iterations for the short CmdStanR fit, split between warmup and sampling. RStan compiles without sampling.}
+\item{iter}{Total iterations for the short CmdStanR fit, split between
+warmup and sampling. RStan compiles without sampling.}
 }
 \value{
 A named list of positive integer unconstrained parameter counts.
@@ -29,10 +34,6 @@ A named list of positive integer unconstrained parameter counts.
 Compile a Stan model and obtain the number of unconstrained coordinates for
 each parameter (RStan uses a zero-chain fit; CmdStanR uses a short fit).
 These scalar counts are the values stored
-in PosteriorDB posterior \code{dimensions}; they are not the constrained output
+in PosteriorDB posterior `dimensions`; they are not the constrained output
 shapes of the variables.
 }
-\seealso{
-\code{\link{infer_unconstrained_parameter_counts_from_fit}}
-}
-\keyword{internal}
