@@ -20,6 +20,8 @@ existing data, model-code, or posterior objects (or retrieve them by
 name from a database). It currently accepts RStan `stanfit` objects;
 `import_reference_posterior_draws()` also accepts CmdStanR fits.
 
+## Choose a workflow
+
 Choose the workflow based on whether the data, model, and posterior
 records already exist:
 
@@ -37,6 +39,8 @@ records already exist:
   supports RStan and CmdStanR fits, checks them, and can write the draws
   and summaries while linking them to the existing posterior. It does
   not rewrite the existing data, model, or posterior payloads.
+
+### Import a fit for an existing posterior
 
 For example, to import into an existing posterior in a local database:
 
@@ -84,9 +88,21 @@ retained. This can retain more variables than older importer versions.
 Diagnostics and written summaries cover the retained selection, not omitted
 outputs. Existing dimensions are not changed. Required variables missing
 from the saved fit cause an error. Retaining the complete parameter block
-provides the inputs needed by the experimental reconstruction function, but
+provides the inputs needed by `reconstruct_stan_output()`, but
 the importer does not itself reconstruct outputs or verify model/data identity.
 Random generated quantities cannot generally be recovered exactly.
+
+The importer stages the reference-draw files, summaries, and any required
+posterior-link update, checks their round trip, and restores originals if the
+operation fails. This is its transactional import path; it differs from the
+sequential whole-bundle writer below. Updating a previously empty posterior
+link is allowed with `overwrite = FALSE`; that flag controls replacement of
+existing draw and summary files. Conversion-only helpers
+`as_reference_posterior_draws()`, `as_reference_posterior_draws_from_stanfit()`,
+and `as_reference_posterior_draws_from_cmdstanr()` accept the same selection
+arguments and return checked draws without writing.
+
+### Reuse existing bundle components
 
 To build from saved data and model records while constructing the
 missing posterior and reference draws, use:
@@ -114,6 +130,8 @@ unconstrained-parameter count per model parameter. Older PosteriorDB
 entries that store output shapes may fail validation and cannot be
 passed through unchanged. The selected variables and their inferred
 counts must also agree with the supplied posterior.
+
+## Create a new bundle: eight schools
 
 Prepare the fit and the exact named Stan input list used for sampling.
 The eight schools example below follows the model in `CONTRIBUTING.md`:
@@ -143,9 +161,13 @@ fit <- rstan::sampling(
 )
 ```
 
+### Supply metadata
+
 Pass the same input list used for sampling, along with the required
 names and titles for the data and model. `added_by` and `added_date` are
-shared defaults for the objects in the bundle; a value in an individual
+shared defaults for the objects in the bundle. `added_date` defaults to
+`Sys.Date()`; supply a Date such as `as.Date("2026-09-30")` to override it.
+A value in an individual
 metadata list takes precedence. `posterior_info` also accepts the
 optional character fields `urls`, `references`, and `keywords`; supplied
 values are written to the posterior JSON. If posterior keywords are
@@ -206,13 +228,16 @@ bundle <- create_pdb_bundle(
   model_info = list(
     name = "test_eight_schools_model",
     title = "Test Non-Centered Model for Eight Schools",
+    framework = "stan",
     description = "A hierarchical model with a non-centered parameterization.",
     references = "rubin1981estimation"
   )
 )
 ```
 
-The constructor returns all four objects in memory:
+### Inspect the in-memory objects
+
+The constructor returns the four linked objects and, when accepted, summaries:
 
 ```{r, eval=FALSE}
 bundle$data
@@ -238,6 +263,19 @@ replace the fit's saved draws. RStan may print
 dimension-recovery step; that is expected.
 
 ## Choose when to compute diagnostics
+
+The four common workflows are:
+
+| Goal | Construction | Persistence |
+| --- | --- | --- |
+| Create without diagnostics | `check = FALSE` | No writer call |
+| Create and check | `check = TRUE` | No writer call |
+| Check and write without replacing files | Either construction mode | `write_pdb(bundle, pdbl, overwrite = FALSE)` |
+| Check and permit replacement | Either construction mode | `write_pdb(bundle, pdbl, overwrite = TRUE)` |
+
+The whole-bundle writer checks unchecked bundles automatically. It may still
+write the data/model/posterior components when reference-draw checks fail;
+inspect its returned result as described below.
 
 `check = TRUE` is the default. It calculates the reference-draw
 diagnostic report during bundle creation. The report is available as:
@@ -270,7 +308,10 @@ four chains, absolute lag-1 autocorrelation at most 0.05 for every
 retained variable, R-hat at most 1.01 for every variable, E-FMI at least
 0.2 for every chain, and no divergent transitions. Bulk and tail ESS are
 also calculated and stored as diagnostic metrics, but ESS bounds do not
-decide whether the draws pass.
+decide whether the draws pass. Bundle reports include observed tree depths
+and configured maximum depths when available; maximum tree depth is not an
+acceptance gate. The example sampling settings produce 10,000 retained draws,
+but no choice of settings guarantees that every diagnostic will pass.
 
 Set `check = FALSE` to create the objects without calculating the
 diagnostic metrics or evaluating acceptance checks. The bundle has
@@ -319,7 +360,7 @@ report$failures
 passes_reference_draw_checks(fit, checks = "mean_lag1_ac")
 ```
 
-## Choose variables and write the objects
+## Choose variables
 
 By default, the bundle includes saved parameters, transformed
 parameters, and generated quantities, excluding `lp__`: this is the
@@ -351,6 +392,25 @@ map. Use `include` and `exclude` to choose which saved variables are
 retained and used for the bundle's draw diagnostics. In particular,
 exclude a generated quantity if it is not useful for diagnosing the fit.
 
+Acceptance applies to the retained variables. Omitted derived outputs are not
+certified by that report, even if the parameter-block variables pass. Unknown
+base names are errors; selection requires the corresponding columns to have
+been saved in the fitted object. Constant outputs can have undefined R-hat or
+autocorrelation and may fail checks rather than indicate a sampling problem.
+
+Selection defaults differ between the two workflows:
+
+| Selection | Bundle creator | Existing-posterior importer |
+| --- | --- | --- |
+| `include = NULL` | All saved outputs except `lp__` | Complete inferred parameter block plus dimensions variables |
+| Explicit base names | Required parameter block plus requested outputs | Required parameter block, dimensions variables, and requested outputs |
+| `exclude` | May remove derived outputs only | May remove extras, but neither parameter-block nor dimensions variables |
+| `"all"` / `"none"` aliases | Supported when used alone | Not aliases; interpreted as variable names |
+
+There is no `keep_dims` or `diagnose_params` argument. `include`/`exclude`
+control both stored outputs and variable-level diagnostics. To diagnose more
+outputs in an import, explicitly include their base names.
+
 For an existing fit, the package can infer the named unconstrained
 counts directly from either supported fit class:
 
@@ -361,8 +421,32 @@ cmdstanr_dimensions <- infer_unconstrained_parameter_counts_from_fit(cmdstanr_fi
 
 The same helper dispatches on fit class and returns one count per model
 parameter. If there is no fit object, `infer_posterior_dimensions()` can
-infer counts from Stan source and data; see
-`?infer_posterior_dimensions` for its backend-specific compile behavior.
+infer counts from Stan source and data:
+
+```{r, eval=FALSE}
+dimensions <- infer_posterior_dimensions(
+  stan_code, eight_schools, backend = "rstan"
+)
+# list(theta_trans = 8L, mu = 1L, tau = 1L)
+```
+
+The RStan backend compiles and initializes data without MCMC. The CmdStanR
+backend currently uses a short sampling run (`iter = 4L` by default), so it is
+not a compile-only operation. With either backend, counts require the matching
+data because parameter dimensions can depend on it.
+
+Each generated dimensions entry is a single unconstrained count, not a shape:
+`list(B = c(2L, 3L))` is rejected; an unconstrained `matrix[2,3] B` has
+`B = 6L`. A `simplex[3]` has count 2 despite three constrained draw columns.
+Manual posterior validation checks that counts are positive integers but
+cannot establish that a plausible scalar count agrees with the model. Bundle
+construction rejects supplied dimensions that conflict with its inference;
+the importer checks counts for actual parameter-block variables and also
+allows saved derived variables in existing dimensions. Existing scalar counts
+that describe constrained rather than unconstrained dimensions can still fail
+import, and bundle reuse remains stricter about the complete inferred map.
+
+## Write the objects
 
 You can write the whole bundle with one call. If diagnostics have not
 been computed yet, this checks the draws first. New data, model, and
@@ -370,7 +454,7 @@ posterior objects are written either way; records reused from the
 destination database are left in place. Reference draws and their
 summary statistics are written only if all acceptance checks pass.
 Before writing, the bundle writer checks every planned output path,
-including info files, payloads, and summaries:
+including info files and payloads, and draws/summaries when eligible for writing:
 
 ```{r, eval=FALSE}
 pdbl <- pdb_local()
@@ -380,7 +464,10 @@ write_result$reused
 write_result$collisions
 write_result$overwritten
 write_result$reference_draws_written
+write_result$summary_statistics_written
 write_result$skipped_reason
+# Keep the updated bundle, particularly after an automatic deferred check:
+bundle <- write_result$bundle
 ```
 
 When a draw check fails, `write_result$bundle$diagnostics$failures`
@@ -477,3 +564,101 @@ input list for the default workflow. Alternatively, pass an existing
 `pdb_data` object or its saved name, or supply a posterior whose linked
 data can be retrieved. In all cases, the function cannot establish that
 the supplied data was the data used to produce the fit.
+
+## Reconstruct outputs from stored parameter draws
+
+`reconstruct_stan_output()` evaluates a model at existing constrained
+parameter-block draws. It performs no MCMC, diagnostics, or database writes,
+and does not require a PosteriorDB connection. `variables = NULL` returns all
+parameter, transformed-parameter, and generated-quantity outputs, excluding
+`lp__` and sampler columns. Base names select every indexed output element;
+exact indexed names are also accepted.
+
+For the eight schools bundle, reconstruct `theta` from the complete parameter
+block (`theta_trans`, `mu`, and `tau`):
+
+```{r, eval=FALSE}
+reconstructed <- reconstruct_stan_output(
+  draws = bundle$reference_draws,
+  model = bundle$model_code,
+  data = bundle$data,
+  variables = NULL
+)
+reconstructed$draws
+reconstructed$timings
+
+# Reuse the prepared evaluator without recompiling; omit data for fitted evaluators.
+theta_only <- reconstruct_stan_output(
+  draws = bundle$reference_draws,
+  model = reconstructed$evaluator,
+  variables = "theta"
+)
+```
+
+The function accepts a data-bound RStan `stanfit` or CmdStanR `CmdStanMCMC`,
+a compiled `stanmodel` or `CmdStanModel`, a Stan file path, a single source
+string, or a `pdb_model_code`. Source/file inputs and `CmdStanModel` source
+use RStan compilation and require matching named data (`list()` for no data).
+A `CmdStanMCMC` uses native CmdStanR model methods, which may compile additional
+C++ methods and require its supporting files. Fitted evaluators already bind
+their data: leave `data = NULL` when passing them.
+
+The return value includes a `draws_array`, reusable evaluator, required
+parameter names/shapes, backend, and preparation/setup/evaluation timings.
+`include_unconstrained = TRUE` also returns intermediate coordinates; CmdStanR
+uses positional `upars[i]` names. Every constrained parameter-block column is
+required, even when requesting just one derived output. Missing inputs raise
+an error; initialization values are not substitutes for omitted draws.
+
+For an already saved posterior, retrieve its components explicitly:
+
+```{r, eval=FALSE}
+po <- posterior("existing_data-existing_model", pdb = pdbl)
+reconstructed <- reconstruct_stan_output(
+  reference_posterior_draws(po),
+  model = model_code(po, framework = "stan"),
+  data = get_data(po)
+)
+```
+
+There is no posterior-name reconstruction wrapper or automatic reconstruction
+in draw retrieval. Older archives may omit parameter-block inputs or store
+derived variables instead; these archives cannot be passed directly to this
+function unless all required inputs are available.
+
+Important limitations:
+
+- Deterministic outputs reproduce within numerical precision only with matching
+  model/data. The function does not verify their identity.
+- Random generated quantities are regenerated, not recovered exactly. `seed`
+  initializes a new evaluator; it does not reset an existing evaluator's RNG.
+  Repeated calls advance that RNG. Random transformed-data calculations can
+  also differ after initialization from source.
+- Selecting fewer outputs does not skip full model-output evaluation. Large
+  models may be expensive; reuse the evaluator to avoid repeated compilation.
+- Divergences, tree depth, energy, and acceptance statistics are sampling history
+  and are not reconstructed. Reconstructed output is not automatically certified
+  or writable as reference draws.
+- Supported inputs use scalar or rectangular numeric shapes; tuples and models
+  without any nonempty parameter are not supported. Invalid serialized pointers
+  require source and data for recompilation.
+
+## Fit and provenance limitations
+
+Bundle creation currently accepts completed RStan HMC fits, not CmdStanR fits,
+optimization/variational results, or merged fits with inconsistent/repeated
+chain IDs. CmdStanR fits can use the importer and reconstruction function.
+Bundle source must be self-contained: saved source containing `#include` is
+rejected. Zero-sized selected outputs are rejected; an optional derived output
+can be excluded explicitly. A fit that omitted required parameter variables
+cannot provide a complete bundle or import.
+
+The default recorded Stan version requirement (`>=2.26.0`) is not proof of the
+version originally used for sampling. Bundle version metadata describes the
+assembly environment. Preserve original sampling provenance separately where
+needed. Unknown, duplicate, or misspelled bundle arguments and unsupported
+metadata fields are rejected rather than silently ignored.
+
+Use a separate database directory when experimenting with writes. Supplying a
+connection during construction does not persist anything, but `write_pdb()` and
+`import_reference_posterior_draws(write = TRUE)` do modify their explicit target.
