@@ -11,15 +11,32 @@ infer_unconstrained_parameter_counts_from_fit(
 )
 }
 \arguments{
-\item{fit}{An `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.}
+\item{fit}{An \code{rstan::stanfit} or \code{cmdstanr::CmdStanMCMC} object.}
 
-\item{include}{Optional base parameter names to retain.}
+\item{include}{Optional unique base parameter names to retain. \code{NULL}
+retains all inferred parameter-block variables with nonzero counts.}
 
-\item{exclude}{Base parameter names to omit.}
+\item{exclude}{Unique base parameter names to omit. A name cannot appear
+in both \code{include} and \code{exclude}. Derived outputs are not parameter names
+for these helpers; \code{lp__} may be excluded but cannot be included.}
 }
 \value{
 A named list of positive integer unconstrained parameter counts.
 }
 \description{
-Infer unconstrained parameter counts from a fitted Stan model
+Obtain the number of unconstrained coordinates for each parameter-block
+variable directly from a supported fitted object, without resampling.
+Counts describe independent coordinates rather than constrained output shapes.
+}
+\details{
+RStan requires a usable compiled model instance. If serialization has
+invalidated it, use \code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}} with model source and
+matching data. CmdStanR uses its unconstrain-draws method and may need
+compiled model methods and the fit's supporting files. Only parameter-block
+variables with nonzero unconstrained counts are returned, not transformed
+parameters or generated quantities. Unknown names and empty selections
+raise errors.
+}
+\seealso{
+\code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}}, \code{\link[=reconstruct_stan_output]{reconstruct_stan_output()}}
 }

@@ -6,14 +6,30 @@
 #' in PosteriorDB posterior `dimensions`; they are not the constrained output
 #' shapes of the variables.
 #'
-#' @param model_code Stan source as a string or `pdb_model_code` object.
+#' @param model_code Stan source as a string, a Stan source file path, or a
+#'   `pdb_model_code` object.
 #' @param data A named list of Stan data or a `pdb_data` object.
-#' @param include Optional base parameter names to retain.
-#' @param exclude Base parameter names to omit.
+#' @param include Optional unique base parameter names to retain. `NULL`
+#'   retains all inferred parameter-block variables with nonzero counts.
+#' @param exclude Unique base parameter names to omit. A name cannot appear
+#'   in both `include` and `exclude`. Derived outputs are not parameter names
+#'   for these helpers; `lp__` may be excluded but cannot be included.
 #' @param backend Stan backend, either `"rstan"` or `"cmdstanr"`.
 #' @param iter Total iterations for the short CmdStanR fit, split between
 #'   warmup and sampling. RStan compiles without sampling.
 #' @return A named list of positive integer unconstrained parameter counts.
+#' @details
+#' Parameter sizes depend on the matching model data. An unconstrained
+#' `matrix[2,3]` contributes six coordinates, while a `simplex[3]` contributes
+#' two, despite having three constrained output elements. Transformed
+#' parameters and generated quantities do not contribute independent coordinates.
+#' Unknown names and selections leaving no parameters raise errors.
+#'
+#' RStan compiles and initializes a zero-chain fit without MCMC. CmdStanR
+#' currently compiles and runs a short single-chain fit; its draws are used
+#' only to obtain coordinate names, not as reference draws.
+#' @seealso [infer_unconstrained_parameter_counts_from_fit()], [create_pdb_bundle()]
+#' @md
 #' @export
 infer_posterior_dimensions <- function(
   model_code, data, include = NULL, exclude = NULL,
@@ -48,10 +64,27 @@ infer_posterior_dimensions <- function(
 
 #' Infer unconstrained parameter counts from a fitted Stan model
 #'
+#' Obtain the number of unconstrained coordinates for each parameter-block
+#' variable directly from a supported fitted object, without resampling.
+#' Counts describe independent coordinates rather than constrained output shapes.
+#'
 #' @param fit An `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
-#' @param include Optional base parameter names to retain.
-#' @param exclude Base parameter names to omit.
+#' @param include Optional unique base parameter names to retain. `NULL`
+#'   retains all inferred parameter-block variables with nonzero counts.
+#' @param exclude Unique base parameter names to omit. A name cannot appear
+#'   in both `include` and `exclude`. Derived outputs are not parameter names
+#'   for these helpers; `lp__` may be excluded but cannot be included.
 #' @return A named list of positive integer unconstrained parameter counts.
+#' @details
+#' RStan requires a usable compiled model instance. If serialization has
+#' invalidated it, use [infer_posterior_dimensions()] with model source and
+#' matching data. CmdStanR uses its unconstrain-draws method and may need
+#' compiled model methods and the fit's supporting files. Only parameter-block
+#' variables with nonzero unconstrained counts are returned, not transformed
+#' parameters or generated quantities. Unknown names and empty selections
+#' raise errors.
+#' @seealso [infer_posterior_dimensions()], [reconstruct_stan_output()]
+#' @md
 #' @export
 infer_unconstrained_parameter_counts_from_fit <- function(fit, include = NULL, exclude = NULL) {
   validate_unconstrained_selection(include, exclude)

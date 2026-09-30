@@ -238,7 +238,16 @@ sampler_params_to_draws_array <- function(sampler_params) {
 
 #' Get parameter names from PosteriorDB unconstrained dimension counts
 #'
-#' @param x a named dimensions slot from a [pdb_posterior]
+#' Returns the base parameter names. Each value in the dimensions list must
+#' be one positive integer unconstrained-coordinate count, not a constrained
+#' output shape. Names are not expanded into indexed draw columns.
+#'
+#' @param x A named dimensions list from a [pdb_posterior], containing
+#'   positive integer unconstrained parameter counts.
+#' @return A character vector of base names, in dimensions-list order.
+#' @seealso [infer_posterior_dimensions()]
+#' @keywords internal
+#' @md
 posterior_dimension_names <- function(x) {
   checkmate::assert_list(x, min.len = 1L)
   checkmate::assert_named(x)

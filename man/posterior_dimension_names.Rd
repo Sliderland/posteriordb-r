@@ -8,8 +8,18 @@
 posterior_dimension_names(x)
 }
 \arguments{
-\item{x}{a named dimensions slot from a [pdb_posterior]}
+\item{x}{A named dimensions list from a \link{pdb_posterior}, containing
+positive integer unconstrained parameter counts.}
+}
+\value{
+A character vector of base names, in dimensions-list order.
 }
 \description{
-Get parameter names from PosteriorDB unconstrained dimension counts
+Returns the base parameter names. Each value in the dimensions list must
+be one positive integer unconstrained-coordinate count, not a constrained
+output shape. Names are not expanded into indexed draw columns.
 }
+\seealso{
+\code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}}
+}
+\keyword{internal}

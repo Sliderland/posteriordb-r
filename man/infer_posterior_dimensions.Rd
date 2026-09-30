@@ -14,15 +14,19 @@ infer_posterior_dimensions(
 )
 }
 \arguments{
-\item{model_code}{Stan source as a string or `pdb_model_code` object.}
+\item{model_code}{Stan source as a string, a Stan source file path, or a
+\code{pdb_model_code} object.}
 
-\item{data}{A named list of Stan data or a `pdb_data` object.}
+\item{data}{A named list of Stan data or a \code{pdb_data} object.}
 
-\item{include}{Optional base parameter names to retain.}
+\item{include}{Optional unique base parameter names to retain. \code{NULL}
+retains all inferred parameter-block variables with nonzero counts.}
 
-\item{exclude}{Base parameter names to omit.}
+\item{exclude}{Unique base parameter names to omit. A name cannot appear
+in both \code{include} and \code{exclude}. Derived outputs are not parameter names
+for these helpers; \code{lp__} may be excluded but cannot be included.}
 
-\item{backend}{Stan backend, either `"rstan"` or `"cmdstanr"`.}
+\item{backend}{Stan backend, either \code{"rstan"} or \code{"cmdstanr"}.}
 
 \item{iter}{Total iterations for the short CmdStanR fit, split between
 warmup and sampling. RStan compiles without sampling.}
@@ -34,6 +38,20 @@ A named list of positive integer unconstrained parameter counts.
 Compile a Stan model and obtain the number of unconstrained coordinates for
 each parameter (RStan uses a zero-chain fit; CmdStanR uses a short fit).
 These scalar counts are the values stored
-in PosteriorDB posterior `dimensions`; they are not the constrained output
+in PosteriorDB posterior \code{dimensions}; they are not the constrained output
 shapes of the variables.
+}
+\details{
+Parameter sizes depend on the matching model data. An unconstrained
+\code{matrix[2,3]} contributes six coordinates, while a \code{simplex[3]} contributes
+two, despite having three constrained output elements. Transformed
+parameters and generated quantities do not contribute independent coordinates.
+Unknown names and selections leaving no parameters raise errors.
+
+RStan compiles and initializes a zero-chain fit without MCMC. CmdStanR
+currently compiles and runs a short single-chain fit; its draws are used
+only to obtain coordinate names, not as reference draws.
+}
+\seealso{
+\code{\link[=infer_unconstrained_parameter_counts_from_fit]{infer_unconstrained_parameter_counts_from_fit()}}, \code{\link[=create_pdb_bundle]{create_pdb_bundle()}}
 }
