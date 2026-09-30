@@ -625,11 +625,23 @@ reconstructed <- reconstruct_stan_output(
 )
 ```
 
-There is no posterior-name reconstruction wrapper or automatic
-reconstruction in draw retrieval. Older archives may omit
-parameter-block inputs or store derived variables instead; these
-archives cannot be passed directly to this function unless all required
-inputs are available.
+Alternatively, follow those links automatically with the convenience
+wrapper:
+
+``` r
+reconstructed <- reconstruct_posterior_output(
+  "existing_data-existing_model", pdb = pdbl, variables = NULL
+)
+```
+
+The wrapper requires reference-draw metadata declaring `stan_sampling`
+and a Stan model implementation. It retrieves the linked data
+automatically and compiles the source using RStan. These metadata checks
+do not prove model/data identity. Supply a posterior name or alias, not
+a reference archive name. Ordinary draw retrieval does not reconstruct
+automatically. Older archives may omit parameter-block inputs or store
+derived variables instead; both reconstruction functions error when
+required inputs are missing.
 
 Important limitations:
 
