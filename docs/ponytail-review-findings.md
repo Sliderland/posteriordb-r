@@ -10,11 +10,11 @@ I would use them as a menu of independently reviewable changes. Implementing eve
 
 Documents reviewed:
 
-- [Agent review and consolidation brief](../doc/AGENT_REVIEW_GUIDE.md).
+- [Agent review and consolidation brief](AGENT_REVIEW_GUIDE.md).
 - [Three Stan workflow implementation proposals](implementation-guide-stan-workflow-gaps.md).
 - [Current bundle workflow guide](../doc/CREATE_PDB_BUNDLE.md), with its Rmd source checked for context. This is generated documentation; future edits belong in the Rmd.
 
-There is one recent implementation guide in `docs/`; the other recent briefs are in `doc/`. This findings file intentionally stays in `docs/`.
+The review briefs and implementation proposals are now in `docs/`; the bundle usage guide and its Rmd source remain in `doc/` on the reviewed feature branch.
 
 ## Changes I would prioritize
 

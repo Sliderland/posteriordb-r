@@ -10,6 +10,13 @@ Other-machine changes were unavailable. Recheck every finding against the
 actual branch before changing it. Some findings predate the recent additions;
 do not attribute all problems to those additions or to AI generation.
 
+The [commit-by-commit review](ponytail-commit-review.md) traces the 74 commits
+from `8aeef19` to this snapshot, distinguishes later repairs from outstanding
+issues, and adds the reproduced bundle-reuse defects P11/P12 below. The
+documentation branch `Agent-ToDo` itself is based on `8aeef19`; these findings
+describe the reviewed feature snapshot, not implementation present on that
+documentation branch.
+
 ## Your task
 
 Review the package for inconsistent public behavior, S3 contract violations,
@@ -501,6 +508,80 @@ name first. Draw reading was already changed to read reference info directly
 for staged references. Apply the same identity distinction to summaries.
 Use a fixture where posterior and reference names differ, and verify both
 single-summary and multi-summary access.
+
+### P11. Bundle construction erases reused components' source database — reproduced
+
+Locations at `55e667e`: `R/create_pdb_bundle.R:421-424,512-515` and
+`R/write_pdb.R:248-261`. Existing-object reuse arrived in `5241f39`; the
+destination-origin guard added in `4df3f39` does not resolve this case.
+
+Supplying a connected data object from database A together with `pdb = B`
+to `create_pdb_bundle()` replaces the object's attached connection with B.
+The bundle still marks the component as reused. When same-name files exist
+in B, preflight reads that replaced connection and concludes that the
+component came from B. It skips those files without detecting the collision.
+The same connection replacement applies to a supplied model-code object.
+
+An isolated public-call probe used data named `reuse-data` with `n = 1` in A
+and `n = 2` in B. With accepted synthetic fit draws and mocked RStan
+extraction, construction with the data from A and `pdb = B`, followed by
+`write_pdb(bundle, B, overwrite = FALSE, write_summary_statistics = FALSE)`,
+successfully wrote reference draws and reported the data as reused. The
+returned bundle contained `n = 1`; a public read of B returned `n = 2`.
+Keeping A attached during construction made preflight reject that collision.
+The reproduced data path therefore permits a persisted posterior whose
+declared data differ from the data supplied for its fit.
+
+Preserve the original source connection for reused components and use it
+in preflight. Attaching the destination to newly created objects is a
+separate operation. The smallest fix is to avoid replacing reused objects'
+origin before validation, or retain that origin explicitly in the write plan.
+This is not a requirement for the optional content-fingerprint feature:
+the source identity was available and was overwritten.
+
+Test A-to-B construction with different same-name data using both overwrite
+settings; rejection must precede any writes. Cover model reuse with the same
+pattern, genuine same-database reuse, and copying into an empty destination.
+Use the exported constructor and writer so the test includes retargeting,
+not merely a private preflight call with an unmodified object.
+
+### P12. A reused posterior's new reference link exists only in memory — reproduced
+
+Locations at `55e667e`: `R/create_pdb_bundle.R:449-459,512-522` and
+`R/write_pdb.R:105-117,248-261,349-389`. `daa4e12` permits a supplied
+posterior with a NULL reference link; the final writer does not persist the
+link assigned during construction.
+
+Construction accepts an existing database-backed posterior with
+`reference_posterior_name = NULL`, assigns the inferred reference name in
+memory, and can return passing checks. Preflight classifies its existing
+posterior JSON as reused, so the writer skips that JSON. The draws writer
+then searches persisted posterior records for the reference name. When
+none points to it, writing fails with “no posterior in this database points
+to reference posterior”.
+
+An isolated public-call probe loaded an existing posterior with a NULL link,
+constructed an accepted bundle from it with mocked fit extraction, and
+called the public writer. All checks passed; data, model, and posterior were
+reported as reused. Writing raised the link error, the stored link remained
+NULL, and no reference archive was created. This is an accepted-candidate
+failure, distinct from P2's failed-candidate dangling-link problem. Do not
+describe it as an unconditional successful write of orphaned draws: the
+persisted-link guard prevents that in this reproduced case.
+
+Decide whether this reuse operation may fill an empty reference link. If
+yes, include that narrow update in the accepted-reference write plan,
+preserving descriptive fields and rejecting a different existing link.
+Stage it with the reference files, following the existing import writer's
+linking pattern where appropriate. If reuse must leave all existing
+posterior records untouched, reject this case during preflight with a clear
+instruction to link the posterior first. Do not unconditionally overwrite
+the entire reused posterior or attach a candidate link after failed checks.
+
+Test NULL, matching, and conflicting stored links through construction,
+writing, and persisted reads. Include failed diagnostics. Assert the
+destination state after success or rejection, not only the bundle's
+in-memory link.
 
 ## Validation and workflow behavior
 
