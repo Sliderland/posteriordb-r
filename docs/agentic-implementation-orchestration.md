@@ -5,6 +5,10 @@ and access to the intended implementation checkout to the implementing agent.
 This guide supplies a work protocol; the review documents supply findings
 and feature specifications. Creating this guide did not implement any fixes.
 
+For a Plus-only or Claude Code-only setup, also read the
+[alternate provider profiles](agentic_orchestration_alt.md), which replace
+the model assignments and kickoff prompt while preserving this work protocol.
+
 ## Recommended setup and model assignments
 
 Use a small team with **one code writer at a time**. Start with these roles;
