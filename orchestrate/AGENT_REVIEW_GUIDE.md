@@ -354,18 +354,6 @@ framework supported does not mean `write_to_path()` implements it. Clearly
 support or reject each operation instead of failing after metadata is saved.
 Test read/write/remove behavior per supported operation and custom code paths.
 
-### P10. Reader sometimes conflates reference names with posterior names
-
-Location: `read_reference_posterior_summary_statistic()` in
-`R/summary_statistic.R`.
-
-It receives a reference-posterior name but reads info through
-`reference_posterior_info.character()`, which resolves a posterior of that
-name first. Draw reading was already changed to read reference info directly
-for staged references. Apply the same identity distinction to summaries.
-Use a fixture where posterior and reference names differ, and verify both
-single-summary and multi-summary access.
-
 ## Validation and workflow behavior
 
 ### V2. Posterior checking discards the supplied in-memory object — confirmed
