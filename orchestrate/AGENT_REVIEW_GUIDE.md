@@ -318,11 +318,14 @@ A later I/O or serialization failure can leave earlier components installed.
 Individual data/model/reference writers likewise write metadata before the
 payload. The fit importer already stages and verifies a multi-file write.
 
-First specify promised failure behavior for each operation. Reuse suitable
-staging/commit/verification workers where practical; do not create a broad
-transaction framework solely to reduce line count. Preserve the intentional
-partial success when reference checks fail, which is distinct from an I/O
-failure midway through an accepted write.
+Maintainer decision, 2026-10-02: preserve partial writes after an I/O failure
+and report the components that succeeded. Document this in the contribution
+workflow: inspect the resulting files before retrying, and review them in the
+contribution pull request. Diagnostic rejection keeps its distinct documented
+partial-success behavior. Automatic rollback for bundle/component writes
+remains open for discussion with colleagues; this decision does not close P4.
+Changing the policy later requires staging/restoration and failure tests,
+but no transaction framework is needed for the current reporting contract.
 
 Rename/bibliography rollback backup preservation and shared ZIP extraction failure handling are verified; see the handoff for commits and checks. The remaining scope is broader component/bundle failure behavior and operation-result checks.
 

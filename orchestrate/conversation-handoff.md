@@ -91,7 +91,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S1 | Verified at `688c7d8`: common positional arguments aligned; focused installed tests and S3 signature checker passed. |
 | P2, P11, P12 | Verified at `56cb0dd`: persisted candidate links guarded, reused origins retained, accepted reused posterior requires a matching stored link. Empty-link updates use the existing importer. Forty isolated integrity assertions passed, including namespace-only installed loading. |
 | V1 | Verified at `b9515c1`: bibliography result captured; eight status assertions and 48 bibliography assertions passed in an installed package. |
-| P4 | Partial at `ebb5d9e`: rename/bibliography restoration results checked and failed-recovery backups retained. Rename 58 and bibliography 48 assertions passed. Broader component/bundle write atomicity remains open. |
+| P4 | Partial at `ebb5d9e`: rename/bibliography restoration results checked and failed-recovery backups retained. Rename 58 and bibliography 48 assertions passed. Maintainer chose on 2026-10-02 to keep partial bundle/component writes on I/O failure, report successful components, and document inspection/retry and pull-request review. Reporting/docs implementation remains pending; future automatic rollback remains open for colleague discussion. |
 | P9 | Verified: names/write containment at `587bb86`/`8e5de0c`; common archive/cache boundaries at `fe74ebc`. One safe root JSON member, requested filename matching, cache containment, and partial extraction cleanup shared with rename/link. Initial archive regression had ten failures; damaged-ZIP review regression added three failures. Final 33 archive assertions pass, including a Windows-safe crafted drive-name ZIP. Installed archive33, rename58, resource170 and integrity40 passed; independent Sol review verified corruption repair and portability block. Windows runtime/live GitHub unrun. |
 | P3 | Deferred by maintainer on 2026-10-02. Preserve existing manual cache refresh; retain the issue in the active guide for later decision. |
 | S3 | Verified at `a5ef7c9`: shared coercion retains and validates an explicit connection; thinning forwards it, standalone NULL remains supported, JSON excludes connection attributes. Regression failed with eight assertions before repair and passed all 16 afterward. Installed reference-connections, import-external-stanfit (50 assertions, real RStan), and bundle-write-integrity (40 assertions) passed. Independent Sol 6.1/high review found no defects and reran the 16-assertion regression against repository sources. |
@@ -114,5 +114,6 @@ No writer/reviewer owns an unfinished patch. Completed issues are removed
 from the active guide; this checkpoint and Git retain their evidence.
 Next: P7 summary-reference listing; Luna inventory confirms local summary
 directory selection and GitHub type forwarding defects. P4 broader I/O
-rollback policy is awaiting maintainer clarification; no dependent edits.
+policy is settled for now: retain partial writes, report success, document
+inspection/retry; leave future automatic rollback open.
 P3 stays deferred. Remaining work stays in the active guide.

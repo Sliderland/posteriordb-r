@@ -141,7 +141,7 @@ Suggested order for confirmed defects:
 | Work area | Finding IDs | Scope and required result |
 | --- | --- | --- |
 | Test isolation for the selected work | T1 | Use disposable databases before any write/remove test. Refactor unsafe legacy harness/tests before a broad suite run. This need not delay isolated bug probes. |
-| Preserve recoverable files | P4 | Failed restoration keeps backups and reports their locations; required write failures have a defined recovery contract. Handle existing rollback defects before adding transaction machinery. |
+| Report partial writes; future rollback open | P4 | Maintainer chose to retain partial bundle/component writes on I/O failure, report successful components, and document inspection/retry and contribution PR review. Keep automatic rollback open for colleague discussion. Existing rename/bibliography recovery fixes remain in place. |
 | Deferred: cache contract | P3 | Maintainer deferred this on 2026-10-02; preserve current manual refresh until resumed. Original proposal: Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
 | Review remaining remove/API boundaries | Relevant V6 | Write/cache containment and archive checks are verified (P9). Clarify arbitrary-path removal semantics before changing compatibility. |
 | Repair public object/S3 contracts | S2, S4, S5 | Align signatures/registration, preserve connection/framework inputs, and support documented subclass behavior. Do not make every helper generic. |
