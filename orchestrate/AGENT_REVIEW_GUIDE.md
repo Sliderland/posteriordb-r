@@ -352,21 +352,6 @@ checks explicitly. Preserve existing database validation through an explicit
 path. Audit cache-evicting helpers that assume getters returned a connected
 object. Verify standalone, connected, modified, and persisted cases.
 
-### V3. Summary validation depends on field order and ignores lengths — reproduced
-
-Location: `assert_reference_posterior_summary_statistic()`.
-
-It checks `x[[1]]` as character and all remaining fields as numeric despite
-having already checked field names. Shuffling valid fields fails. Conversely,
-two variable names, one summary value, and three MCSE values are accepted.
-
-Validate named fields and compatible lengths; validate names for uniqueness
-and values/MCSE according to a documented finite/missing-value policy.
-Validate metadata too. Check both summary types and round trips with singleton
-and multiple variables. Reordered JSON object keys should not change meaning.
-Review the similarly strict ordering assertion for reference-info field names;
-canonicalize order for output separately from validating required fields.
-
 ### V4. Batch sampling-list detection can misclassify malformed input — reproduced
 
 Location: `normalize_sequential_sampling_lists()`.

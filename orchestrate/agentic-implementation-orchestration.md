@@ -147,7 +147,7 @@ Suggested order for confirmed defects:
 | Repair remaining conversion contracts | S4, S5 | Clarify wrapping/import semantics; framework setter remains deferred. Preserve existing public aliases. |
 | Repair database/object checking | V2 | In-memory checking actually checks the supplied object. |
 | Deferred: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan/custom-path writer support remains open. |
-| Normalize other validation | V3, V4, remaining V6 | Validate summary fields/lengths and batch options; distinguish missing optional resources from malformed ones. |
+| Normalize remaining validation | V4, remaining V6 | Validate batch options; distinguish missing optional resources from malformed ones. |
 | Consolidate applicable diagnostics | D1–D3 | Shared numerical workers and required-check evaluation, preserving fixed thresholds, selective/deferred behavior, and analytical applicability. |
 | Align backend behavior and evidence | D4, D5, D7, V5 | Reuse extraction where contracts match; correct counts, metadata schema, and option translation. Verify changed real backend interfaces. |
 | Resolve documented policy choices | D6, S4, NULL policy follow-up | State supported identity/conversion guarantees and compatibility decisions. Do not silently add configurable acceptance or claim unknown historical provenance. |
