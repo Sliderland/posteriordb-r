@@ -59,10 +59,14 @@ assert_reference_posterior_summary_statistic <- function(x){
 #' @param info a [pdb_reference_posterior_info] object
 #' @param type the type of summary statistic to extract
 #' @param ... further arguments supplied to specific methods.
-#' @return a [pdb_reference_posterior_summary_statistic] object.
+#' @return A [pdb_reference_posterior_summary_statistic] object for singular
+#'   access; a named list of available types for plural access.
 #' @details Stored summaries use the posterior's `reference_posterior_name`
 #'   link for both payload and metadata; that name may differ from the
-#'   posterior's own name.
+#'   posterior's own name. Plural access omits types without metadata and
+#'   returns an empty list when there is no reference link. Advertised summaries
+#'   must be readable: malformed metadata/payloads and read or transport errors
+#'   propagate rather than being treated as absence.
 #'   Field order is ignored. Variable names must be unique and nonmissing;
 #'   summary values and MCSE must each have one numeric entry per variable.
 #'   Numeric missing and infinite values retain their existing permissive
@@ -149,11 +153,15 @@ reference_posterior_summary_statistics.character <- function(x, pdb = pdb_defaul
 #' @rdname reference_posterior_summary_statistic
 #' @export
 reference_posterior_summary_statistics.pdb_posterior <- function(x, ...){
-  ssst <- supported_summary_statistic_types()
+  reference <- x$reference_posterior_name
+  checkmate::assert_string(reference, null.ok = TRUE)
   ss_list <- list()
-  for(i in seq_along(ssst)){
-    ss_list[[ssst[i]]] <- try(read_reference_posterior_summary_statistic(x = x$reference_posterior_name, pdb = pdb(x), type = ssst[i]), silent = TRUE)
-    if(inherits(ss_list[[ssst[i]]], "try-error")) ss_list[[ssst[i]]] <- NULL
+  if (is.null(reference)) return(ss_list)
+  connection <- pdb(x)
+  for (type in supported_summary_statistic_types()) {
+    if (!reference %in% reference_posterior_names(connection, type = type)) next
+    ss_list[[type]] <- read_reference_posterior_summary_statistic(
+      x = reference, pdb = connection, type = type)
   }
   ss_list
 }

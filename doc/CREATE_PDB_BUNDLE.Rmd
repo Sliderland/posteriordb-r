@@ -346,6 +346,13 @@ bundle$summary_statistics$mean_value
 bundle$summary_statistics$mean_squared_value
 ```
 
+For stored summaries, `reference_posterior_summary_statistics(posterior)`
+returns a named list of types advertised by reference metadata, or an empty
+list when no reference is linked. Types without metadata are omitted. A
+malformed or unreadable advertised summary is an error, including a missing
+payload; remote listing/transport errors also surface. Inspect and repair the
+stored files rather than treating that error as a lack of summary statistics.
+
 The posterior embeds the data, model code, and reference draws, so its
 getters work before persistence. `bundle$provenance` records how the
 input data was obtained, the fit class, selected variables, and sampling

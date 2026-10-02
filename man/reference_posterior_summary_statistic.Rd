@@ -45,7 +45,8 @@ pdb_reference_posterior_summary_statistics(x, ...)
 \item{info}{a [pdb_reference_posterior_info] object}
 }
 \value{
-a [pdb_reference_posterior_summary_statistic] object.
+A [pdb_reference_posterior_summary_statistic] object for singular
+  access; a named list of available types for plural access.
 }
 \description{
 Reference posterior summary statistics
@@ -53,7 +54,10 @@ Reference posterior summary statistics
 \details{
 Stored summaries use the posterior's `reference_posterior_name`
   link for both payload and metadata; that name may differ from the
-  posterior's own name.
+  posterior's own name. Plural access omits types without metadata and
+  returns an empty list when there is no reference link. Advertised summaries
+  must be readable: malformed metadata/payloads and read or transport errors
+  propagate rather than being treated as absence.
   Field order is ignored. Variable names must be unique and nonmissing;
   summary values and MCSE must each have one numeric entry per variable.
   Numeric missing and infinite values retain their existing permissive
