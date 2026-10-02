@@ -166,9 +166,10 @@ partial, or deferred.** The authoritative remaining list is the
 S5, D6, P3/P4/P8 and V4/V6. These are tracking groups, not
 7 equally sized bugs. Several require a behavior decision or an audit.
 
-Next unit: bounded V6 payload-structure probe (empty/unequal chain/variable
-lengths), then any reproduced structural repair. The audit output-axis cut is
-verified at `fda18a4`. API and finiteness choices remain pending.
+Next implementation depends on maintainer input: custom Stan write paths
+(P8), unused lookup arguments/config fallback/analytical finiteness (V6), or
+stronger fit identity (D6). The questions below are pending. Draw-shape repair
+is verified at `aad0754`; the audit cut is verified at `fda18a4`.
 V6 duplicate-variable handling is verified at `ff65fa3`.
 D6 recovery is verified at `c1c3631`; stronger identity remains pending.
 V6 optional-summary handling is verified at `e93a71f`.
@@ -538,6 +539,48 @@ errors and42 skipped records, with all three integration flags false and a
 nonexistent corpus sentinel. Real backend evidence belongs to the preceding
 D6/T2 units and was not repeated for this boundary simplification.
 
+### Resumed run — V6 retained-shape slice verified at `aad0754`
+
+Honest posterior list construction rejects ragged draws, but its fast path for
+already-classed objects allowed later mutations to bypass shape validation.
+Unequal within-chain vectors or chain iteration counts could still report10k
+using the first vector/chain, pass analytical checks, and write malformed JSON.
+The existing shared loop now compares every retained vector length with the
+first vector. This adds3 lines and rejects those objects before persistence.
+No constructor copy, private posterior API or new validation framework.
+
+Files were clean. Eight regressions failed before, including writes with
+summaries disabled; analytical45/transformation28/connection16/diagnostics53/
+integrity57 passed development. Independent review reran45 and verified zero-
+iteration, zero-variable, lp-only and character wrapping. Numerical NA/Inf and
+existing value-type policy are unchanged. Help and bundle-guide sources/outputs
+explain equal lengths versus acceptance counts.
+
+The final installed namespace-only offline suite passed1,291 assertions with
+0 failures/errors and42 skipped records, with all integration flags false and
+PDB_PATH pointing at a nonexistent corpus. The final review was accepted with
+no complexity cuts. Real Stan/GitHub/corpus/platform tests were not repeated
+for this shape loop; the preceding units retain their named backend evidence.
+
+### Latest continuation boundary
+
+All six resumed code/documentation units and their checkpoints are committed.
+The main agent was the only writer. `p1_inventory` (Luna/medium), `unit_review`
+(Sol6.1/high) and `cleanup_audit` (Luna/medium) finished read-only work; no agent
+has files or commits owed. Do not relaunch old tasks as unfinished code work.
+Use `git log` for the latest checkpoint SHA rather than assuming `aad0754` is
+HEAD. Relevant source/tests/generated docs and tracked orchestration files are
+clean; unrelated pre-existing files remain outside ownership below.
+
+For continuation, first check for answers to the pending choices below and
+preserve the explicit deferrals. If an answer authorizes a unit, trace its
+current source/callers, select the smallest shared repair, check assigned-file
+status, make a pre-edit preservation commit only when dirty, implement/test,
+freeze for independent review, resolve findings, commit the unit and its
+checkpoint separately. Reuse bounded agents; no simultaneous writers or
+recursive delegation. Graph queries were stale/unindexed for several newer
+helpers, so direct current-source caller checks supplied the evidence.
+
 ### Current unanswered implementation choices
 
 Do not infer a choice from elapsed time. These questions are pending:
@@ -648,7 +691,7 @@ are verified by the resumed units. Live GitHub, Windows runtime, manual corpus
 CI and a broad `R CMD check` remain unrun; full offline tests are separately
 recorded and are not a full package-check claim.
 
-### Working-tree boundary at pause
+### Working-tree boundary at checkpoint
 
 Unrelated pre-existing changes remain: `.Rbuildignore`, `.gitignore`, the
 untracked fit-import/reference-check documents, historical audit/review

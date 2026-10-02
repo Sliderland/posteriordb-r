@@ -4,7 +4,7 @@ Updated 2026-10-02. Implementation branch: `main`.
 
 The initial sections explain cleanup through `472f867` and checkpoint
 `811b425`. The resumed sections below record subsequent verified units through
-`fda18a4`, including dependency/docs, summary errors, archived-fit recovery and draw labels. It
+`aad0754`, including dependency/docs, summary errors, archived-fit recovery and draw structure. It
 describes what each change solves;
 [conversation-handoff.md](conversation-handoff.md) holds the detailed
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
@@ -289,9 +289,9 @@ restarting already-completed P11/P2/P12 work.
 | Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 
-Next is a bounded V6 payload-structure probe before any further structural fix.
-D6 recovery, V6 summary/draw-label repairs and the audit cut are verified;
-policy choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
+The reproduced structural repairs are complete. Further work needs the
+maintainer's pending identity, configuration, lookup, finiteness or custom-path
+choices; see the handoff. Explicitly deferred work stays deferred. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -670,3 +670,26 @@ suite passed1,283 assertions with0 failures/errors and42 skipped records. No
 backend or platform matrix was rerun for this small boundary change. Broader
 identity/API/numerical choices remain in the handoff's unanswered-choice list;
 explicitly deferred cache/setter/non-Stan/batch/rollback work stays deferred.
+
+
+### Resumed work: enforce consistent retained draw lengths — V6 slice
+
+Native construction checks plain lists, but an already-classed draw object could
+be mutated afterward to have ragged vectors or unequal chains. Count checks
+used the first vector/chain and could accept and write the malformed object.
+Three lines in the existing validator now compare every retained vector length
+with the first. Empty unchecked constructors and the current numerical/value-
+type policy are preserved. No validation abstraction or draw-copy roundtrip.
+
+Files were clean. Eight constructor/checker/writer regressions failed before;
+final analytical45 plus transformation28/connection16/diagnostics53/integrity57
+passed development. Independent review reran45 and checked empty/lp-only/
+character compatibility. The final installed offline suite passed1,291
+assertions with0 failures/errors and42 skipped records. Help and bundle guide
+were regenerated. Commit `aad0754`; the handoff records the pending decisions.
+
+At this checkpoint, six focused units have been post-edit committed with
+separate continuation checkpoints, plus the interruption preservation commit
+`813ea9c`. All read-only agents finished with no edits or commits owed. The
+original tracked count is26/33 complete,7 partial/deferred/decision-dependent;
+this is not a claim that all remaining contracts have been chosen.

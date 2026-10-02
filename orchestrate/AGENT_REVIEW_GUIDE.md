@@ -245,16 +245,15 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
   silently ignores the extra argument. Ask whether to reject extras in this
   lookup API or preserve compatibility. Do not blanket-reject arguments
   intentionally forwarded by other methods.
-- Optional-summary reads are verified at `e93a71f`: plural access skips
-  types not advertised by metadata and propagates advertised read failures
-  and remote listing errors. No reference link returns an empty list.
 - `remove_pdb.character()` deletes the literal path supplied even if outside
   the connection's endpoint. Clarify whether it is a public arbitrary-path
   API or an internal worker; do not change its semantics without review.
 - Payload coverage already includes summary field/length/date validation (V3),
   diagnostic labels/counts (D2), and transformation attributes (P1/S2). Draw
   variable labels are now validated as unique/nonmissing/nonempty at
-  `ff65fa3`. Remaining: analytical NA/Inf values can pass count checks;
+  `ff65fa3`; equal retained vector/chain lengths are verified at `aad0754`.
+  Mutated draws no longer bypass these checks. Remaining: analytical NA/Inf
+  values can pass count checks;
   the maintainer question about finiteness is pending. Revalidate any further
   malformed-input candidates against these checks before expanding validation.
 - `pdb_endpoint.pdb_local()` returns a path when an endpoint is already set,
