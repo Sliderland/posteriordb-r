@@ -82,5 +82,12 @@ Writing reference draws requires all recorded reference acceptance
   for new components cause an error when `overwrite = FALSE`; with
   `overwrite = TRUE`, the complete set is detected before any replacement
   begins. Components reused from the target database are skipped and are
-  never overwritten by the bundle writer.
+  never overwritten by the bundle writer. Reused objects retain their
+  source connections; same-name files in another database are rejected.
+  A reused posterior must already have the matching persisted reference
+  link before accepted bundle draws can be written. To fill an empty link,
+  use [import_reference_posterior_draws()] with `write = TRUE`.
+  When checks fail, newly written posteriors omit the candidate reference
+  link unless its files already exist. Existing links to stored reference
+  files are preserved. The in-memory bundle still contains the candidate.
 }

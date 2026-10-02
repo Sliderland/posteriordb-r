@@ -19,8 +19,8 @@
 #' @param fit A completed `rstan::stanfit` object.
 #' @param data The exact named Stan input list, a `pdb_data` object, or the
 #'   name of saved data in `pdb`. `list()` explicitly declares an empty input;
-#'   `NULL` is currently unavailable and errors unless recovered from a
-#'   supplied posterior object.
+#'   `NULL` errors unless linked data can be retrieved from a supplied
+#'   posterior object. Fit-data recovery is not supported.
 #' @param model_code Optional `pdb_model_code` object or saved model name.
 #'   Its Stan source must match the source embedded in `fit`.
 #' @param posterior Optional `pdb_posterior` object or saved posterior name.
@@ -75,7 +75,8 @@
 #'   checks. `FALSE` leaves the candidate explicitly unchecked and skips
 #'   draw-diagnostic and acceptance-metric calculations.
 #' @param pdb Optional PosteriorDB connection used to retrieve named objects
-#'   and attach the resulting bundle. This constructor never writes to it.
+#'   and attach newly constructed objects. Reused objects retain their source
+#'   connections. This constructor never writes to it.
 #' @param ... Named method options: `model_code`, `posterior`, `data_info`, `model_info`, `posterior_info`,
 #'   `reference_info`, `include`, `exclude`, `check`, and
 #'   `pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.
@@ -96,6 +97,12 @@
 #' source, links, and inferred unconstrained dimensions. If an existing object
 #' and its corresponding `*_info` list are both supplied, a warning is issued
 #' and the existing object's metadata takes precedence.
+#' Reused objects keep their source database connections. The bundle writer
+#' rejects same-name files in another destination database, even with
+#' `overwrite = TRUE`. A reused posterior must have the matching reference
+#' link on disk before accepted bundle draws can be written; use
+#' [import_reference_posterior_draws()] with `write = TRUE` to fill an empty
+#' link together with the accepted reference files.
 #'
 #' The bundle embeds its content in memory and remains usable before database
 #' persistence. Supplied data is recorded as caller-supplied; this function
@@ -182,7 +189,7 @@ create_pdb_bundle.stanfit <- function(
     if (is.null(data)) data <- get_data(posterior)
     if (is.null(model_code)) model_code <- model_code(posterior, framework = "stan")
   }
-  resolved_data <- resolve_standalone_fit_data(fit, data)
+  resolved_data <- resolve_standalone_fit_data(data)
   data <- resolved_data$data
   existing_data <- resolved_data$object
   if (!is.null(existing_data)) {
@@ -219,7 +226,6 @@ create_pdb_bundle.stanfit <- function(
   data_info <- validate_bundle_metadata(
     data_info,
     "data_info",
-    required = character(),
     allowed = c(
       "name",
       "title",
@@ -235,7 +241,6 @@ create_pdb_bundle.stanfit <- function(
   model_info <- validate_bundle_metadata(
     model_info,
     "model_info",
-    required = character(),
     allowed = c(
       "name",
       "title",
@@ -254,7 +259,6 @@ create_pdb_bundle.stanfit <- function(
   posterior_info <- validate_bundle_metadata(
     posterior_info,
     "posterior_info",
-    required = character(),
     allowed = c(
       "name",
       "model_name",
@@ -271,20 +275,8 @@ create_pdb_bundle.stanfit <- function(
   reference_info <- validate_bundle_metadata(
     reference_info,
     "reference_info",
-    required = character(),
     allowed = c("comments", "added_by", "added_date")
   )
-  if (
-    any(
-      c("diagnostics", "checks_made", "passed", "accepted") %in%
-        names(reference_info)
-    )
-  ) {
-    stop(
-      "`reference_info` cannot supply diagnostics or acceptance evidence.",
-      call. = FALSE
-    )
-  }
   assert_bundle_required_metadata(data_info, model_info)
   expected_data_file <- paste0("data/data/", data_info$name, ".json")
   if (
@@ -432,8 +424,8 @@ assemble_standalone_fit_bundle <- function(
   mc <- existing_model_code %||% as.pdb_model_code(code, info = mi, framework = "stan")
   if (!identical(info(mc)$name, model_info$name)) stop("The supplied model-code name conflicts with the resolved model metadata.", call. = FALSE)
   if (!is.null(pdb)) {
-    pdb(dat) <- pdb
-    pdb(mc) <- pdb
+    if (is.null(existing_data)) pdb(dat) <- pdb
+    if (is.null(existing_model_code)) pdb(mc) <- pdb
   }
 
   structural <- list(
@@ -549,7 +541,7 @@ assemble_standalone_fit_bundle <- function(
     ),
     pdb = pdb
   )
-  if (!is.null(pdb)) {
+  if (!is.null(pdb) && is.null(existing_posterior)) {
     pdb(po) <- pdb
   }
   bundle <- list(
@@ -809,17 +801,10 @@ print.pdb_reference_bundle <- function(x, ...) {
 # Contract: extraction returns draws as a posterior draws_array (iteration,
 # chain, scalar-variable), matching sampler_diagnostics dimensions and a
 # metadata list. Saved array variables are scalar names like theta[1,2].
-resolve_standalone_fit_data <- function(fit, data) {
-  source <- "caller-supplied"
+resolve_standalone_fit_data <- function(data) {
   if (is.null(data)) {
-    data <- recover_stanfit_data(fit)
-    source <- "fit-recovered"
-    if (is.null(data)) {
-      stop(
-        "`data` is required. Pass the actual named Stan input list; automatic fit-data recovery is unavailable for this fit.",
-        call. = FALSE
-      )
-    }
+    stop("`data` is required. Pass the actual named Stan input list; fit-data recovery is not supported.",
+         call. = FALSE)
   }
   object <- NULL
   if (inherits(data, "pdb_data")) {
@@ -829,9 +814,7 @@ resolve_standalone_fit_data <- function(fit, data) {
   }
   if (!is.list(data)) {
     stop(
-      "",
-      if (source == "fit-recovered") "Recovered" else "Supplied",
-      " `data` must be a list.",
+      "Supplied `data` must be a list.",
       call. = FALSE
     )
   }
@@ -843,17 +826,12 @@ resolve_standalone_fit_data <- function(fit, data) {
         anyDuplicated(names(data)))
   ) {
     stop(
-      if (source == "fit-recovered") "Recovered" else "Supplied",
-      " `data` must be a named list with unique, non-empty input names (or `list()` for no inputs).",
+      "Supplied `data` must be a named list with unique, non-empty input names (or `list()` for no inputs).",
       call. = FALSE
     )
   }
-  list(data = data, source = source, object = object)
+  list(data = data, source = "caller-supplied", object = object)
 }
-
-# Future recovery belongs at this narrow boundary. NULL means unavailable;
-# malformed recovered values are returned and rejected by the common validator.
-recover_stanfit_data <- function(fit) NULL
 
 # Each named input is one ordinary finite numeric, integer, or logical
 # vector/array. Standard names and dimension attributes are preserved.
@@ -904,7 +882,7 @@ validate_stan_input_data <- function(x, path) {
   invisible(x)
 }
 
-validate_bundle_metadata <- function(x, arg, required, allowed) {
+validate_bundle_metadata <- function(x, arg, allowed) {
   checkmate::assert_list(x, .var.name = arg)
   if (!length(x)) {
     return(x)
@@ -924,16 +902,6 @@ validate_bundle_metadata <- function(x, arg, required, allowed) {
       arg,
       "`: ",
       paste(unknown, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  missing <- setdiff(required, names(x))
-  if (length(missing)) {
-    stop(
-      "`",
-      arg,
-      "` is missing required field(s): ",
-      paste(missing, collapse = ", "),
       call. = FALSE
     )
   }
@@ -1016,13 +984,10 @@ new_bundle_reference_info <- function(
   added_by,
   added_date
 ) {
-  allowed <- c("comments", "added_by", "added_date", "inference", "versions")
-  x <- x[intersect(names(x), allowed)]
   args <- metadata$method_arguments %||% list()
   info <- list(
     name = name,
-    inference = x$inference %||%
-      list(method = "stan_sampling", method_arguments = args),
+    inference = list(method = "stan_sampling", method_arguments = args),
     diagnostics = diagnostics,
     checks_made = NULL,
     comments = x$comments %||%

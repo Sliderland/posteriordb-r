@@ -29,7 +29,6 @@ Suggests:
     BH,
     covr,
     cmdstanr,
-    digest,
     dplyr,
     dotenv,
     httr,

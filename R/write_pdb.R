@@ -20,7 +20,14 @@
 #'   for new components cause an error when `overwrite = FALSE`; with
 #'   `overwrite = TRUE`, the complete set is detected before any replacement
 #'   begins. Components reused from the target database are skipped and are
-#'   never overwritten by the bundle writer.
+#'   never overwritten by the bundle writer. Reused objects retain their
+#'   source connections; same-name files in another database are rejected.
+#'   A reused posterior must already have the matching persisted reference
+#'   link before accepted bundle draws can be written. To fill an empty link,
+#'   use [import_reference_posterior_draws()] with `write = TRUE`.
+#'   When checks fail, newly written posteriors omit the candidate reference
+#'   link unless its files already exist. Existing links to stored reference
+#'   files are preserved. The in-memory bundle still contains the candidate.
 #'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
@@ -105,13 +112,30 @@ write_pdb.pdb_reference_bundle <- function(
   written <- character()
   for (component in c("data", "model_code", "posterior")) {
     if (component %in% write_plan$write) {
+      object <- bundle[[component]]
+      if (component == "posterior" && !draws_accepted) {
+        posterior_path <- pdb_file_path(pdb, "posteriors", paste0(object$name, ".json"))
+        reference <- if (file.exists(posterior_path)) {
+          jsonlite::read_json(posterior_path)$reference_posterior_name
+        } else {
+          object$reference_posterior_name
+        }
+        reference_exists <- !is.null(reference) && all(file.exists(c(
+          pdb_file_path(pdb, "reference_posteriors", "draws", "info",
+                        paste0(reference, ".info.json")),
+          pdb_file_path(pdb, "reference_posteriors", "draws", "draws",
+                        paste0(reference, ".json.zip"))
+        )))
+        object["reference_posterior_name"] <- list(if (reference_exists) reference else NULL)
+        object$embedded_reference_draws <- NULL
+      }
       component_overwrite <- if (component %in% write_plan$reused_to_copy) {
         FALSE
       } else {
         overwrite
       }
       write_pdb(
-        bundle[[component]], pdb = pdb, overwrite = component_overwrite
+        object, pdb = pdb, overwrite = component_overwrite
       )
       written <- c(written, component)
     }
@@ -254,6 +278,17 @@ preflight_pdb_bundle_write <- function(
           "confirmed to come from this database: ",
           paste(spec$paths, collapse = ", "),
           ". The bundle writer will not replace or silently reuse them."
+        ))
+        next
+      }
+      if (component == "posterior" && include_reference_draws &&
+          !identical(jsonlite::read_json(spec$paths)$reference_posterior_name,
+                     info(bundle$reference_draws)$name)) {
+        blocking_issues <- c(blocking_issues, paste0(
+          "The reused posterior does not have the matching persisted reference link: ",
+          spec$paths,
+          ". Use import_reference_posterior_draws(..., write = TRUE) to fill an empty link; ",
+          "a different existing link cannot be replaced."
         ))
         next
       }

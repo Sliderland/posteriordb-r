@@ -1,0 +1,163 @@
+bundle_integrity_pdb <- function() {
+  root <- tempfile("bundle-integrity-")
+  for (folder in c("data", "models", "posteriors", "alias", "cache"))
+    dir.create(file.path(root, folder), recursive = TRUE)
+  writeLines("{}", file.path(root, "alias", "posteriors.json"))
+  withr::defer(unlink(root, recursive = TRUE), envir = parent.frame())
+  pdb_local(root, cache_path = file.path(root, "cache"))
+}
+
+bundle_integrity_extraction <- function(divergence = 0L) {
+  set.seed(412)
+  draws <- posterior::as_draws_array(array(rnorm(10000), c(2500, 4, 1),
+    dimnames = list(NULL, NULL, "theta")))
+  sampler <- array(0, c(2500, 4, 2),
+    dimnames = list(NULL, NULL, c("divergent__", "treedepth__")))
+  sampler[1, 1, "divergent__"] <- divergence
+  list(draws = draws, sampler_diagnostics = posterior::as_draws_array(sampler),
+    metadata = list(expected_fraction_of_missing_information = rep(.5, 4), max_treedepth = 10),
+    dimensions = list(theta = 1L),
+    source = "parameters { real theta; } model { theta ~ normal(0,1); }",
+    fit_class = "stanfit", import_versions = list())
+}
+
+bundle_integrity_snapshot <- function(pdb) {
+  files <- list.files(pdb$pdb_local_endpoint, recursive = TRUE)
+  files <- files[!grepl("^cache/", files)]
+  stats::setNames(lapply(file.path(pdb$pdb_local_endpoint, files), function(path)
+    readBin(path, "raw", n = file.info(path)$size)), files)
+}
+
+test_that("public bundle reuse preserves origins and rejects cross-database collisions", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
+  fit <- structure(list(), class = "stanfit")
+  source <- bundle_integrity_pdb()
+  original <- create_pdb_bundle(fit, data = list(n = 1L),
+    data_info = list(name = "reuse-data", title = "Inputs"),
+    model_info = list(name = "reuse-model", title = "Model"), pdb = source)
+  suppressMessages(write_pdb(original, source, write_summary_statistics = FALSE))
+
+  for (component in c("data", "model_code")) {
+    destination <- bundle_integrity_pdb()
+    collision <- if (component == "data") {
+      as.pdb_data(list(n = 2L), info = info(original$data))
+    } else {
+      as.pdb_model_code(paste0(extracted$source, "\n// destination model"),
+        info = info(original$model_code), framework = "stan")
+    }
+    write_pdb(collision, destination)
+    before <- bundle_integrity_snapshot(destination)
+    args <- list(fit = fit, data = list(n = 1L),
+      data_info = list(name = "reuse-data", title = "Inputs"),
+      model_info = list(name = "reuse-model", title = "Model"), pdb = destination)
+    args[[component]] <- original[[component]]
+    args[[if (component == "data") "data_info" else "model_info"]] <- NULL
+    bundle <- do.call(create_pdb_bundle, args)
+    expect_identical(pdb(bundle[[component]]), source)
+    expect_identical(bundle_integrity_snapshot(destination), before)
+    for (overwrite in c(FALSE, TRUE)) {
+      expect_error(write_pdb(bundle, destination, overwrite = overwrite,
+        write_summary_statistics = FALSE), "unsafe reused-object collision")
+      expect_identical(bundle_integrity_snapshot(destination), before)
+    }
+  }
+
+  # Genuine same-database reuse and copying into an empty database still work.
+  for (destination in list(source, bundle_integrity_pdb())) {
+    reused <- create_pdb_bundle(fit, posterior = posterior(original$posterior$name, source),
+      pdb = destination)
+    expect_identical(pdb(reused$posterior), source)
+    result <- suppressMessages(write_pdb(reused, destination,
+      overwrite = TRUE, write_summary_statistics = FALSE))
+    expect_true(result$reference_draws_written)
+    pdb_clear_cache(destination)
+    stored <- posterior(original$posterior$name, destination)
+    expect_identical(get_data(stored)$n, 1L)
+    expect_identical(stored$reference_posterior_name, info(reused$reference_draws)$name)
+    expect_equal(as.numeric(posterior::as_draws_array(reference_posterior_draws(stored))),
+                 as.numeric(extracted$draws), tolerance = 1e-12)
+  }
+})
+
+test_that("accepted reused posteriors require a matching link on disk before writes", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
+  fit <- structure(list(), class = "stanfit")
+  database <- bundle_integrity_pdb()
+  original <- create_pdb_bundle(fit, data = list(),
+    data_info = list(name = "link-data", title = "Inputs"),
+    model_info = list(name = "link-model", title = "Model"), pdb = database)
+  write_pdb(original$data, database)
+  write_pdb(original$model_code, database)
+  unlinked <- original$posterior
+  unlinked["reference_posterior_name"] <- list(NULL)
+  unlinked$embedded_reference_draws <- NULL
+  write_pdb(unlinked, database)
+  reused <- create_pdb_bundle(fit, posterior = posterior(unlinked$name, database),
+    pdb = database)
+  expect_true(all(unlist(reused$diagnostics$status)))
+  posterior_path <- pdb_file_path(database, "posteriors", paste0(unlinked$name, ".json"))
+
+  for (link in list(NULL, "different-reference")) {
+    stored <- jsonlite::read_json(posterior_path)
+    stored["reference_posterior_name"] <- list(link)
+    jsonlite::write_json(stored, posterior_path, auto_unbox = TRUE, null = "null")
+    before <- bundle_integrity_snapshot(database)
+    for (overwrite in c(FALSE, TRUE)) {
+      expect_error(write_pdb(reused, database, overwrite = overwrite,
+        write_summary_statistics = FALSE), "matching persisted reference link")
+      expect_identical(bundle_integrity_snapshot(database), before)
+    }
+  }
+})
+
+test_that("failed bundle writes omit missing reference links and preserve stored references", {
+  extracted <- bundle_integrity_extraction(divergence = 1L)
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
+  fit <- structure(list(), class = "stanfit")
+  database <- bundle_integrity_pdb()
+  make <- function() create_pdb_bundle(fit, data = list(),
+    data_info = list(name = "failed-data", title = "Inputs"),
+    model_info = list(name = "failed-model", title = "Model"), pdb = database)
+  failed <- make()
+  result <- suppressMessages(write_pdb(failed, database))
+  expect_false(result$reference_draws_written)
+  expect_setequal(result$written, c("data", "model_code", "posterior"))
+  expect_length(list.files(pdb_file_path(database, "reference_posteriors"), recursive = TRUE), 0L)
+  pdb_clear_cache(database)
+  stored <- posterior(failed$posterior$name, database)
+  expect_null(stored$reference_posterior_name)
+  expect_identical(result$bundle$posterior$reference_posterior_name,
+                   info(failed$reference_draws)$name)
+  expect_length(get_data(stored), 0L)
+
+  # A reused unlinked record also stays unlinked when its candidate fails.
+  reused <- create_pdb_bundle(fit, posterior = stored, pdb = database)
+  before <- bundle_integrity_snapshot(database)
+  suppressMessages(write_pdb(reused, database))
+  expect_identical(bundle_integrity_snapshot(database), before)
+
+  extracted <- bundle_integrity_extraction()
+  accepted <- make()
+  suppressMessages(write_pdb(accepted, database, overwrite = TRUE,
+    write_summary_statistics = FALSE))
+  # Preserve even a different existing reference link when replacing a failed candidate.
+  stored <- accepted$posterior
+  stored$reference_posterior_name <- "older-reference"
+  stored$embedded_reference_draws <- NULL
+  write_pdb(stored, database, overwrite = TRUE)
+  older_draws <- accepted$reference_draws
+  metadata <- info(older_draws)
+  metadata$name <- "older-reference"
+  info(older_draws) <- metadata
+  write_pdb(older_draws, database, write_summary_statistics = FALSE)
+  reference_before <- bundle_integrity_snapshot(database)
+  reference_before <- reference_before[grepl("^reference_posteriors/", names(reference_before))]
+  extracted <- bundle_integrity_extraction(divergence = 1L)
+  suppressMessages(write_pdb(make(), database, overwrite = TRUE))
+  pdb_clear_cache(database)
+  expect_identical(posterior(stored$name, database)$reference_posterior_name, "older-reference")
+  after <- bundle_integrity_snapshot(database)
+  expect_identical(after[names(reference_before)], reference_before)
+})

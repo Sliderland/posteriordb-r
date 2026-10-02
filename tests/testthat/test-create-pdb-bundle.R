@@ -1,29 +1,19 @@
 test_that("standalone bundle argument and metadata errors are actionable", {
   fake <- structure(list(), class = "not_a_fit")
   expect_error(create_pdb_bundle(fake), "only `rstan::stanfit`")
-  expect_error(resolve_standalone_fit_data(fake, NULL), "`data` is required")
-  expect_equal(resolve_standalone_fit_data(fake, list()),
+  expect_error(resolve_standalone_fit_data(NULL), "`data` is required")
+  expect_equal(resolve_standalone_fit_data(list()),
                list(data = list(), source = "caller-supplied", object = NULL))
-  expect_error(resolve_standalone_fit_data(fake, list(x = 1, x = 2)), "unique")
+  expect_error(resolve_standalone_fit_data(list(x = 1, x = 2)), "unique")
   expect_error(validate_stan_input_data(list(x = data.frame(y = 1)), "data"), "ordinary numeric")
   expect_error(validate_stan_input_data(list(x = new.env()), "data"), "ordinary numeric")
   expect_error(validate_stan_input_data(list(x = factor("a")), "data"), "ordinary numeric")
   expect_error(validate_stan_input_data(list(x = NA_real_), "data"), "ordinary numeric")
   expect_error(validate_stan_input_data(list(x = structure(1, external = new.env())), "data"), "ordinary numeric")
   expect_invisible(validate_stan_input_data(list(x = array(1:4, c(2L, 2L)), flag = c(TRUE, FALSE)), "data"))
-  recovery <- list(x = 1)
-  testthat::local_mocked_bindings(recover_stanfit_data = function(fit) recovery)
-  expect_equal(resolve_standalone_fit_data(fake, NULL),
-               list(data = list(x = 1), source = "fit-recovered", object = NULL))
-  expect_equal(resolve_standalone_fit_data(fake, list()),
-               list(data = list(), source = "caller-supplied", object = NULL))
-  recovery <- "bad"
-  expect_error(resolve_standalone_fit_data(fake, NULL), "Recovered `data` must be a list")
-  expect_error(resolve_standalone_fit_data(fake, "bad"), "Supplied `data` must be a list")
-  expect_error(validate_bundle_metadata(list(name = "x"), "data_info",
-    c("name", "title"), c("name", "title")), "title")
+  expect_error(resolve_standalone_fit_data("bad"), "Supplied `data` must be a list")
   expect_error(validate_bundle_metadata(list(naem = "typo"), "data_info",
-    character(), c("name", "title")), "Unknown field")
+    c("name", "title")), "Unknown field")
   expect_error(assert_bundle_required_metadata(list(), list()),
     "data_info\\$name, data_info\\$title, model_info\\$name, model_info\\$title")
   expect_error(assert_bundle_required_metadata(list(name = NULL, title = NULL),

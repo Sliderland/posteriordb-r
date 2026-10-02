@@ -746,11 +746,6 @@ write_json_to_path <- function(x, path, pdb, type, name = NULL, zip = FALSE, inf
 }
 #' @rdname write_to_path
 #' @keywords internal
-write_txt_to_path <- function(x, path, pdb, type, name = NULL, zip = FALSE, info = TRUE, overwrite = FALSE){
-  write_to_path(x, path, pdb, type = "txt", name, zip, info, overwrite)
-}
-#' @rdname write_to_path
-#' @keywords internal
 write_stan_to_path <- function(x, path, pdb, type, name = NULL, zip = FALSE, info = TRUE, overwrite = FALSE){
   write_to_path(x, path, pdb, type = "stan", name, zip, info, overwrite)
 }

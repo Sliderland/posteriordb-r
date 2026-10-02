@@ -36,8 +36,8 @@ create_pdb_bundle(
 
 \item{data}{The exact named Stan input list, a `pdb_data` object, or the
 name of saved data in `pdb`. `list()` explicitly declares an empty input;
-`NULL` is currently unavailable and errors unless recovered from a
-supplied posterior object.}
+`NULL` errors unless linked data can be retrieved from a supplied
+posterior object. Fit-data recovery is not supported.}
 
 \item{added_by}{Shared default contributor name for the constructed data,
 model, posterior, and reference-draw metadata. Defaults to the current R
@@ -108,7 +108,8 @@ checks. `FALSE` leaves the candidate explicitly unchecked and skips
 draw-diagnostic and acceptance-metric calculations.}
 
 \item{pdb}{Optional PosteriorDB connection used to retrieve named objects
-and attach the resulting bundle. This constructor never writes to it.}
+and attach newly constructed objects. Reused objects retain their source
+connections. This constructor never writes to it.}
 }
 \value{
 A `pdb_reference_bundle` list containing `data`, `model_code`,
@@ -146,6 +147,12 @@ the package's normal getters. Supplied objects are checked against the fit
 source, links, and inferred unconstrained dimensions. If an existing object
 and its corresponding `*_info` list are both supplied, a warning is issued
 and the existing object's metadata takes precedence.
+Reused objects keep their source database connections. The bundle writer
+rejects same-name files in another destination database, even with
+`overwrite = TRUE`. A reused posterior must have the matching reference
+link on disk before accepted bundle draws can be written; use
+[import_reference_posterior_draws()] with `write = TRUE` to fill an empty
+link together with the accepted reference files.
 
 The bundle embeds its content in memory and remains usable before database
 persistence. Supplied data is recorded as caller-supplied; this function

@@ -28,8 +28,8 @@ import_reference_posterior_draws(
 
 \item{dimensions}{optional named list of unconstrained parameter counts.}
 
-\item{policy}{reserved for a future diagnostic policy; must currently be
-`NULL`.}
+\item{policy}{Compatibility argument; must be `NULL`. Acceptance uses the
+fixed package checks; caller-supplied policies are rejected.}
 
 \item{write}{whether to write the validated result to `pdb`.}
 

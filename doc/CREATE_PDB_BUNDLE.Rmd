@@ -134,6 +134,28 @@ entries that store output shapes may fail validation and cannot be
 passed through unchanged. The selected variables and their inferred
 counts must also agree with the supplied posterior.
 
+Reused objects retain the database connection they came from, even when
+`pdb` names a different destination. The writer may copy them into an
+empty destination, but rejects same-name destination files from another
+database under both overwrite settings. Passing a destination connection
+does not make a source object belong to that destination.
+
+If an existing posterior has an empty reference link, you can still
+construct and inspect its bundle. To persist accepted draws and fill that
+link together, use the existing-posterior importer:
+
+```{r, eval=FALSE}
+imported_draws <- import_reference_posterior_draws(
+  fit, posterior = "existing_data-existing_model", pdb = pdbl,
+  write = TRUE
+)
+```
+
+The whole-bundle writer leaves reused records untouched. It rejects an
+accepted candidate before any writes if the reused posterior's stored
+reference link is empty or differs from the candidate reference name.
+The importer can fill an empty link, but rejects a different existing link.
+
 ## Create a new bundle: eight schools
 
 Prepare the fit and the exact named Stan input list used for sampling.
@@ -485,6 +507,11 @@ When a draw check fails, `write_result$bundle$diagnostics$failures`
 describes the failed checks. A diagnostic error is recorded in
 `write_result$diagnostic_error`; in either case, the three non-draw
 components are written or reused, while draws and summaries are skipped.
+Newly written posterior JSON has a `null` reference link when the reference
+files do not exist. When replacing a posterior after failed checks, a link
+to already stored reference files is preserved. The returned in-memory
+bundle retains its candidate reference name for inspection; this does not
+mean that the candidate was persisted.
 
 If a planned file already exists, `overwrite = FALSE` stops before
 writing any bundle files and reports all colliding paths.
@@ -510,7 +537,8 @@ write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
 ```
 
 The associated posterior JSON must already exist. This individual draw
-write also writes both supported summary statistics by default. Use the
+write requires a persisted link to the reference-draw name and also writes
+both supported summary statistics by default. Use the
 whole-bundle writer when the destination does not already contain
 conflicting objects, or when replacing them with `overwrite = TRUE` is
 intended. That option replaces files at the bundle's destination names;
@@ -575,6 +603,9 @@ input list for the default workflow. Alternatively, pass an existing
 `pdb_data` object or its saved name, or supply a posterior whose linked
 data can be retrieved. In all cases, the function cannot establish that
 the supplied data was the data used to produce the fit.
+Automatic recovery of sampling data from a fit is not supported. The
+importer's `policy = NULL` argument is retained for compatibility: it uses
+the fixed package acceptance checks, and custom policies are rejected.
 
 ## Reconstruct outputs from stored parameter draws
 

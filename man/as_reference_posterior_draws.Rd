@@ -73,9 +73,8 @@ as_reference_posterior_draws_from_cmdstanr(
 \item{dimensions}{optional named list of unconstrained parameter counts. When omitted,
 `posterior$dimensions` is authoritative.}
 
-\item{policy}{reserved for a future diagnostic policy; must currently be
-`NULL` so the package's acceptance checks cannot be mistaken for a
-caller-supplied policy.}
+\item{policy}{Compatibility argument; must be `NULL`. Acceptance uses the
+fixed package checks; caller-supplied policies are rejected.}
 
 \item{include}{Optional character vector of additional saved base variable
 names to retain, diagnose, and summarize. Names in posterior dimensions

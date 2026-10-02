@@ -29,9 +29,8 @@
 #'   inclusion, but excluding a dimension or parameter-block variable raises
 #'   an error. Unknown
 #'   names raise errors; base names select every indexed column.
-#' @param policy reserved for a future diagnostic policy; must currently be
-#'   `NULL` so the package's acceptance checks cannot be mistaken for a
-#'   caller-supplied policy.
+#' @param policy Compatibility argument; must be `NULL`. Acceptance uses the
+#'   fixed package checks; caller-supplied policies are rejected.
 #' @param ... optional metadata fields such as `comments`, `added_by`,
 #'   `added_date`, and `sampling_timestamp`.
 #' @return A `pdb_reference_posterior_draws` object. If a required check fails,
@@ -165,7 +164,6 @@ as_reference_posterior_draws_external <- function(
     posterior = po,
     diagnostics = diagnostics,
     metadata = extracted$metadata,
-    policy = policy,
     dots = dots
   )
 
@@ -287,8 +285,8 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #'   inclusion, but excluding a dimension or parameter-block variable raises
 #'   an error. Unknown
 #'   names raise errors; base names select every indexed column.
-#' @param policy reserved for a future diagnostic policy; must currently be
-#'   `NULL`.
+#' @param policy Compatibility argument; must be `NULL`. Acceptance uses the
+#'   fixed package checks; caller-supplied policies are rejected.
 #' @param write whether to write the validated result to `pdb`.
 #' @param overwrite whether existing reference-posterior files may be replaced.
 #' @param write_summary_statistics whether to also write the supported summary
@@ -953,7 +951,6 @@ new_import_reference_posterior_info <- function(
   posterior,
   diagnostics,
   metadata,
-  policy,
   dots
 ) {
   added_by <- dots$added_by %||% unname(Sys.info()[["user"]])
