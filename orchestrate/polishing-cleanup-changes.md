@@ -2,15 +2,15 @@
 
 Updated 2026-10-02. Implementation branch: `main`.
 
-This report explains the cleanup through implementation commit `472f867`
-and continuation checkpoint `811b425`, including the small fixes made before
-the orchestration loop started and the bounded follow-up audit below. It
+The initial sections explain cleanup through `472f867` and checkpoint
+`811b425`. The resumed sections below record subsequent verified units through
+`888b098`, including the interrupted dependency/documentation cleanup. It
 describes what each change solves;
 [conversation-handoff.md](conversation-handoff.md) holds the detailed
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**25 of the original 33 finding IDs are closed. Eight remain open,
+**26 of the original 33 finding IDs are closed. Seven remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -130,7 +130,7 @@ namespace-only loading. Commits: `5f93031`, `e6b2b89`; subclass27,
 transformation28 and connection16 passed installed and independent checks.
 Concrete internal backend/name-method bypasses were audited and retained.
 
-### Disposable legacy package tests — T1, partial
+### Initial legacy test protection — T1, superseded by `1e80aea`
 
 Older package tests could overwrite/delete fixed names in the database
 selected by a maintainer's option or environment variable. A failure could
@@ -142,9 +142,9 @@ and removes staging on success or failure. It rejects overlapping staging
 locations and checks copy results. Commit: `31ca4e9`; harness37 passed
 development, installed and independent checks.
 
-This protection applies to the entry point. Direct test/coverage runs can
-bypass it, YAML configuration can override paths, and offline/integration
-separation remains open. The broad suite has not been declared safe or run
+At that initial checkpoint, direct test/coverage runs could bypass isolation.
+The later `1e80aea` unit below fixes that gap and separates offline/integration
+tests; it supersedes this initial limitation. The broad suite has not been declared safe or run
 against the maintainer's database.
 
 ### Reference-name listings use the selected summary type — P7
@@ -288,10 +288,9 @@ restarting already-completed P11/P2/P12 work.
 | Diagnostics and fits | D6 | Identity policy and compilation-fallback audit. |
 | Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
-| Dependencies and docs | T3 | Optional-dependency guards and broader public docs. T1 isolation and T2 complementary coverage are verified. |
 
-Current priorities are dependency guards and public documentation (T3),
-bounded V6 defects and V4 usage documentation. D1–D5, D7, V5 and S4 are verified; V4
+Next priorities are optional-summary read errors (V6) and narrow stale-fit
+compilation fallback (D6). T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -417,7 +416,7 @@ matrices/arrays/vector-one and derived outputs, confirming 29 free coordinates
 versus 47 saved parameter values. The original missing-value failures were
 reproduced. Seven focused development and installed suites passed, and
 independent review approved. CmdStan selection has a bounded schema mock;
-genuine compiled CmdStan counts remain T2. The broad schema-recompile fallback
+genuine compiled CmdStan counts were pending then and are now verified at `5b3c675`. The broad schema-recompile fallback
 is retained for D6 review. Guide/help updated. Commit: `673281d`.
 
 ## Verification and agent workflow
@@ -430,9 +429,9 @@ restart instructions are in the [resume checkpoint](conversation-handoff.md#resu
 
 Checks use disposable fixtures and temporary installed libraries. Test counts
 above belong to their named candidates; they are not summed into a full-suite
-claim. Live GitHub, Windows runtime, a genuinely RStan-free CmdStanR
-environment, complementary real constrained/backend checks and the broad
-package check remain unverified. Unrelated pre-existing dirty/untracked files
+claim. Genuine CmdStan without RStan and complementary constrained-fit checks
+are now verified in the resumed units. Live GitHub, Windows runtime, manual
+corpus CI and a broad package check remain unrun. Unrelated pre-existing dirty/untracked files
 were left alone.
 
 ## Follow-up Ponytail audit
@@ -521,7 +520,8 @@ Commit `1e80aea`; development and installed namespace-only runs each passed
 1,203 assertions with 40 integration skips against a nonexistent corpus sentinel.
 Harness33 and independent review passed. Manual corpus CI/live GitHub/Windows
 remain unrun. This closes T1's test isolation contract; complementary real-fit
-coverage and dependency/documentation work remain under T2/T3.
+coverage and dependency/documentation work were pending then; the T2/T3 units
+below now verify them.
 
 ### Resumed work: checked filesystem results — P4 audit slice
 
@@ -567,3 +567,35 @@ an installed subprocess where RStan was unavailable. Shared real-RStan20 passed
 development/installed, with installed dimension18/version11 checks. Windows,
 live GitHub and long-run accepted CmdStan persistence were unrun. T2 is complete
 within the requested complementary coverage; T3 dependency/docs work remains.
+
+
+### Resumed work: optional dependencies and workflow documentation — T3
+
+Local metadata tables unnecessarily depended on suggested `dplyr`, and YAML,
+GitHub and filter boundaries otherwise gave missing-package errors late in the
+workflow. Tables now use imported `tibble`; optional features fail with the
+required package name before reading/network work. No dependencies were added
+or promoted to Imports. Configuration replaces `eval(parse())` with validated
+`local`/`github` dispatch and explicitly disables YAML expressions, including
+when a global option enables them. Configuration fallback remains an open
+maintainer choice under V6.
+
+README now explains read/list construction, RStan bundle creation, existing-fit
+import and sequential workflows from one entry point. It distinguishes free
+counts/output shapes and backend support, links detailed guides, and documents
+acceptance, explicit persistence, partial I/O writes, inspection/retry, PR
+review and manual cache refresh. Examples render without loading a database.
+Batch guide/help document current shared/per-workflow forms and ambiguity;
+classification remains deferred. Generated Markdown/help follow their sources.
+
+Interrupted changes were preserved at `813ea9c`; post-edit commit `888b098`.
+Independent review's YAML execution counterexample was reproduced before the
+parser fix; final focused23 passed independently. Installed offline suite1266
+passed with0 failures/errors and41 skipped records. Actual no-Stan/no-optional
+basic12 passed (one YAML-test skip). This completes T3; no release bump or
+optional backend/provenance expansion was made.
+
+Fresh Ponytail audit found one residual output-axis check to verify for a
+roughly3-line cut. Earlier model rename duplication is already gone; GitHub
+helper sharing stays deferred because behavior differs. The final T3 diff was
+reviewed as lean. Read-only agents owe no edits or commits.

@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**8 of the original 33 finding IDs remain open, partial, or deferred; 25
+**7 of the original 33 finding IDs remain open, partial, or deferred; 26
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -37,7 +37,6 @@ active queue; dated audit/review reports are historical inputs.
 | Diagnostics, extraction and counts | D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D5 diagnostics/extraction/schema coverage and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting/operation-result audit fixed, future rollback open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
-| Dependencies and documentation | T3 | T1 isolation and T2 complementary public/backend/installed coverage are verified; dependency guards and broader docs remain. |
 
 Keep P3, the S5 setter, non-Stan writing, and V4 batch classification deferred until the maintainer
 explicitly resumes those choices. Do not reopen completed fixes to fill an
@@ -217,7 +216,9 @@ Location: `normalize_sequential_sampling_lists()`.
 Maintainer decision, 2026-10-02: defer changing classification or rejecting
 ambiguous forms. Preserve current behavior and give users clear usage examples.
 When revisiting the choice, explain the concrete input and its consequence
-alongside the issue ID. The ambiguity and proposed coverage below remain open.
+alongside the issue ID. Usage examples are implemented at `888b098` in the
+bundle guide and generated batch help; classification remains deferred.
+The ambiguity and proposed coverage below remain open.
 
 For workflow names `a` and `b`, supplying
 `list(wrong = list(iter = 20))` is treated as a common sampler argument named
@@ -233,10 +234,10 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
 
 ### V6. Other small validation/API inconsistencies to investigate
 
-- `pdb_config()` uses `eval(parse())` to select a constructor from YAML.
-  A validated explicit lookup of supported types is simpler and gives clearer
-  errors. `pdb_default()` currently swallows configuration errors and can
-  silently fall back to another database; decide which errors justify fallback.
+- `pdb_config()` constructor validation and disabled YAML expression evaluation
+  are verified at `888b098`. Remaining: `pdb_default()` swallows configuration
+  errors and can silently fall back to another database. The maintainer question
+  is pending: stop on an existing invalid config, or preserve fallback?
 - Some public methods accept `...` and ignore unsupported or misspelled
   arguments. Establish where forwarding is intentional and where rejection
   helps; do not blanket-reject legitimate downstream arguments.
@@ -258,29 +259,6 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
   callers rely on one of those forms. Clarify the contract and, if useful,
   separate endpoint resolution from endpoint access; test both initialized
   and uninitialized connection states before changing callers.
-
-## Tests, dependencies, and documentation
-
-### T3. Dependency contracts and public docs need consolidation
-
-Location: `DESCRIPTION`, `README.Rmd`, contribution vignettes, generated man
-pages, and the bundle guide Rmd source.
-
-Core user-facing functions call several packages in Suggests, including
-`dplyr`, `remotes`, `httr`, and `yaml`, without consistently guarding access.
-Either require these for the relevant supported core workflow or provide a
-clear optional-dependency error at its boundary. Test no-RStan CmdStanR
-workflows and no-Stan database access. Keep the Imports/Suggests decision
-proportional to actual functionality.
-
-The README still primarily describes the original database-access package,
-while the bundle guide documents substantial new workflows. Explain the
-workflow choices and constructor/coercion distinctions in a single obvious
-entry point, with detailed guides linked from it. Correct misleading defaults,
-list-construction examples, dimension terminology, and return-value docs.
-Update roxygen/Rmd sources and regenerate derived files rather than editing
-generated files independently. Release version/date/changelog changes are
-a maintainer decision, not an automatic consequence of this review.
 
 ## Suggested implementation shape
 

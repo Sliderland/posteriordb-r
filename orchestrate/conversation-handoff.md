@@ -103,8 +103,8 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S2 | Verified: external thinning registration at `5f93031`, subclass/type/serialization repairs at `e6b2b89`. Initial seven failures/errors; independent review found repeated subclass dispatch and sampler mismatch, reproduced before repair. Delegation now skips already-visited subclass methods and restores the original class chain, preserving direct exported method calls. Final subclass27, transformation28 and connection16 passed development, installed namespace-only and independent Sol review. Installed summary11, integrity57 and resource170 passed; S3 checker clean; help/bundle guide regenerated. Concrete internal backend/name-method bypasses retained after caller audit; no new generics/workers. |
 | S4 | Verified at `a5880da`: documentation distinguishes saved-name lookup/list construction and dotted draw wrapping/underscore fit import, corrects component/dimensions names and return type, and explains actual-class dispatch through historical wrappers. Existing aliases and runtime behavior preserved. Public construction/alias probe, development and installed connections16/standalone36 passed; independent documentation review approved. No new tests for this documentation-only unit. |
 | S5 | Partial at `d01d58b`: character constructor preserves all five frameworks, keeps Stan default, and requires matching non-NULL implementation metadata through shared assertion. Initial6 failures; final19 passed development, installed namespace-only and independent Sol review. Installed standalone17, lookup9, resource170 and integrity57 passed; help regenerated. Replacement setter deferred by maintainer on 2026-10-02; preserve existing relabelling behavior for now. |
-| D1–D6 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
-| D5 | Verified at `673281d`: parameter schema protects zero-free-coordinate saved values independently of positive counts; complete constrained coverage and numeric dimension inputs tested. Real RStan20/import54/counts18 plus affected suites passed development/installed and independent review. Genuine CmdStan schema remains complementary T2 work. |
+| D6 | Open: stronger identity choice and narrow compilation-fallback audit. D1–D5/D7 are verified below; fixed NULL-policy compatibility remains intact. |
+| D5 | Verified at `673281d`: parameter schema protects zero-free-coordinate saved values independently of positive counts; complete constrained coverage and numeric dimension inputs tested. Real RStan20/import54/counts18 plus affected suites passed development/installed and independent review. Complementary genuine CmdStan schema coverage is now verified at `5b3c675` (T2). |
 | D1, D4 | Verified at `2c55964`: small shared diagnostic kernels, explicit E-FMI normalization/fallback, generic extraction routing and no RStan accessor fallback for draw arrays. Focused development/installed checks, genuine RStan50 and genuine CmdStan CSV/no-RStan agreement passed; independent review approved. |
 | D2 | Verified at `12ea517`: shared evaluator/flag mapping and check worker, diagnostic variable/chain identity validation at check/write boundaries. Eight focused suites passed development and installed checks; independent review approved. |
 | D3 | Verified at `9eaf04f`: method-specific required flags fix analytical checking/writing and automatic summaries without fabricated HMC evidence. Analytical33 plus five affected suites passed development and installed checks; independent review approved. |
@@ -122,11 +122,11 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | V5 | Verified at `3d519bb`: supported controls translated, aliases/conflicts/NULL options handled and native iteration names matched exactly. Final arguments55/versions11 passed development and installed namespace-only; independent review approved and reran arguments55. Genuine CmdStan CSV40-draw smoke confirmed step_size0.5 and disabled adaptation for both chains. Help and bundle guide regenerated; no broad suite run. |
 | T1 | Verified at `1e80aea`: default tests are offline; each opt-in corpus test copies the configured database, scopes both path settings and working directory, and cleans up even after failure. Direct `test_file()` loads the same helper. Stan/GitHub integrations have separate explicit flags; automatic CI uses fixtures and a manual corpus workflow pins a full revision SHA. Development and installed namespace-only suites each passed 1,203 assertions with 40 explicit skips and a nonexistent corpus sentinel; harness33 and independent review passed. Manual corpus CI, live GitHub and Windows runtime remain unrun. |
 | T2 | Verified at `5b3c675`: public compiled CmdStan constrained/CSV integration18 passed development, installed with RStan unavailable, and independent review. Existing shared real-RStan20 plus dimension18/version11 passed installed. See resumed-run details for precision requirements and limitations. |
-| T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Complementary backend coverage and broader public documentation remain open. |
+| T3 | Verified at `888b098`: clear optional dependency errors; local metadata tables use imported tibble; validated YAML dispatch with expression evaluation disabled; README links accurate construction/import/batch/contribution guidance and renders without a corpus. Final installed offline suite1266 and focused23 passed; actual no-Stan/no-optional basic12 passed (one YAML-dependent test skipped). Independent Sol review approved. Preservation commit813ea9c retains the interrupted unit. |
 
-The package harness now isolates configured database paths, but direct
-test/coverage runs can bypass it and working-directory configuration can
-override paths. Focused tests must use inspected disposable fixtures.
+T1 protects both package and direct test/coverage entry points through helpers
+at each corpus test call site. Default tests use offline fixtures; integrations
+require explicit flags and disposable copies.
 Existing passing runs are evidence for their listed commits only; new
 changes require new checks.
 
@@ -160,14 +160,16 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**25 of the original 33 finding IDs are fully verified; 8 remain open,
+**26 of the original 33 finding IDs are fully verified; 7 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S5, D6, P3/P4/P8, V4/V6 and T3. These are tracking groups, not
-8 equally sized bugs. Several require a behavior decision or an audit.
+S5, D6, P3/P4/P8 and V4/V6. These are tracking groups, not
+7 equally sized bugs. Several require a behavior decision or an audit.
 
-Next priorities within the current usage window: dependency guards and broader documentation (T3), then bounded V6 defects and V4 usage examples. Each stays a bounded reviewed unit with
-its own implementation and checkpoint commits. Lower-priority API choices
+Next unit: V6 optional-summary reads must distinguish absent resources from
+corruption/read failures. Then narrow D6 stale-instance compilation fallback.
+T3 and V4 usage examples are complete. Each unit receives its own tests,
+independent frozen review, implementation commit and checkpoint commit. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
 
 ### Resumed run — D7 verified at `e3e59e6`
@@ -419,6 +421,38 @@ and acceptance regressions remain complementary evidence. T2's bounded real-fit,
 public-contract and installed-namespace coverage is complete; future full
 backend/platform matrices are optional integration work, not unfinished T2.
 
+### Resumed run — T3 verified at `888b098`
+
+The interrupted dependency/README changes were preserved at `813ea9c` before
+continuation. The final unit keeps YAML/GitHub/filter packages optional, gives
+clear package-specific errors before network work, and uses the imported
+`tibble` package for ordinary metadata tables. YAML selects only supported
+constructors via `switch`; `eval.expr=FALSE` also prevents a global YAML option
+from enabling expression execution. `pdb_default()` fallback remains unchanged
+and awaits the maintainer's answer.
+
+README now supplies one workflow entry point with explicit connections,
+positive free counts versus output shapes, backend boundaries, diagnostic
+and write behavior, contribution links, and offline-rendered examples. Batch
+help and the bundle guide show shared/wrapped/ordered/named settings and the
+current ambiguity. V4 classifier behavior stays deferred. Generated help and
+Markdown were regenerated from their sources without a corpus.
+
+Independent review reproduced YAML expression execution and a private-method
+test dispatch issue; both were repaired. Final focused23 passed independently;
+installed namespace-only offline suite passed1,266 assertions,0 failures/errors,
+41 skipped test records (42 listed skip conditions). Development full suite
+before final parser regression passed1,264; final development focused23 passed.
+An installed subprocess with rstan/cmdstanr/yaml/remotes/httr/dplyr genuinely
+unavailable passed basic access/dependency12 with one YAML-test skip. Host
+packages were untouched. No new backend or cache semantics were added.
+
+Fresh read-only Luna Ponytail audit found only a residual duplicate output-axis
+guard (about3 lines) worth checking after this unit. Earlier rename duplication
+and repeated validations are already removed; GitHub downloader sharing remains
+unsafe without reconciling overwrite/return semantics. Sol Ponytail review:
+lean already. Both agents have no edits or commits owed.
+
 ### Maintainer decisions and questions for later
 
 - **V4 deferred:** preserve batch-list classification. Document the supported
@@ -502,12 +536,12 @@ testthat::test_file(system.file("tests", "testthat",
   package = "posteriordb", reporter = "summary", stop_on_failure = TRUE)
 ```
 
-The package harness stages a disposable corpus, but direct test/coverage
-runs can bypass it and working-directory YAML configuration remains open
-under T1. Never run the broad legacy suite against a maintainer database.
-Real RStan import50 last passed for the P8 candidate; the later units have
-their own listed focused evidence. Live GitHub, Windows runtime, genuine
-no-RStan CmdStanR environments and the broad package check remain unverified.
+Default and direct test runs share T1's offline/opt-in helpers. Never opt in
+against a maintainer database without the per-test disposable copy. Genuine
+RStan and CmdStan constrained extraction, including CmdStan without RStan,
+are verified by the resumed units. Live GitHub, Windows runtime, manual corpus
+CI and a broad `R CMD check` remain unrun; full offline tests are separately
+recorded and are not a full package-check claim.
 
 ### Working-tree boundary at pause
 

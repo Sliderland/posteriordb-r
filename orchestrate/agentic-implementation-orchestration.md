@@ -164,7 +164,6 @@ The active queue and handoff hold their evidence. Suggested remaining units:
 | Partial: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan writing deferred, custom-path writer contract open. |
 | Normalize remaining validation | V6; V4 deferred | Distinguish missing optional resources from malformed ones. Preserve batch classification; V5 sampler translation is verified. |
 | Resolve documented fit-identity choice | D6 | Stronger identity verification is awaiting maintainer input; compilation fallback needs a narrow missing-instance audit. Fixed NULL policy is implemented; preserve honest provenance. |
-| Complete dependency/docs consolidation | T3 | T2 complementary public/backend/installed coverage is verified. Guard optional dependencies and consolidate accurate public source documentation. |
 
 This is a starting priority order, not permission for one giant patch.
 Several rows touch the same files and must be serialized. Discover concrete
@@ -306,17 +305,14 @@ code**, since the option can override the environment. Inspect setup files
 and automatic `.Renviron`/dotenv behavior as applicable. Use `Rscript --vanilla`
 for a controlled subprocess and scoped restoration/cleanup inside tests.
 
-The `tests/testthat.R` entry point now copies a configured database to a
-disposable tree, sets both path settings, and restores settings/removes the
-copy after success or failure. With neither setting configured it still
-clones upstream, so this entry point remains an integration harness with
-network/backend requirements. Direct `test_file()`, `devtools` and coverage
-runs can bypass this entry point; explicitly isolate their paths. Audit the
-selected tests and helpers before execution, including working-directory
-configuration files that can override the database settings.
-Minimal fixtures suffice for fast tests; use a disposable copy/pinned corpus
-only for the integration tests that require one. Do not change production
-default paths just to protect the test run.
+Default tests use offline fixtures. Corpus tests run only with
+`PDB_TEST_DATABASE=true`; `local_test_database()` copies the configured corpus
+at each test call site and scopes both path settings and the working directory.
+Direct `test_file()`, devtools and coverage runs load this same helper. Real
+Stan and live GitHub tests require separate `PDB_TEST_STAN=true` and
+`PDB_TEST_GITHUB=true` flags. Automatic CI stays offline; manual corpus CI pins
+a full revision SHA. Keep helper loading enabled and inspect selected tests
+before opting in. Do not change production paths to protect a test run.
 
 A focused local command can follow this pattern after inspecting the selected
 test and replacing the filename with the real regression file:
@@ -330,13 +326,12 @@ options(pdb_path = fixture_root)
 pkgload::load_all(".", helpers = FALSE, export_all = FALSE)
 testthat::test_file(
   "tests/testthat/test-create-pdb-bundle.R",
-  reporter = "summary", load_helpers = FALSE, stop_on_failure = TRUE
+  package = "posteriordb", reporter = "summary", stop_on_failure = TRUE
 )
 ```
 
 This command does not build a valid database by itself. The selected tests
-must create their required fixtures; enable only inspected helpers when
-needed. An error exit matters: a printed failure with a successful process
+must create their required fixtures; keep the inspected test helpers enabled. An error exit matters: a printed failure with a successful process
 exit is not a passing check.
 
 | Change | Evidence beyond a narrow unit test |
