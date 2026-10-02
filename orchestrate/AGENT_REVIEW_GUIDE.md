@@ -22,7 +22,26 @@ documentation branch.
 Completed implementation findings are removed from this active backlog.
 Their commit/test evidence is in [the implementation checkpoint](conversation-handoff.md#implementation-checkpoint--2026-10-02); original findings remain in Git history.
 Partial findings below retain only the remaining work as it is revalidated.
-P3 is deferred by the maintainer; keep it visible until explicitly resumed.
+Implementation is paused at the maintainer's request. Read the
+[resume checkpoint](conversation-handoff.md#resume-checkpoint--paused-2026-10-02)
+for the last completed unit, workflow, and suggested next step.
+
+**18 of the original 33 finding IDs remain open, partial, or deferred; 15
+are fully verified.** These IDs differ in size, and some are policy/design
+questions rather than confirmed bugs requiring code. This document is the
+active queue; dated audit/review reports are historical inputs.
+
+| Remaining area | IDs | Current boundary |
+| --- | --- | --- |
+| Conversion/API contracts | S4, S5 | S4 clarification remains; S5 constructor fixed, setter deferred. |
+| Diagnostics, extraction, counts and versions | D1–D7 | Revalidate current source; preserve numerical/provenance contracts. D7 is the suggested next small unit. |
+| Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
+| Remaining validation | V4–V6 | Batch forms, CmdStanR options, and smaller API/validation questions. |
+| Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
+
+Keep P3, the S5 setter, and non-Stan writing deferred until the maintainer
+explicitly resumes those choices. Do not reopen completed fixes to fill an
+old review checklist.
 
 ## Your task
 
@@ -96,9 +115,9 @@ The `posterior()` documentation also describes list construction although
 the list method is on `as.posterior()`, not `posterior()`. Either correct the
 documentation or add deliberate forwarding, with a public-call test.
 
-### S5. A constructor ignores its framework argument — reproduced
+### S5. Framework replacement setter — deferred
 
-Location: `R/model_code.R`, `as.model_code.character()`.
+Location: `R/model_code.R`, the `framework<-` replacement accessor.
 
 Constructor slice verified at `d01d58b`: requested framework retained,
 omitted framework preserves Stan, and matching metadata is required.
@@ -321,7 +340,7 @@ Rename/bibliography rollback backup preservation and shared ZIP extraction failu
 
 Check success results from zip/file.copy/write/rename operations.
 
-### P8. Model writing support and custom paths — deferred
+### P8. Model writing support and custom paths — partial
 
 Locations: model writers and `write_to_path()`.
 
@@ -336,21 +355,6 @@ destinations; the bundle guide documents this limit. Resume with a deliberate
 writer contract and tests before changing support or pre-write rejection.
 
 ## Validation and workflow behavior
-
-### V2. Posterior checking discards the supplied in-memory object — confirmed
-
-Location: `R/check_posterior.R`, `check_pdb_posterior()`.
-
-It replaces the input with `pdb_posterior(po$name, pdb = pdb(po))` before
-checking it. This cannot validate a standalone posterior with pdb = NULL
-and ignores unsaved changes even when a database is attached.
-
-Separate object consistency from persisted round-trip validation. Use
-getters/validators for embedded content. Require a connection for checks
-that genuinely need bibliography or persisted files, and report unavailable
-checks explicitly. Preserve existing database validation through an explicit
-path. Audit cache-evicting helpers that assume getters returned a connected
-object. Verify standalone, connected, modified, and persisted cases.
 
 ### V4. Batch sampling-list detection can misclassify malformed input — reproduced
 

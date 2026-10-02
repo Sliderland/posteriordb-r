@@ -1,4 +1,8 @@
-# Conversation handoff — 2026-10-01
+# Conversation handoff — updated 2026-10-02
+
+**Start at the [resume checkpoint](#resume-checkpoint--paused-2026-10-02).**
+Implementation is paused at the maintainer's request. The historical review
+below explains the starting point; it is not the current work queue.
 
 ## What we completed
 
@@ -27,7 +31,7 @@ branch layout persists.
 | [agentic-implementation-orchestration.md](agentic-implementation-orchestration.md) | Implementation protocol, work units, worker/reviewer templates, and kickoff prompt. |
 | [agentic_orchestration_alt.md](agentic_orchestration_alt.md) | Alternative **Plus-only OR Claude Code-only** assignments and kickoff prompts; neither requires both providers. |
 
-## Important conclusions to carry forward
+## Historical review conclusions
 
 - Preserve existing issue IDs; most concerns are already actionable in the
   handoff. Do not duplicate the backlog or obsolete criticisms.
@@ -50,7 +54,7 @@ Historical focused tests passed within documented scopes, not a full-suite
 proof. P11/P12 probes used disposable databases and mocked extraction;
 they did not verify real backend extraction.
 
-## Continue on the newer repository
+## Historical bootstrap instructions
 
 1. Read local instructions, establish the implementation SHA, and revalidate
    findings against newer code. Credit already-fixed issues with evidence.
@@ -104,9 +108,10 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | P6 | Verified at `182615b`: stdlib extension helpers, precise per-kind suffix removal, file-only local/GitHub listings and cache metadata names preserve dots/empty character vectors. Initial reproduction had three failures/errors; final listing24/reference27 passed development, installed namespace-only and independent Sol review. Installed rename58, resource170, integrity57 and search23 passed; reviewer also checked full-path cache stripping under a dotted directory. Bundle guide regenerated. Live GitHub/corpus-dependent filter/tibble tests unrun. |
 | P5 | Verified at `4a8b7e4`: data/model/model-info lookup shares explicit metadata-link filtering, supports unrelated posterior filename spelling and hyphens, preserves standalone connection requirement. Initial four failures; review added a named-scalar regression that failed before normalization. Final9 assertions passed development, installed namespace-only and independent Sol review. Installed listing24/reference27/search23 passed before final one-line normalization; guide/help regenerated. Corpus-dependent legacy name tests/live GitHub unrun. |
 | P10 | Verified at `857a044`: summary payload/metadata now use the same reference identity via existing direct info reader. Initial two failures; final11 passed development, installed namespace-only and independent Sol review across both types and object/name/info/multi access. Installed reference27, resource170, integrity57 and rename58 passed; help/bundle guide regenerated. Live database/GitHub unrun. |
-| P8 | Partial at `bca0fd3`: reads/path getters/removal share declared implementation paths and conventional extension fallback for all five frameworks. Supplied posterior metadata is authoritative when it contains the requested implementation; additional frameworks retain attached-database fallback. Original custom-Stan/PyMC removal errors reproduced; independent review added a supplied-vs-stored path regression, then installed standalone checks exposed the additional-framework compatibility case. Final model-path97 and standalone17 passed development, installed namespace-only and independent Sol review. Installed framework19, resource170 and real-RStan import50 passed; help/bundle guide regenerated. Non-Stan/custom-path writing deferred; existing writer behavior preserved and documented. Live GitHub unrun. |
+| P8 | Partial at `bca0fd3`: reads/path getters/removal share declared implementation paths and conventional extension fallback for all five frameworks. Supplied posterior metadata is authoritative when it contains the requested implementation; additional frameworks retain attached-database fallback. Original custom-Stan/PyMC removal errors reproduced; independent review added a supplied-vs-stored path regression, then installed standalone checks exposed the additional-framework compatibility case. Final model-path97 and standalone17 passed development, installed namespace-only and independent Sol review. Installed framework19, resource170 and real-RStan import50 passed; help/bundle guide regenerated. Non-Stan writing deferred; custom-path writer contract open. Existing writer behavior preserved and documented. Live GitHub unrun. |
 | V3 | Verified at `10cf216`: summary fields checked by name, required values/MCSE aligned to unique nonmissing variable labels, attached metadata validated; reference-info keys order-independent with the same required-key schema. Original16 failures/errors; final39 passed development, installed namespace-only and independent Sol review. Installed identity11, subclass27, transform28, integrity57, acceptance28 and rename58 passed; help/bundle guide regenerated. Numeric NA/Inf and extra numeric-field length behavior preserved and documented. |
-| V2, V4–V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
+| V2 | Verified at `472f867`: supplied posterior validated without reloading; getter-returned model/data/draw content and metadata checked; detached results skip cache eviction. No citations need no bibliography; supplied citations require a connection and are checked for all three component types. `check_pdb()` still loads saved records and checks database-wide consistency. Original reload errors reproduced; independent review added two failing metadata/getter-result regressions. Final standalone36 passed development, installed namespace-only and independent Sol review; installed status8, model-path97, bibliography48 and integrity57 passed. Help/bundle guide regenerated. Stan execution enabled during posterior checking and the broad corpus suite were not run for this unit. |
+| V4–V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
 | T1 | Partial at `31ca4e9`: package harness copies the selected configured corpus or clones into a fresh disposable tree; both path settings are scoped and restored, and failures clean staged files. Initial isolation regression failed before repair; final 37 assertions passed development, installed namespace-only, and independent Sol review. Review repaired Windows/root overlap guards and optional git2r test behavior. Windows runtime/real clone/broad suite unrun. Direct test/coverage runs bypassing the entry point, config-file isolation, offline fixtures and integration separation remain open. |
 | T2–T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Complementary backend coverage and broader public documentation remain open. |
 
@@ -118,9 +123,136 @@ changes require new checks.
 
 No writer/reviewer owns an unfinished patch. Completed issues are removed
 from the active guide; this checkpoint and Git retain their evidence.
-Next: V2 supplied-object checking; Luna inventory is available. Preserve explicit database-wide checking via `check_pdb()` and require an attached database for bibliography checks when citations are present.
-Non-Stan/custom-path writing is deferred. S5 constructor is committed; replacement
-setter is also deferred and remains unchanged.
-P4 reporting/docs are implemented; future automatic rollback remains open
-for colleague discussion. Partial writes are intentionally retained.
-P3 stays deferred. Remaining work stays in the active guide.
+
+## Resume checkpoint — paused 2026-10-02
+
+The maintainer asked to finish the current unit and stop for this usage
+window. V2 is complete at `472f867` on `main`. All implementation changes,
+tests, generated help and user-guide changes from this run are committed.
+The final documentation checkpoint is a subsequent commit; use `git log`
+to identify the current HEAD rather than assuming this implementation SHA
+is the latest commit. Both agents finished read-only work and confirmed
+that they have no edits or commits owed. Do not relaunch an old task.
+
+### Remaining scope and next unit
+
+**15 of the original 33 finding IDs are fully verified; 18 remain open,
+partial, or deferred.** The authoritative remaining list is the
+[active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
+S4–S5, D1–D7, P3/P4/P8, V4–V6 and T1–T3. These are tracking groups, not
+18 equally sized bugs. Several require a behavior decision or an audit.
+
+Suggested next unit: **D7 version metadata agreement**. Luna inspected the
+current constructors: `stan_fit_sampling_versions()` omits required
+`r_Makevars`/`r_session`; the import-version helper starts from a helper that
+can query/add RStan even for CmdStanR. Reuse the existing current-R-environment
+construction, add only the relevant backend evidence, and check agreement
+with the existing validator. Keep unknown sampling-time versions unknown.
+This inventory is not implementation or new passing-test evidence; reproduce
+the defect and review the actual newer source before editing.
+
+After that, **V5** is another bounded candidate: preserve supported CmdStanR
+controls, map RStan `stepsize` to installed CmdStanR's `step_size`, reject
+unsupported/conflicting settings instead of silently dropping/overwriting
+them. Luna inspected CmdStanR 0.9.0's local `sample()` formals. Recheck the
+installed version and supported mappings; do not build an option registry.
+V4 must preserve legitimate common nested `control` and initialization lists.
+
+### Maintainer decisions and questions for later
+
+- **P3 deferred:** keep manual cache refresh. Before changing it, decide
+  whether writes/removals should immediately update reads on the same
+  connection or retain the original refresh requirement.
+- **S5 setter deferred:** the constructor is fixed. The existing setter
+  changes a framework label without rewriting code. Leave it alone until
+  the maintainer decides whether relabelling should require matching
+  metadata or creating another object.
+- **P8 partial:** read/removal paths are fixed. Non-Stan writing is deferred;
+  decide writer support and custom-path handling before changing it.
+- **P4 current choice:** keep partial writes after I/O errors, report what
+  succeeded, and let contributors inspect/retry and reviewers assess the
+  files in a pull request. Reporting and documentation are implemented.
+  Keep automatic rollback open for colleague discussion. Changing this
+  choice later is feasible, but needs staging/restoration and failure tests;
+  the current code does not commit the project to a transaction framework.
+- **Numerical/identity choices:** preserve the intentional E-FMI finite-sample
+  normalization difference until D1 resolves it; clarify whether partial
+  parameter selections represent a marginal or complete model in D5.
+  D6 stronger source/data verification is an optional policy enhancement,
+  not an undisclosed guarantee of the current importer.
+- **API choices:** S4 should explain wrapping versus importing without
+  silently breaking aliases. V6 needs decisions before changing configuration
+  fallback, arbitrary-path removal, summary return values or endpoint return
+  contracts. The active guide contains the specific examples.
+
+No answer is needed to end this session. Ask about a choice when its unit
+is selected; do not infer approval for a deferred change from elapsed time.
+
+### How this implementation loop worked
+
+One coordinator wrote code and committed the units. A reusable **GPT-6 Luna,
+medium** agent (`p1_inventory`) mapped a bounded issue read-only. A separate
+**GPT-6.1 Sol, high** agent (`unit_review`) reviewed each frozen patch and
+ran focused checks. Both had explicit scope and no recursive delegation.
+Actual reviewer counterexamples were repaired, reproduced in regressions,
+retested, and submitted for final review. Reuse this small loop; no custom
+agent framework or simultaneous writers are needed.
+
+For each next unit:
+
+1. Read this checkpoint, local `AGENTS.md`, the relevant active finding and
+   the [Plus profile](agentic_orchestration_alt.md). Query the code graph to
+   narrow scope, then verify the source and adjacent callers.
+2. Inspect `git status` for assigned files. Commit relevant existing changes
+   before editing if dirty; leave unrelated changes alone. If clean, edit
+   directly. Record the unit's base SHA and ownership.
+3. Reproduce the public failure in a disposable fixture, repair the shared
+   cause with existing helpers, and run affected development tests. Preserve
+   acceptance, counts, connections, JSON and honest provenance.
+4. Regenerate affected roxygen help and Rmd-derived guides. Install into a
+   temporary library and test without attaching the package. Run a real
+   backend check when the changed interface requires it.
+5. Freeze the exact patch for independent review. Repair concrete findings,
+   rerun justified checks and review the final delta. Inspect staged files
+   and make the post-edit implementation commit.
+6. Remove verified work from the active guide/queue, leave partial and
+   deferred work visible, record SHA/tests/limitations here, and commit the
+   Markdown checkpoint. Stop at a coherent boundary when the user asks.
+
+Example installed verification from the repository root (choose only
+inspected disposable tests appropriate to the new change):
+
+```r
+verification_library <- tempfile("pdb-verification-")
+dir.create(verification_library)
+status <- system2(file.path(R.home("bin"), "R"), c(
+  "CMD", "INSTALL", "--install-tests",
+  paste0("--library=", shQuote(verification_library)), "."
+))
+stopifnot(status == 0L)
+.libPaths(c(verification_library, .libPaths()))
+stopifnot(requireNamespace("posteriordb", quietly = TRUE))
+testthat::test_file(system.file("tests", "testthat",
+  "test-standalone-posterior.R", package = "posteriordb"),
+  package = "posteriordb", reporter = "summary", stop_on_failure = TRUE)
+```
+
+The package harness stages a disposable corpus, but direct test/coverage
+runs can bypass it and working-directory YAML configuration remains open
+under T1. Never run the broad legacy suite against a maintainer database.
+Real RStan import50 last passed for the P8 candidate; the later units have
+their own listed focused evidence. Live GitHub, Windows runtime, genuine
+no-RStan CmdStanR environments and the broad package check remain unverified.
+
+### Working-tree boundary at pause
+
+Unrelated pre-existing changes remain: `.Rbuildignore`, `.gitignore`, the
+untracked fit-import/reference-check documents, historical audit/review
+Markdown files, and ad hoc test scripts/logs. They were not swept into
+implementation commits. Inspect them before taking ownership; do not reset
+or delete them to make the tree look clean. The alternate orchestration
+guide was preserved before its resume edits in `ad90721`.
+
+All fixes are separate ordinary commits with matching checkpoint commits;
+use Git to inspect/revert selected units if needed. Do not reset/rebase the
+shared branch or revert a unit without considering later dependent changes.

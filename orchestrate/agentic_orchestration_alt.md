@@ -16,8 +16,10 @@ The [handoff](AGENT_REVIEW_GUIDE.md), [commit review](ponytail-commit-review.md)
 [audit](ponytail-audit.md), [findings](ponytail-review-findings.md),
 [test review](ponytail-test-suite-review.md), and
 [optional Stan workflow proposals](implementation-guide-stan-workflow-gaps.md)
-remain the task inputs. These are implementation instructions for a future
-run; creating this file did not apply any package fixes.
+remain the task inputs. For continuation, read the current
+[conversation handoff](conversation-handoff.md) first. It records implemented
+units, maintainer decisions, verification, and the next bounded unit. The
+older review reports are historical evidence, not a second active queue.
 
 ## What changes, and what does not
 
@@ -107,7 +109,7 @@ agentic implementation described here.
 ### Plus-only kickoff prompt
 
 ```text
-Use the Plus-only profile in docs/agentic_orchestration_alt.md and the
+Use the Plus-only profile in orchestrate/agentic_orchestration_alt.md and the
 original orchestration guide's implementation/test contracts. This task
 must work within my ChatGPT Plus access: no Claude dependency and no
 separately billed API framework or unapproved credit purchases.
@@ -118,9 +120,12 @@ An optional Luna/medium explorer gets one read-only task. Reserve available
 Astra for difficult checkpoints; do not assume either that Plus excludes
 it or that my account necessarily offers it. Report actual models/effort.
 
-Verify the implementation main branch; Agent-ToDo contains docs on an older
-code base. Revalidate outstanding findings against current source. Start
-with safe disposable test fixtures and P11, then coordinate P2/P12. Keep
+Read orchestrate/conversation-handoff.md and the current active issue guide
+before choosing work. Verify the implementation main branch and latest SHA;
+Agent-ToDo contains docs on an older code base. P11/P2/P12 and other listed
+completed units are already verified; do not restart their implementation.
+Resume the next bounded issue recorded in the handoff, using disposable
+fixtures. Keep
 one code writer and complete one unit through regression, affected checks,
 frozen-patch review, and commit before expanding scope. Preserve original
 acceptance, count/provenance, compatibility, and overwrite contracts.
@@ -129,6 +134,10 @@ Use the existing finding IDs and write compact resume checkpoints. Never
 replace verification with a model's confidence or historical test results.
 Required unrun checks remain verification pending. Keep Markdown changes
 committed; do not publish/merge or add optional features unless authorized.
+Check assigned files before editing; preserve existing relevant changes in
+a pre-edit commit, then commit the tested/reviewed unit after editing. Keep
+completed findings out of the active queue and deferred work visible. Ask
+the maintainer about unresolved behavior choices before changing them.
 ```
 
 ## Profile B: only Claude Code access
@@ -252,7 +261,7 @@ older default-branch copy while certifying an uncommitted newer patch.
 ### Claude-only kickoff prompt
 
 ```text
-Use the Claude Code-only profile in docs/agentic_orchestration_alt.md and
+Use the Claude Code-only profile in orchestrate/agentic_orchestration_alt.md and
 the original orchestration guide's contracts, issue order, and verification
 requirements. No ChatGPT subscription, OpenAI model, or provider bridge is
 required. Keep the explicitly selected Opus 5.5 or Fable 5.1 orchestrator;
@@ -264,9 +273,11 @@ With a Fable lead, delegate independent bounded work but retain difficult
 contract synthesis at the lead. Do not downgrade mathematical/integrity
 work merely to increase concurrency. Avoid recursive delegation.
 
-Read the review docs and verify the authorized implementation main branch,
-not Agent-ToDo's older code base. Start with safe disposable fixtures and
-P11, then coordinate P2/P12. One code writer at a time; each coherent unit
+Read orchestrate/conversation-handoff.md and the current active issue guide,
+then verify the authorized implementation main branch, not Agent-ToDo's
+older code base. Do not restart verified completed units such as P11/P2/P12.
+Resume the next bounded issue recorded in the handoff with disposable
+fixtures. One code writer at a time; each coherent unit
 gets a public failing-before/passing-after regression, affected checks,
 saved-state verification, frozen-patch review, and commit. Reviewers using
 only read/search tools cannot claim to execute tests; the lead must run them.

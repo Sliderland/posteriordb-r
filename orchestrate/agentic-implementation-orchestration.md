@@ -3,7 +3,23 @@
 Prepared on 2026-10-01. Give this file, the review documents listed below,
 and access to the intended implementation checkout to the implementing agent.
 This guide supplies a work protocol; the review documents supply findings
-and feature specifications. Creating this guide did not implement any fixes.
+and feature specifications.
+
+## Current continuation state — 2026-10-02
+
+Implementation is paused at the maintainer's request after V2. Start with the
+[resume checkpoint](conversation-handoff.md#resume-checkpoint--paused-2026-10-02)
+and [active queue](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02).
+There are 18 remaining finding IDs, including partial work and three explicit
+deferrals. Completed units and their checks are recorded in the handoff.
+The historical bootstrap order below does not require repeating P11/P2/P12
+or other verified fixes.
+
+Continue the existing loop: one writer, one bounded Luna/medium read-only
+inventory when useful, and a separate Sol 6.1/high review of the frozen patch.
+Check assigned files, preserve relevant dirty changes before editing, test,
+review the final patch, commit the unit, then commit its guide checkpoint.
+No agent has an unfinished patch or a commit owed at this pause.
 
 For a Plus-only or Claude Code-only setup, also read the
 [alternate provider profiles](agentic_orchestration_alt.md), which replace
@@ -17,7 +33,7 @@ do not build a custom agent framework for this repository.
 | Role | Specific model and reasoning effort | Responsibility |
 | --- | --- | --- |
 | Coordinator and usual implementer | **GPT-6.1 Sol — `gpt-6.1-sol`, high** | Resolve the implementation base, read contracts, sequence work, implement one bounded fix, inspect evidence, integrate and commit. |
-| Independent correctness reviewer | **GPT-6 Astra — `gpt-6-astra`, high** | Review the exact patch and adjacent callers, especially persistence, source identity, unconstrained counts, acceptance, and numerical behavior. Do not edit the candidate being reviewed. |
+| Independent correctness reviewer | **GPT-6.1 Sol — `gpt-6.1-sol`, high** | Review the exact frozen patch and adjacent callers, especially persistence, source identity, unconstrained counts, acceptance, and numerical behavior. Do not edit the candidate being reviewed. |
 | Explorer/test inventory assistant | **GPT-6 Luna — `gpt-6-luna`, medium** | Map callers, existing helpers, tests, and dependencies for a specific issue. Return source evidence and open questions. Default to read-only. |
 | Optional separate implementation worker | **GPT-6.1 Sol — `gpt-6.1-sol`, high** | Use when the coordinator is another model or needs to delegate. Own one issue and explicitly assigned files; be the sole code writer for that unit. |
 
@@ -27,8 +43,8 @@ model for demanding work, Sol as a balance of capability and cost, and Luna
 as suited to focused work. See the [official model catalog](https://developers.openai.com/api/docs/models)
 and [model-selection guidance](https://developers.openai.com/api/docs/guides/model-selection).
 
-For a lower-cost setup, use a separate **GPT-6.1 Sol/high** reviewer and
-reserve **GPT-6 Astra/high** for unresolved persistence or mathematical
+Use a separate **GPT-6.1 Sol/high** reviewer by default and
+reserve available **GPT-6 Astra/high** for unresolved persistence or mathematical
 questions. For a quality-first setup, use **GPT-6 Astra/high** as coordinator
 as well as a separate reviewer. Keep review contexts separate even when
 using the same model. Neither separation nor a stronger model guarantees
@@ -141,12 +157,11 @@ Suggested order for confirmed defects:
 | Work area | Finding IDs | Scope and required result |
 | --- | --- | --- |
 | Test isolation for the selected work | T1 | Use disposable databases before any write/remove test. Refactor unsafe legacy harness/tests before a broad suite run. This need not delay isolated bug probes. |
-| Report partial writes; future rollback open | P4 | Maintainer chose to retain partial bundle/component writes on I/O failure, report successful components, and document inspection/retry and contribution PR review. Keep automatic rollback open for colleague discussion. Existing rename/bibliography recovery fixes remain in place. |
+| Review remaining I/O results; future rollback open | P4 | Partial-write reporting and contribution docs are implemented. Preserve retained partial writes, audit remaining operation results, and keep automatic rollback open for colleague discussion. Existing rename/bibliography recovery fixes remain in place. |
 | Deferred: cache contract | P3 | Maintainer deferred this on 2026-10-02; preserve current manual refresh until resumed. Original proposal: Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
 | Review remaining remove/API boundaries | Relevant V6 | Write/cache containment and archive checks are verified (P9). Clarify arbitrary-path removal semantics before changing compatibility. |
 | Repair remaining conversion contracts | S4, S5 | Clarify wrapping/import semantics; framework setter remains deferred. Preserve existing public aliases. |
-| Repair database/object checking | V2 | In-memory checking actually checks the supplied object. |
-| Deferred: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan/custom-path writer support remains open. |
+| Partial: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan writing deferred, custom-path writer contract open. |
 | Normalize remaining validation | V4, remaining V6 | Validate batch options; distinguish missing optional resources from malformed ones. |
 | Consolidate applicable diagnostics | D1–D3 | Shared numerical workers and required-check evaluation, preserving fixed thresholds, selective/deferred behavior, and analytical applicability. |
 | Align backend behavior and evidence | D4, D5, D7, V5 | Reuse extraction where contracts match; correct counts, metadata schema, and option translation. Verify changed real backend interfaces. |
@@ -348,7 +363,9 @@ metadata plumbing that deterministic fixtures cover.
 
 Give every worker the exact base/candidate, issue IDs, relevant document
 sections, ownership, and contract. Do not assume a child sees the whole chat.
-Use short bounded requests such as:
+Use short bounded requests such as the historical P11 examples below.
+P11 is complete; substitute the selected remaining issue and its contract
+when resuming.
 
 ```text
 Explorer: investigate P11 at <base SHA>, read the handoff P11 and commit review.
@@ -422,12 +439,15 @@ that action. No release/version bump is implied by implementing these fixes.
 ```text
 Implement the outstanding confirmed correctness and integrity defects in
 the attached posteriordb-r review documents. Follow
-docs/agentic-implementation-orchestration.md. Start from the authorized main
+orchestrate/agentic-implementation-orchestration.md. Read the current
+orchestrate/conversation-handoff.md resume checkpoint and active issue guide
+first. Start from the authorized main
 implementation branch (or its authorized newer replacement), not the older
 Agent-ToDo documentation base. Revalidate findings against current code.
 
-Use GPT-6.1 Sol/high as coordinator and implementer, GPT-6 Astra/high for
-independent review of persistence/numerical changes, and GPT-6 Luna/medium
+Use GPT-6.1 Sol as coordinator/sole writer (medium for simple intake, high
+for difficult units), a separate GPT-6.1 Sol/high frozen-patch reviewer,
+and GPT-6 Luna/medium
 for bounded read-only exploration, if those models are available. Report
 actual substitutions. You may delegate; use one code writer at a time,
 explicit file ownership, and no unassigned recursive delegation.
@@ -440,8 +460,11 @@ unconstrained-count semantics, provenance honesty, and compatibility.
 Work in small verified units. Trace callers, reproduce the public failure,
 fix the shared cause, verify disposable database/round-trip state, review
 the frozen final patch, and commit each coherent fix and Markdown update.
-Start with safe test isolation and P11; coordinate P2/P12 next. Credit fixes
-already present in newer commits. Keep going through independent authorized
+Check assigned files first; preserve relevant dirty changes in a pre-edit
+commit and commit the final tested/reviewed unit after editing. Resume the
+next bounded issue in the checkpoint; P11/P2/P12 and other verified units
+are complete. Remove completed work from the active queue and retain partial
+or deferred work. Keep going through independent authorized
 units; ask only about genuinely unresolved behavior choices or missing inputs.
 
 Never run mutating tests against my working PosteriorDB checkout. Do not
