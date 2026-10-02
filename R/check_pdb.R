@@ -19,7 +19,8 @@
 #' [check_pdb_all_data_have_posterior()] check that all datasets belong to a posterior
 #' [check_pdb_all_reference_posteriors_have_posterior()] check that all reference posteriors belong to a posterior
 #'
-#' @return a boolean indicating if the pdb works as it should.
+#' @return \code{check_pdb()} invisibly returns integer status \code{0L} if all
+#'   checks succeed, or \code{1L} if any check fails.
 #'
 #' @export
 check_pdb <- function(pdb, posterior_names_to_check = NULL, run_stan_code_checks = FALSE, verbose = TRUE) {
@@ -64,7 +65,7 @@ check_pdb <- function(pdb, posterior_names_to_check = NULL, run_stan_code_checks
   if(inherits(res, "try-error")) {return_status <- 1L} else {
   if(verbose) message("- All reference posteriors are part of a posterior.")}
 
-  try(check_pdb_references(pdb))
+  res <- try(check_pdb_references(pdb))
   if(inherits(res, "try-error")) {return_status <- 1L} else {
   if(verbose) message("- All bibliography elements exist in a data, model or posterior object.")}
 

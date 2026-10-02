@@ -55,7 +55,8 @@ check_pdb_all_reference_posteriors_have_posterior(pdb)
 \item{po}{a \code{pdb_posterior} object.}
 }
 \value{
-a boolean indicating if the pdb works as it should.
+\code{check_pdb()} invisibly returns integer status \code{0L} if all
+  checks succeed, or \code{1L} if any check fails.
 }
 \description{
 Check the content a posterior database
