@@ -795,7 +795,7 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   invalid_axes <- selected_bases[vapply(selected_bases, function(base) {
     axes <- declared[[base]]
     !is.numeric(axes) || anyNA(axes) || any(!is.finite(axes)) ||
-      any(axes < 0L) || any(axes != floor(axes))
+      any(axes < 0L) || any(axes > .Machine$integer.max) || any(axes != floor(axes))
   }, logical(1))]
   if (length(invalid_axes))
     stop("Stan variable(s) have invalid declared dimensions: ",
@@ -813,8 +813,6 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
 
   output_shapes <- stats::setNames(lapply(selected_bases, function(base) {
     axes <- as.integer(declared[[base]])
-    if (any(axes <= 0L))
-      stop("Stan variable `", base, "` has zero-sized or invalid declared dimensions; exclude it explicitly to continue.", call. = FALSE)
     saved <- scalar_names[sub("\\[.*$", "", scalar_names) == base]
     validate_rstan_saved_coverage(base, saved, axes)
     axes

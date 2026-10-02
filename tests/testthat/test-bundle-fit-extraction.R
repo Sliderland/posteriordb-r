@@ -179,6 +179,10 @@ test_that("bundle extraction rejects unsupported provenance and incomplete varia
   fractional <- make_bundle_extraction_fit(dimensions = list(theta = 2.5),
     variables = c("theta[1]", "theta[2]"))
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(fractional), "invalid declared dimensions")
+  oversized <- make_bundle_extraction_fit(dimensions = list(theta = .Machine$integer.max + 1),
+    variables = "theta[1]")
+  expect_error(posteriordb:::extract_rstan_fit_for_bundle(oversized),
+    "invalid declared dimensions")
   zero <- make_bundle_extraction_fit()
   # A Stan declaration can be zero-sized while no scalar name appears in draws.
   zero$par_dims <- list(theta = 0L, mu = integer())
