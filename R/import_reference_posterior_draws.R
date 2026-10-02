@@ -509,7 +509,8 @@ cmdstanr_stan_version <- function(metadata) {
 }
 
 sampler_diagnostics_bfmi <- function(sampler_diagnostics, nchains,
-                                     strict = TRUE) {
+                                     strict = TRUE, normalization = c("differences", "draws")) {
+  normalization <- match.arg(normalization)
   if (!"energy__" %in% posterior::variables(sampler_diagnostics)) {
     if (strict) {
       stop("Sampler diagnostics have no `energy__` variable for E-FMI.",
@@ -521,7 +522,11 @@ sampler_diagnostics_bfmi <- function(sampler_diagnostics, nchains,
     energy <- sampler_diagnostics[, chain, "energy__"]
     denominator <- stats::var(energy)
     if (length(energy) < 2L || !is.finite(denominator) || denominator <= 0) return(NA_real_)
-    mean(diff(energy)^2) / denominator
+    # CmdStan uses n-1 differences; RStan divides by n retained draws.
+    numerator <- if (normalization == "draws") {
+      sum(diff(energy)^2) / length(energy)
+    } else mean(diff(energy)^2)
+    numerator / denominator
   }, numeric(1))
   if (strict && (anyNA(bfmi) || any(!is.finite(bfmi)))) {
     stop("Sampler diagnostics have missing or invalid per-chain E-FMI values.",
@@ -532,28 +537,8 @@ sampler_diagnostics_bfmi <- function(sampler_diagnostics, nchains,
 
 rstan_sampler_bfmi <- function(sampler_diagnostics, nchains,
                                 strict = FALSE) {
-  if (!"energy__" %in% posterior::variables(sampler_diagnostics)) {
-    if (strict) {
-      stop("RStan sampler diagnostics have no `energy__` variable for E-FMI.",
-           call. = FALSE)
-    }
-    return(NULL)
-  }
-  bfmi <- vapply(seq_len(nchains), function(chain) {
-    energy <- sampler_diagnostics[, chain, "energy__"]
-    denominator <- stats::var(energy)
-    if (length(energy) < 2L || !is.finite(denominator) || denominator <= 0) {
-      return(NA_real_)
-    }
-    # Match rstan::get_bfmi(): divide the squared energy differences by the
-    # number of retained energy draws, not the number of differences.
-    sum(diff(energy)^2) / length(energy) / denominator
-  }, numeric(1))
-  if (strict && any(!is.finite(bfmi))) {
-    stop("RStan sampler diagnostics have missing or invalid per-chain E-FMI values.",
-         call. = FALSE)
-  }
-  bfmi
+  sampler_diagnostics_bfmi(sampler_diagnostics, nchains, strict,
+    normalization = "draws")
 }
 
 cmdstanr_bfmi <- function(sampler_diagnostics, nchains, strict = TRUE) {

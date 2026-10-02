@@ -189,27 +189,26 @@ mean_lag1_ac <- function(x){
     stop("At least two iterations are required for lag-1 autocorrelation.",
          call. = FALSE)
   }
-  n_chains <- dim(x)[2]
-  n_variables <- dim(x)[3]
-  variable_names <- posterior::variables(x)
-
-  out <- stats::setNames(numeric(n_variables), variable_names)
-  for (variable_index in seq_len(n_variables)) {
-    by_chain <- vapply(seq_len(n_chains), function(chain_index) {
-      z <- x[, chain_index, variable_index]
-      centered <- z - mean(z)
-      sum(centered[-length(centered)] * centered[-1L]) /
-        sum(centered^2)
-    }, numeric(1))
-    if (anyNA(by_chain) || any(!is.finite(by_chain))) {
-      stop(
-        "Lag-1 autocorrelation was undefined for a retained variable.",
-        call. = FALSE
-      )
-    }
-    out[variable_index] <- mean(abs(by_chain))
+  out <- reference_lag1_ac(x)
+  if (any(!is.finite(out))) {
+    stop("Lag-1 autocorrelation was undefined for a retained variable.", call. = FALSE)
   }
   out
+}
+
+# Nonthrowing worker for reports; strict callers use mean_lag1_ac().
+reference_lag1_ac <- function(x) {
+  x <- posterior::as_draws_array(x)
+  vars <- posterior::variables(x)
+  stats::setNames(vapply(seq_along(vars), function(j) {
+    by_chain <- vapply(seq_len(posterior::nchains(x)), function(i) {
+      z <- x[, i, j]
+      if (length(z) < 2L || !is.finite(stats::var(z)) || stats::var(z) == 0) return(NA_real_)
+      centered <- z - mean(z)
+      sum(centered[-length(centered)] * centered[-1L]) / sum(centered^2)
+    }, numeric(1))
+    if (any(!is.finite(by_chain))) NA_real_ else mean(abs(by_chain))
+  }, numeric(1)), vars)
 }
 
 #' Compute ESS tail and bulk bounds

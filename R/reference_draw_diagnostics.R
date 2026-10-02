@@ -156,22 +156,10 @@ reference_diagnostic_metrics <- function(draws, extracted, checks) {
   if ("nchains" %in% checks) out$nchains <- posterior::nchains(draws)
   vars <- posterior::variables(draws)
   if ("mean_lag1_ac" %in% checks) {
-    out$mean_lag1_ac <- stats::setNames(vapply(seq_along(vars), function(j) {
-      by_chain <- vapply(seq_len(posterior::nchains(draws)), function(i) {
-        z <- draws[, i, j]
-        if (length(z) < 2L || !is.finite(stats::var(z)) || stats::var(z) == 0) return(NA_real_)
-        centered <- z - mean(z)
-        sum(centered[-length(centered)] * centered[-1L]) / sum(centered^2)
-      }, numeric(1))
-      if (any(!is.finite(by_chain))) NA_real_ else mean(abs(by_chain))
-    }, numeric(1)), vars)
+    out$mean_lag1_ac <- reference_lag1_ac(draws)
   }
   if ("r_hat" %in% checks) {
-    out$r_hat <- stats::setNames(vapply(seq_along(vars), function(j) {
-      chain_matrix <- matrix(draws[, , j], nrow = dim(draws)[1L], ncol = dim(draws)[2L])
-      tryCatch(as.numeric(posterior::rhat(chain_matrix))[1],
-               error = function(e) NA_real_)
-    }, numeric(1)), vars)
+    out$r_hat <- reference_variable_diagnostic(draws, posterior::rhat)
   }
   if ("efmi" %in% checks) {
     x <- extracted$metadata$expected_fraction_of_missing_information
@@ -179,7 +167,9 @@ reference_diagnostic_metrics <- function(draws, extracted, checks) {
       x <- sampler_diagnostics_bfmi(
         extracted$sampler_diagnostics,
         posterior::nchains(draws),
-        strict = FALSE
+        strict = FALSE,
+        normalization = if (identical(extracted$fit_class, "stanfit") ||
+          !is.null(extracted$metadata$rstan_version)) "draws" else "differences"
       )
     }
     if (!is.null(x)) {
@@ -192,8 +182,8 @@ reference_diagnostic_metrics <- function(draws, extracted, checks) {
     sd <- extracted$sampler_diagnostics
     if (!inherits(sd, "draws_array")) stop("Malformed extracted fit; `sampler_diagnostics` must be a draws_array or NULL.", call. = FALSE)
     if ("divergent__" %in% posterior::variables(sd))
-      out$divergent_transitions <- stats::setNames(vapply(seq_len(posterior::nchains(sd)),
-        function(i) sum(sd[, i, "divergent__"]), numeric(1)), paste0("chain", seq_len(posterior::nchains(sd))))
+      out$divergent_transitions <- stats::setNames(sampler_divergence_counts(sd),
+        paste0("chain", seq_len(posterior::nchains(sd))))
   }
   out
 }
@@ -228,4 +218,20 @@ reference_diagnostic_flag_names <- function(summary = FALSE) {
     nchains = "nchains_is_gte_4", mean_lag1_ac = "abs_mean_lag1_ac_below_0_05",
     r_hat = "r_hat_below_1_01", efmi = "efmi_above_0_2",
     divergent_transitions = "no_divergent_transitions")
+}
+
+# Scalar-variable metrics shared by report and stored-diagnostic paths.
+reference_variable_diagnostic <- function(draws, fun) {
+  draws <- posterior::as_draws_array(draws)
+  vars <- posterior::variables(draws)
+  stats::setNames(vapply(seq_along(vars), function(j) {
+    z <- matrix(draws[, , j], nrow = dim(draws)[1L], ncol = dim(draws)[2L])
+    tryCatch(as.numeric(fun(z))[1L], error = function(error) NA_real_)
+  }, numeric(1)), vars)
+}
+
+sampler_divergence_counts <- function(sampler) {
+  vapply(seq_len(posterior::nchains(sampler)), function(i) {
+    sum(sampler[, i, "divergent__"])
+  }, numeric(1))
 }

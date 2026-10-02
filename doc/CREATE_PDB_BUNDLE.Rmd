@@ -48,6 +48,11 @@ For Stan sampling, named diagnostic vectors must describe the retained
 variables or the positional chain labels `chain1`, `chain2`, etc. Reordered
 named vectors are supported; unrelated or duplicate labels are rejected.
 Unnamed legacy vectors are interpreted in the recorded variable/chain order.
+Diagnostics from imported fits, immediate/deferred bundles and internally
+sampled draws use shared calculations. RStan E-FMI retains its division by
+the number of energy draws; CmdStanR retains division by the number of energy
+differences. Missing sampler evidence remains unavailable and cannot establish
+acceptance; generic draw arrays never invoke an RStan fit accessor.
 ESS remains informational, including when its labels cannot be matched.
 
 The ordinary reference-draw writer also supports them and writes the two

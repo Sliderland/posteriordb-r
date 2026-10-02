@@ -326,7 +326,7 @@ create_pdb_bundle.stanfit <- function(
     }
   }
 
-  extracted <- extract_rstan_fit(
+  extracted <- extract_external_stan_fit(
     fit,
     checks = "all",
     strict = FALSE,
@@ -588,20 +588,12 @@ check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
   extracted <- list(
     draws = posterior::as_draws_array(draws),
     sampler_diagnostics = attr(draws, "sampler_diagnostics"),
-    metadata = attr(draws, "sampling_metadata")
+    metadata = attr(draws, "sampling_metadata"),
+    fit_class = x$provenance$fit_class
   )
   if (is.null(extracted$metadata)) {
     stop("The bundle has no saved sampling metadata needed for diagnostics.",
          call. = FALSE)
-  }
-  if (is.null(extracted$metadata$expected_fraction_of_missing_information) &&
-      !is.null(extracted$sampler_diagnostics)) {
-    extracted$metadata$expected_fraction_of_missing_information <-
-      rstan_sampler_bfmi(
-        extracted$sampler_diagnostics,
-        posterior::nchains(extracted$draws),
-        strict = FALSE
-      )
   }
   report <- bundle_full_diagnostic_report(
     extracted
@@ -638,26 +630,8 @@ bundle_full_diagnostic_report <- function(extracted, include = NULL) {
     checks = "all",
     include = include
   )
-  scalar_vars <- posterior::variables(draws)
-  scalar_ess <- function(fun) {
-    stats::setNames(
-      vapply(
-        seq_along(scalar_vars),
-        function(j) {
-          z <- matrix(
-            draws[,, j],
-            nrow = dim(draws)[1L],
-            ncol = dim(draws)[2L]
-          )
-          tryCatch(as.numeric(fun(z))[1L], error = function(e) NA_real_)
-        },
-        numeric(1)
-      ),
-      scalar_vars
-    )
-  }
-  report$metrics$effective_sample_size_bulk <- scalar_ess(posterior::ess_bulk)
-  report$metrics$effective_sample_size_tail <- scalar_ess(posterior::ess_tail)
+  report$metrics$effective_sample_size_bulk <- reference_variable_diagnostic(draws, posterior::ess_bulk)
+  report$metrics$effective_sample_size_tail <- reference_variable_diagnostic(draws, posterior::ess_tail)
   sampler_vars <- if (is.null(extracted$sampler_diagnostics)) {
     character()
   } else {

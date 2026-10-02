@@ -53,43 +53,24 @@ compute_reference_posterior_draws_stan_sampling <- function(
     stan_args = rpi$inference$method_arguments,
     backend = backend
   )
-  if (identical(backend, "rstan")) {
-    available <- posterior::variables(posterior::as_draws(stan_object))
-    keep_draw_names <- available[sub("\\[.*$", "", available) %in% pdn]
-    missing <- setdiff(pdn, unique(sub("\\[.*$", "", keep_draw_names)))
-    if (length(missing)) stop("The sampled fit is missing posterior parameter(s): ", paste(missing, collapse = ", "), call. = FALSE)
-    rpi$versions <- pdb_stan_sampling_versions()
-    rpi$diagnostics <- compute_stan_sampling_diagnostics(
-      x = stan_object,
-      keep_dimensions = keep_draw_names
-    )
-    rpd <- as.reference_posterior_draws(
-      x = stan_object,
-      info = rpi,
-      pdb = pdb
-    )
-  } else {
-    extracted <- extract_external_stan_fit(stan_object)
-    available <- posterior::variables(extracted$draws)
-    keep_draw_names <- available[sub("\\[.*$", "", available) %in% pdn]
-    missing <- setdiff(pdn, unique(sub("\\[.*$", "", keep_draw_names)))
-    if (length(missing)) stop("The sampled fit is missing posterior parameter(s): ", paste(missing, collapse = ", "), call. = FALSE)
-    draws <- posterior::subset_draws(extracted$draws, variable = keep_draw_names)
-    rpi$diagnostics <- compute_stan_sampling_diagnostics(
-      x = draws,
-      keep_dimensions = keep_draw_names,
-      sampler_diagnostics = extracted$sampler_diagnostics,
-      expected_fraction_of_missing_information =
-        extracted$metadata$expected_fraction_of_missing_information,
-      max_treedepth = extracted$metadata$max_treedepth
-    )
-    rpi$versions <- stan_fit_sampling_versions(extracted$metadata)
-    rpd <- as.reference_posterior_draws(
-      x = posterior::as_draws_list(draws),
-      info = rpi,
-      pdb = pdb
-    )
-  }
+  extracted <- extract_external_stan_fit(stan_object)
+  available <- posterior::variables(extracted$draws)
+  keep_draw_names <- available[sub("\\[.*$", "", available) %in% pdn]
+  missing <- setdiff(pdn, unique(sub("\\[.*$", "", keep_draw_names)))
+  if (length(missing)) stop("The sampled fit is missing posterior parameter(s): ", paste(missing, collapse = ", "), call. = FALSE)
+  draws <- posterior::subset_draws(extracted$draws, variable = keep_draw_names)
+  rpi$diagnostics <- compute_stan_sampling_diagnostics(
+    x = draws,
+    keep_dimensions = keep_draw_names,
+    sampler_diagnostics = extracted$sampler_diagnostics,
+    expected_fraction_of_missing_information =
+      extracted$metadata$expected_fraction_of_missing_information,
+    max_treedepth = extracted$metadata$max_treedepth
+  )
+  rpi$versions <- stan_fit_sampling_versions(extracted$metadata)
+  rpd <- as.reference_posterior_draws(
+    x = posterior::as_draws_list(draws), info = rpi, pdb = pdb
+  )
   subset(rpd, variable = keep_draw_names)
 }
 
@@ -145,11 +126,11 @@ compute_stan_sampling_diagnostics <- function(
     posterior::as_draws(x),
     variable = keep_dimensions
   )
-  pds <- posterior::summarise_draws(pd)
-  checkmate::assert_set_equal(keep_dimensions, pds$variable)
+  vars <- posterior::variables(pd)
+  checkmate::assert_set_equal(keep_dimensions, vars)
 
   # diagnostic_information
-  d$diagnostic_information <- list(names = pds$variable)
+  d$diagnostic_information <- list(names = vars)
 
   # ndraws
   d$ndraws <- posterior::ndraws(pd)
@@ -157,20 +138,9 @@ compute_stan_sampling_diagnostics <- function(
   # nchains
   d$nchains <- posterior::nchains(pd)
 
-  # ESS bulk
-  d$effective_sample_size_bulk <- stats::setNames(
-    pds$ess_bulk,
-    pds$variable
-  )
-
-  # ESS tail
-  d$effective_sample_size_tail <- stats::setNames(
-    pds$ess_tail,
-    pds$variable
-  )
-
-  # r_hat
-  d$r_hat <- stats::setNames(pds$rhat, pds$variable)
+  d$effective_sample_size_bulk <- reference_variable_diagnostic(pd, posterior::ess_bulk)
+  d$effective_sample_size_tail <- reference_variable_diagnostic(pd, posterior::ess_tail)
+  d$r_hat <- reference_variable_diagnostic(pd, posterior::rhat)
 
   # Mean absolute lag-1 autocorrelation across chains. This is kept as a
   # separate diagnostic from ESS because ESS is informative but is not part
@@ -179,18 +149,17 @@ compute_stan_sampling_diagnostics <- function(
 
   # Sampler diagnostics are extracted at the external-fit boundary.  The
   # fallback keeps the existing internally-sampled workflow unchanged.
-  if (is.null(sampler_diagnostics)) {
+  if (is.null(sampler_diagnostics) && inherits(x, "stanfit")) {
     sampler_diagnostics <- sampler_params_to_draws_array(
       rstan::get_sampler_params(x, inc_warmup = FALSE)
     )
   }
 
+  d$divergent_transitions <- rep(NA_real_, d$nchains)
   if (!is.null(sampler_diagnostics)) {
     sampler_variables <- posterior::variables(sampler_diagnostics)
     if ("divergent__" %in% sampler_variables) {
-      d$divergent_transitions <- vapply(seq_len(posterior::nchains(sampler_diagnostics)), function(i) {
-        sum(sampler_diagnostics[, i, "divergent__"])
-      }, numeric(1))
+      d$divergent_transitions <- sampler_divergence_counts(sampler_diagnostics)
     }
 
     if ("treedepth__" %in% sampler_variables && !is.null(max_treedepth)) {
@@ -208,10 +177,11 @@ compute_stan_sampling_diagnostics <- function(
   }
 
   # expected_fraction_of_missing_information
-  if (is.null(expected_fraction_of_missing_information)) {
+  if (is.null(expected_fraction_of_missing_information) && inherits(x, "stanfit")) {
     expected_fraction_of_missing_information <- rstan::get_bfmi(x)
   }
-  d$expected_fraction_of_missing_information <- expected_fraction_of_missing_information
+  d$expected_fraction_of_missing_information <-
+    expected_fraction_of_missing_information %||% rep(NA_real_, d$nchains)
 
   d
 }
