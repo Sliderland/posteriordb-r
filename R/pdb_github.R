@@ -17,6 +17,7 @@ pdb_github <- function(repo = getOption("pdb_repo", "stan-dev/posteriordb"),
 #' @param pat see \code{pdb_github}.
 #' @param host see \code{pdb_github}.
 setup_pdb.pdb_github <- function(pdb, ...){
+  if (!requireNamespace("remotes", quietly = TRUE)) stop("The `remotes` package is required for GitHub connections.", call. = FALSE)
   arg <- list(...)
   pdb$github <- remotes::parse_github_repo_spec(pdb$pdb_id)
   if(!nzchar(pdb$github$ref)) {
@@ -66,6 +67,7 @@ pn.pdb_github <- function(x, ...) {
 
 #' @rdname pdb_file_copy
 pdb_file_copy.pdb_github <- function(pdb, from, to, overwrite = FALSE, ...){
+  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "contents", path = from), .token = pat)
 
@@ -186,6 +188,8 @@ github_download <- function(download_url, to, pat, overwrite){
 
   if(file.exists(to) & !overwrite) return(TRUE)
 
+  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+
   if(is.null(pat)) {
     ret <- httr::GET(download_url, httr::write_disk(to, overwrite = overwrite))
   } else {
@@ -200,6 +204,7 @@ github_download <- function(download_url, to, pat, overwrite){
 #' @rdname pdb_cache_dir
 #' @keywords internal
 pdb_cache_dir.pdb_github <- function(pdb, path, ...){
+  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "contents", path = path), .token = pat)
   download_urls <- unlist(lapply(ghp, FUN = function(x) x$download_url))

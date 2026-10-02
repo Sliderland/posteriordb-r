@@ -25,7 +25,7 @@ pdb_tibble <- function(pdb, path, ...){
     obj_list[[i]] <- as.data.frame(x)
   }
   dat <- do.call(rbind, obj_list)
-  dplyr::as_tibble(dat)
+  tibble::as_tibble(dat)
 }
 
 

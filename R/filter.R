@@ -5,8 +5,9 @@
 #' posteriors/models/data to work with as a list.
 #'
 #' The function is built upon the dplyr filter function and
-#' follows the exact same syntax. All elements in the
-#' `posteriors/[posterior_name].json`, `models/info/[model_name].json`
+#' follows the exact same syntax. Filtering requires the optional `dplyr`
+#' package; listing a metadata table with [posteriors_tbl_df()] does not.
+#' All elements in the `posteriors/[posterior_name].json`, `models/info/[model_name].json`
 #' and `data/info/[data_name].json` can be used to filter the
 #' posterior database. See examples below.
 #'
@@ -211,6 +212,7 @@ pdb_search_keyword_info <- function(names, info_fun, query) {
 #' @keywords internal
 #' @param pdb a pdb connection
 pdb_filter <- function(path, pdb, ...){
+  if (!requireNamespace("dplyr", quietly = TRUE)) stop("The `dplyr` package is required for filtering posteriors.", call. = FALSE)
   checkmate::assert_class(pdb, "pdb")
   checkmate::assert_choice(path, c("posteriors", "models/info", "data/info"))
 

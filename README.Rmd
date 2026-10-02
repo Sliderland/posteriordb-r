@@ -6,6 +6,10 @@ output:
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/stan-dev/posteriordb-r/actions/workflows/check-release.yaml/badge.svg)](https://github.com/stan-dev/posteriordb-r/actions/workflows/check-release.yaml) [![Codecov test coverage](https://codecov.io/gh/stan-dev/posteriordb-r/branch/main/graph/badge.svg)](https://codecov.io/gh/stan-dev/posteriordb-r?branch=main)
 <!-- badges: end -->
@@ -37,15 +41,22 @@ First, we create the posterior database connection to use. Here we want to use t
 my_pdb <- pdb_local()
 ```
 
-```{r, eval=TRUE, echo=FALSE}
-# Store the PDB_PATH in .env
-dotenv::load_dot_env()
-my_pdb <- pdb_local(Sys.getenv("PDB_PATH"))
+Pass the database directory explicitly, or set `PDB_PATH`. The
+`pdb_path` option takes precedence over that environment variable. The path
+must contain the database's `data`, `models` and `posteriors` directories;
+it may be the `posterior_database` subdirectory of a cloned repository.
+
+```{r}
+my_pdb <- pdb_local("/path/to/posteriordb/posterior_database")
+# Alternatively: Sys.setenv(PDB_PATH = "/path/to/posterior_database")
 ```
 
-The above code requires that your working directory be the cloned repository's main folder. Otherwise, we can use the `path` argument in `pdb_local()` to point to the local posterior database. We can also set the environment variable `PBD_PATH` to handle the connection. For more details, see `?pdb`.
+Local access needs no Stan backend, YAML configuration or GitHub packages.
+`pdb_config()` optionally reads `.pdb_config.yml` using `yaml`; its `type`
+must be `local` or `github`. GitHub connections require `remotes`, and content
+downloads require `httr`. For more details, see `?pdb_local`.
 
-The most straightforward approach is to use the GitHub repository directly to access the database.
+To access the database remotely, use a GitHub connection:
 
 ```{r, eval=FALSE}
 my_pdb <- pdb_github()
@@ -53,9 +64,40 @@ my_pdb <- pdb_github()
 
 When you have a connection to the posterior database of choice, you can access the data, models etc., using the same functionality.
 
-## Contributing content using R
+## Choose a workflow
 
-If you want to contribute to a posteriordb, see the vignette  [vignettes/contributing](https://htmlpreview.github.io/?https://github.com/stan-dev/posteriordb-r/blob/main/vignettes/contributing.html).
+| Task | Entry point |
+| --- | --- |
+| Read an existing posterior | `posterior(name, my_pdb)`, then data/model/reference getters |
+| Build a posterior from in-memory components | `as.posterior(list(pdb_model_code = code, pdb_data = data, dimensions = counts))` |
+| Prepare a contribution from a completed RStan fit | `create_pdb_bundle(fit, data = inputs, ...)`, then inspect and explicitly write the bundle |
+| Import a completed RStan or CmdStanR fit for an existing posterior | `import_reference_posterior_draws(fit, posterior = name, pdb = my_pdb, write = FALSE)` |
+| Run several existing reference workflows sequentially | `sequential_batch_workflow(reference_posteriors, sampling, pdb = my_pdb)` |
+
+The [bundle and fit-import guide](doc/CREATE_PDB_BUNDLE.md) explains metadata,
+variable selection, diagnostics, writing, batch argument forms and recovery.
+`dimensions` records positive unconstrained parameter counts, rather than saved
+array shapes. CmdStanR fit import needs supporting files and enough CSV precision
+for constrained values (`sig_figs = 18` when sampling). Bundle construction
+currently supports RStan.
+
+`create_pdb_bundle()` builds in memory. With `check = FALSE` it defers diagnostic
+calculation; structural validation still applies. The existing-posterior importer
+always checks draws and returns failed candidates for inspection when
+`write = FALSE`. Accepted reference draws require exactly 10,000 retained draws,
+at least four chains and the documented diagnostic gates. ESS is informational.
+
+Explicit bundle/component writes are sequential: an I/O error can leave earlier
+components on disk, and the error identifies the failed destination and completed
+bundle components. Inspect those files before retrying and review them in the
+contribution pull request. Existing-posterior fit import stages and verifies its
+files together and attempts rollback on failure. Refresh the connection or clear
+its cache after ordinary component writes/removals.
+
+For contributions, follow the [contribution guide](vignettes/contributing.Rmd)
+and submit a pull request to PosteriorDB. Neither preparing nor writing a local
+bundle publishes it. All examples below are illustrative and are not executed
+when rendering this README; available content depends on the selected database.
 
 ## Access content
 
@@ -83,9 +125,9 @@ pos <- posteriors_tbl_df(my_pdb)
 head(pos)
 ```
 
-The posterior's name is made up of the data and model fitted
-to the data. Together, these two uniquely define a posterior distribution.
-To access a posterior object, we can use the posterior name.
+A posterior record links its data and model by metadata. Its saved name need
+not be derived from those component names. To access a saved posterior, use
+its name:
 
 ```{r}
 po <- posterior("eight_schools-eight_schools_centered", my_pdb)
@@ -118,7 +160,7 @@ data_info(po)
 model_info(po)
 ```
 
-Note that the references reference BibTeX items found in `content/references/references.bib`.
+Citation keys refer to BibTeX items found in `content/references/references.bib`.
 
 We can access most of the posterior information as a `tbl_df` using
 
@@ -127,7 +169,9 @@ tbl <- posteriors_tbl_df(my_pdb)
 head(tbl)
 ```
 
-In addition, we can also access a list of posteriors with `filter_posteriors()`. The filtering function follows dplyr filter semantics.
+Use `filter_posteriors()` to return matching posterior objects. This optional
+workflow requires `dplyr` and follows its filter syntax; listing metadata tables
+with `posteriors_tbl_df()` does not require `dplyr`.
 
 ```{r}
 pos <- filter_posteriors(pdb = my_pdb, data_name == "eight_schools")
@@ -140,7 +184,11 @@ To access reference posterior draws, we use `reference_posterior_draws()`.
 rpd <- reference_posterior_draws(po)
 ```
 
-The function `reference_posterior_draws()` returns a posterior `draws_list` object that can be summarized and transformed using the `posterior` package.
+`reference_posterior_draws()` returns a `pdb_reference_posterior_draws` object
+that also inherits from `posterior::draws_list`. The dotted
+`as.reference_posterior_draws()` wraps existing draw arrays/lists; the underscore
+`as_reference_posterior_draws()` converts and checks a completed Stan fit.
+Summarize stored draws with the `posterior` package:
 
 ```{r}
 posterior::summarize_draws(rpd)

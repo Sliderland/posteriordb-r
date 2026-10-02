@@ -2,6 +2,9 @@
 #'
 #' @details
 #' Connect to a posterior database locally or in a github repo.
+#' YAML configuration requires the optional `yaml` package. GitHub connections
+#' require `remotes`; downloading file content also requires `httr`. Local
+#' database access does not require these packages or a Stan backend.
 #'
 #' [pdb_config()] read  [.pdb_config.yml] in [directory] and use that to setup a
 #' pdb connection.
@@ -136,8 +139,11 @@ pdb_default <- function(cache_path = tempdir()){
 #' @rdname pdb_local
 #' @export
 pdb_config <- function(directory = getwd()){
+  if (!requireNamespace("yaml", quietly = TRUE)) stop("The `yaml` package is required for pdb_config().", call. = FALSE)
   obj <- yaml::read_yaml(file.path(directory, ".pdb_config.yml"))
-  pdb_fun <- eval(parse(text = paste0("pdb_", obj$type)))
+  checkmate::assert_list(obj)
+  checkmate::assert_choice(obj[["type"]], supported_pdb_types())
+  pdb_fun <- switch(obj[["type"]], local = pdb_local, github = pdb_github)
   args <- obj;args$type <- NULL
   pdbo <- do.call(pdb_fun, args = args)
   pdbo$.pdb_config.yml <- obj
@@ -330,6 +336,7 @@ print.pdb <- function(x, ...) {
     cat0("  ", vn, ": ", x$version[[vn]], "\n")
   }
   if(!is.null(x$.pdb_config.yml)){
+    if (!requireNamespace("yaml", quietly = TRUE)) stop("The `yaml` package is required to print a configured connection.", call. = FALSE)
     cat0("\n.pdb_config.yml:\n")
     prt <- paste0("  ", yaml::as.yaml(x$.pdb_config.yml))
     cat0(gsub(prt, pattern = "\n", replacement = "\\\n  "))
