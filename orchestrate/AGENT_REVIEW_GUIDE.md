@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**11 of the original 33 finding IDs remain open, partial, or deferred; 22
+**10 of the original 33 finding IDs remain open, partial, or deferred; 23
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -34,7 +34,7 @@ active queue; dated audit/review reports are historical inputs.
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
 | Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |
-| Diagnostics, extraction and counts | D5, D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D4 diagnostics/extraction and D7 versions are verified. |
+| Diagnostics, extraction and counts | D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D5 diagnostics/extraction/schema coverage and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
 | Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
@@ -113,27 +113,6 @@ can decide whether to require matching implementation metadata or a new
 object when changing frameworks.
 
 ## Diagnostics, fit extraction, and acceptance
-
-### D5. Counts, output shapes, and parameter selection need regression coverage
-
-Location: `R/infer_posterior_dimensions.R` and fit-import selection helpers.
-
-The recent separation of unconstrained counts and saved output shapes is
-correct in principle. Most current fit tests use unconstrained real scalars
-or ordinary matrices; those do not establish constrained-type correctness.
-
-Add meaningful coverage for simplex, correlation/covariance or Cholesky
-parameters, arrays/matrices, a length-one vector, and transformed/generated
-quantities. Confirm complete constrained draw coverage independently of the
-unconstrained count. Test total dimension and original parameter names.
-
-Determine the intended semantics when include/exclude removes actual model
-parameters: does the resulting object represent a marginal posterior or a
-complete model posterior? Do not silently change this policy during cleanup.
-Investigate zero-sized parameters, degenerate zero-free-coordinate types,
-empty selections, numeric versus integer representations, and count
-canonicalization. `validate_posterior_dimension_counts()` accepts a named
-atomic vector, while some callers reject it before invoking that validator.
 
 ### D6. Fit identity verification has a documented limit — policy decision
 

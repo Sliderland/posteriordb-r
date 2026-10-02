@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D1–D4/D7/V5/S4 are complete; constrained parameter coverage is next. V4 is deferred. The historical review
+Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation is next. V4 is deferred. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -104,6 +104,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S4 | Verified at `a5880da`: documentation distinguishes saved-name lookup/list construction and dotted draw wrapping/underscore fit import, corrects component/dimensions names and return type, and explains actual-class dispatch through historical wrappers. Existing aliases and runtime behavior preserved. Public construction/alias probe, development and installed connections16/standalone36 passed; independent documentation review approved. No new tests for this documentation-only unit. |
 | S5 | Partial at `d01d58b`: character constructor preserves all five frameworks, keeps Stan default, and requires matching non-NULL implementation metadata through shared assertion. Initial6 failures; final19 passed development, installed namespace-only and independent Sol review. Installed standalone17, lookup9, resource170 and integrity57 passed; help regenerated. Replacement setter deferred by maintainer on 2026-10-02; preserve existing relabelling behavior for now. |
 | D1–D6 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
+| D5 | Verified at `673281d`: parameter schema protects zero-free-coordinate saved values independently of positive counts; complete constrained coverage and numeric dimension inputs tested. Real RStan20/import54/counts18 plus affected suites passed development/installed and independent review. Genuine CmdStan schema remains complementary T2 work. |
 | D1, D4 | Verified at `2c55964`: small shared diagnostic kernels, explicit E-FMI normalization/fallback, generic extraction routing and no RStan accessor fallback for draw arrays. Focused development/installed checks, genuine RStan50 and genuine CmdStan CSV/no-RStan agreement passed; independent review approved. |
 | D2 | Verified at `12ea517`: shared evaluator/flag mapping and check worker, diagnostic variable/chain identity validation at check/write boundaries. Eight focused suites passed development and installed checks; independent review approved. |
 | D3 | Verified at `9eaf04f`: method-specific required flags fix analytical checking/writing and automatic summaries without fabricated HMC evidence. Analytical33 plus five affected suites passed development and installed checks; independent review approved. |
@@ -158,14 +159,14 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**22 of the original 33 finding IDs are fully verified; 11 remain open,
+**23 of the original 33 finding IDs are fully verified; 10 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S5, D5/D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
-11 equally sized bugs. Several require a behavior decision or an audit.
+S5, D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
+10 equally sized bugs. Several require a behavior decision or an audit.
 
-Next priorities within the current usage window: parameter schema coverage (D5), operation-result checks (P4), and
-safe offline test entry points (T1). Each stays a bounded reviewed unit with
+Next priorities within the current usage window: safe offline test entry points (T1), operation-result checks (P4), and
+complementary genuine CmdStan coverage/dependency guards (T2/T3). Each stays a bounded reviewed unit with
 its own implementation and checkpoint commits. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
 
@@ -310,6 +311,33 @@ with RStan unavailable and never loaded; short-fit ESS warnings were expected,
 with no reference-acceptance claim. Guide rendered; files were clean before
 editing and the implementation commit is separate from this checkpoint.
 
+### Resumed run — D5 verified at `673281d`
+
+Parameter selection now uses the compiled parameter-block schema independently
+of positive unconstrained counts: RStan constrained_param_names(FALSE,FALSE)
+and CmdStan's public variable_skeleton() with derived outputs disabled.
+A simplex[1] value is mandatory saved coverage despite contributing zero free
+coordinates and no dimensions entry. Existing-posterior import and bundles
+retain/protect it; no fake positive count or Stan-source parser was introduced.
+Bundle extraction checks full saved shapes, and assembly no longer repeats
+count-based report selection. Schema recovery recompiles a zero-chain RStan
+fit with supplied source/data, preserving the current broad fallback; D6's
+narrowing audit remains open. Stored undefined lag metrics remain NA, letting
+failed candidates be inspected without conferring acceptance. The strict
+checker/writer still rejects them. Named numeric dimension vectors now reach
+the common validator rather than failing an earlier list-only assertion.
+
+Real RStan coverage initially failed four times for missing fixed[1]. Final
+constrained20/import54/counts18/extraction36/workers27/acceptance28/deferred22
+passed development and installed namespace-only. The real model includes
+simplex, correlation/covariance and Cholesky types, matrix/array/vector-one,
+zero-free values and derived outputs: 29 free coordinates versus 47 saved
+parameter scalars. Import tests also cover CmdStan schema selection with a
+bounded mock. Independent review approved and passed real coverage20/import54/
+extraction36. Genuine compiled CmdStan count/schema coverage is still T2 work.
+Files were clean before editing; guide/help regenerated and committed with
+code/tests. No user database was involved.
+
 ### Maintainer decisions and questions for later
 
 - **V4 deferred:** preserve batch-list classification. Document the supported
@@ -332,8 +360,8 @@ editing and the implementation commit is separate from this checkpoint.
   choice later is feasible, but needs staging/restoration and failure tests;
   the current code does not commit the project to a transaction framework.
 - **Numerical/identity choices:** D1 preserves the intentional E-FMI finite-sample
-  normalization difference explicitly; clarify whether partial
-  parameter selections represent a marginal or complete model in D5.
+  normalization difference explicitly. D5 preserves the current full-parameter
+  contract: include/exclude cannot remove model parameter-block variables.
   D6 stronger source/data verification is an optional policy enhancement,
   not an undisclosed guarantee of the current importer.
 - **API choices:** S4 is documented without breaking aliases. V6 needs decisions before changing configuration

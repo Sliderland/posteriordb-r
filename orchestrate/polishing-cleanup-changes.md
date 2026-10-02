@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**22 of the original 33 finding IDs are closed. Eleven remain open,
+**23 of the original 33 finding IDs are closed. Ten remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -285,13 +285,13 @@ restarting already-completed P11/P2/P12 work.
 | Area | IDs | Remaining work |
 | --- | --- | --- |
 | Public API | S5 | Framework setter remains deferred; construction and conversion documentation is verified. |
-| Diagnostics and fits | D5, D6 | Constrained counts/selection coverage and identity policy. |
+| Diagnostics and fits | D6 | Identity policy and compilation-fallback audit. |
 | Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
 
-Current priorities are parameter coverage (D5), operation-result checks
-(P4), and offline test isolation (T1). D1–D4, D7, V5 and S4 are verified; V4
+Current priorities are offline test isolation (T1), operation-result checks
+(P4), and genuine CmdStan coverage/dependency guards (T2/T3). D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -400,6 +400,25 @@ installed namespaces; broader focused installed checks passed before the
 small reviewed fallback correction. Genuine RStan import50 passed, and
 genuine CmdStan CSV calculations matched in a clean child without RStan.
 Independent final review approved; guide regenerated. Commit: `2c55964`.
+
+### Resumed work: complete constrained coverage — D5
+
+Positive free-coordinate counts alone miss parameters such as simplex[1],
+so include="none" could drop a saved model value and exclude could remove it.
+Fit import and bundle extraction now protect the parameter-block schema from
+the fitted model, separately from dimensions. Zero-free values remain saved
+without invented count entries; genuinely zero-sized saved outputs remain
+unsupported. Bundle report selection follows the extractor's already selected
+outputs. Constant values keep undefined diagnostics and failed acceptance,
+remaining inspectable. Named numeric count inputs share the existing validator.
+
+A real RStan regression covers simplex/correlation/covariance/Cholesky types,
+matrices/arrays/vector-one and derived outputs, confirming 29 free coordinates
+versus 47 saved parameter values. The original missing-value failures were
+reproduced. Seven focused development and installed suites passed, and
+independent review approved. CmdStan selection has a bounded schema mock;
+genuine compiled CmdStan counts remain T2. The broad schema-recompile fallback
+is retained for D6 review. Guide/help updated. Commit: `673281d`.
 
 ## Verification and agent workflow
 
