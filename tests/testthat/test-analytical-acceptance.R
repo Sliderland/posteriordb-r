@@ -83,3 +83,25 @@ test_that("analytical draws and automatic summaries round trip through public wr
   expect_equal(restored_summary$mean_value, summary$mean_value)
   expect_identical(info(restored_summary)$diagnostics$ndraws, 11000L)
 })
+
+
+test_that("duplicate draw variables fail before checking or persistence", {
+  checked <- check_reference_posterior_draws(analytical_acceptance_draws())
+  malformed <- checked
+  malformed[[1]]$other <- malformed[[1]]$theta
+  names(malformed[[1]]) <- c("theta", "theta")
+  expect_error(as.reference_posterior_draws(posterior::as_draws_list(malformed),
+    info(checked)), "unique")
+  expect_error(check_reference_posterior_draws(malformed), "unique")
+
+  root <- withr::local_tempdir("duplicate-draws-")
+  dir.create(file.path(root, "posteriors"))
+  dir.create(file.path(root, "cache"))
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb"))
+  jsonlite::write_json(list(reference_posterior_name = info(checked)$name),
+    file.path(root, "posteriors/linked.json"), auto_unbox = TRUE)
+  before <- list.files(root, recursive = TRUE)
+  expect_error(write_pdb(malformed, connection), "unique")
+  expect_identical(list.files(root, recursive = TRUE), before)
+})

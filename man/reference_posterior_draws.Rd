@@ -56,7 +56,8 @@ Read or wrap reference posterior draws
 `reference_posterior_draws()` reads saved or embedded draws.
   The dotted `as.reference_posterior_draws()` wraps draws with caller-supplied
   `info`; it does not infer parameter counts, calculate acceptance checks,
-  or write files. Its draws-list conversion omits `lp__`.
+  or write files. Its draws-list conversion omits `lp__`. Variable names
+  must be unique, nonmissing and nonempty, and identical across chains.
   Use [as_reference_posterior_draws()] (underscores) to import a completed
   fit for an existing posterior, validate its parameter counts and run
   reference checks. Use [import_reference_posterior_draws()] for that

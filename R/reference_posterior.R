@@ -152,7 +152,8 @@ reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(x, 
 #' @details `reference_posterior_draws()` reads saved or embedded draws.
 #'   The dotted `as.reference_posterior_draws()` wraps draws with caller-supplied
 #'   `info`; it does not infer parameter counts, calculate acceptance checks,
-#'   or write files. Its draws-list conversion omits `lp__`.
+#'   or write files. Its draws-list conversion omits `lp__`. Variable names
+#'   must be unique, nonmissing and nonempty, and identical across chains.
 #'   Use [as_reference_posterior_draws()] (underscores) to import a completed
 #'   fit for an existing posterior, validate its parameter counts and run
 #'   reference checks. Use [import_reference_posterior_draws()] for that
@@ -225,6 +226,7 @@ assert_reference_posterior_draws <- function(x){
   # Assert named chains has the same parameter names
   par_names <- lapply(x, names)
   for(i in seq_along(par_names)){
+    checkmate::assert_names(par_names[[i]], type = "unique")
     checkmate::assert_true(identical(par_names[[1]],par_names[[i]]))
   }
 
