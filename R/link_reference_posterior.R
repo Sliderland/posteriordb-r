@@ -36,7 +36,6 @@ link_reference_posterior <- function(
 }
 
 link_reference_posterior_object <- function(target, reference_posterior, pdb, verify) {
-  assert_pdb_resource_name(target$name)
   assert_pdb_resource_name(reference_posterior)
   pdb_write_output_path(pdb, "posteriors", "json", target$name, info = FALSE)
   current_reference <- target$reference_posterior_name

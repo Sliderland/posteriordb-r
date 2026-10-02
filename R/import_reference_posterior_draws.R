@@ -323,8 +323,8 @@ import_reference_posterior_draws <- function(
   checkmate::assert_flag(write_summary_statistics)
   checkmate::assert_class(pdb, "pdb")
   if (write) checkmate::assert_class(pdb, "pdb_local")
-  if (is.character(posterior)) assert_pdb_resource_name(posterior)
-  if (inherits(posterior, "pdb_posterior")) assert_pdb_resource_name(posterior$name)
+  posterior_name <- if (is.character(posterior)) posterior else posterior$name
+  assert_pdb_resource_name(posterior_name)
 
   rpd <- as_reference_posterior_draws(
     fit = fit,
@@ -344,8 +344,6 @@ import_reference_posterior_draws <- function(
          call. = FALSE)
   }
   assert_checked_reference_posterior_draws(rpd)
-  posterior_name <- if (is.character(posterior)) posterior else posterior$name
-  assert_pdb_resource_name(posterior_name)
   target_posterior <- pdb_posterior(posterior_name, pdb = pdb)
   target_bases <- posterior_dimension_names(validate_import_dimensions(target_posterior$dimensions))
   imported_bases <- unique(sub("\\[.*$", "", posterior::variables(rpd)))
@@ -1016,19 +1014,14 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
     character()
   }
   reference_files <- pdb_reference_output_paths(pdb, name, summary_types)
-  final_info <- reference_files[[1L]]
-  final_draws <- reference_files[[2L]]
-  summary_files <- reference_files[-c(1L, 2L)]
   posterior_path <- pdb_write_output_path(pdb, "posteriors", "json",
-                                           linked_posterior$name, info = FALSE)
+                                          linked_posterior$name, info = FALSE)
   final_files <- reference_files
   if (update_posterior) final_files <- c(final_files, posterior_path)
   # The linked posterior is an existing record that this operation may need
   # to update atomically. `overwrite = FALSE` governs collisions with new
   # reference-draw and summary-statistic files, not that required link update.
-  collision_files <- c(final_info, final_draws, summary_files)
-  existing <- file.exists(collision_files)
-  if (any(existing) && !overwrite) {
+  if (any(file.exists(reference_files)) && !overwrite) {
     stop(
       "Reference-posterior files already exist; use `overwrite = TRUE` to replace them.",
       call. = FALSE
@@ -1066,17 +1059,7 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
     dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   }
 
-  staged_info <- pdb_file_path(staged_pdb, "reference_posteriors", "draws", "info", paste0(name, ".info.json"))
-  staged_draws <- pdb_file_path(staged_pdb, "reference_posteriors", "draws", "draws", paste0(name, ".json.zip"))
-  staged_summary_files <- unlist(lapply(summary_types, function(type) {
-    c(
-      pdb_file_path(staged_pdb, "reference_posteriors", "summary_statistics", type,
-                    "info", paste0(name, ".info.json")),
-      pdb_file_path(staged_pdb, "reference_posteriors", "summary_statistics", type,
-                    type, paste0(name, ".json"))
-    )
-  }), use.names = FALSE)
-  staged_files <- c(staged_info, staged_draws, staged_summary_files)
+  staged_files <- pdb_reference_output_paths(staged_pdb, name, summary_types)
   if (update_posterior) {
     staged_files <- c(staged_files, pdb_file_path(
       staged_pdb, "posteriors", paste0(linked_posterior$name, ".json")

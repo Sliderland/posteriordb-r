@@ -685,12 +685,10 @@ write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = T
     nm <- name
   }
 
-  fp <- pdb_write_output_path(
-    pdb, path, type, nm, zip = FALSE, info = info
-  )
   output_path <- pdb_write_output_path(
     pdb, path, type, nm, zip = zip, info = info
   )
+  fp <- if (zip) sub("[.]zip$", "", output_path) else output_path
   dp <- dirname(fp)
   if(!checkmate::test_directory_exists(dp)) dir.create(dp, recursive = TRUE)
   checkmate::assert_path_for_output(output_path, overwrite = overwrite)
