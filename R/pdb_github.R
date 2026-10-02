@@ -60,8 +60,8 @@ pdb_version.pdb_github <- function(pdb, ...){
 
 #' @export
 pn.pdb_github <- function(x, ...) {
-  pns <- github_dir(gh_path = github_path(x, type = "contents", path = "posteriors"), pdb = x)
-  remove_file_extension(pns)
+  pns <- github_dir(gh_path = github_path(x, type = "contents", path = "posteriors"), pdb = x, files_only = TRUE)
+  remove_file_extension(pns[endsWith(pns, ".json")])
 }
 
 #' @rdname pdb_file_copy
@@ -82,26 +82,23 @@ pdb_file_copy.pdb_github <- function(pdb, from, to, overwrite = FALSE, ...){
 #' @rdname data_names
 #' @export
 data_names.pdb_github <- function(pdb, ...) {
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "data/info"), pdb = pdb)
-  pns <- pns[grepl(pns, pattern = "\\.json")]
-  basename(remove_file_extension(pns))
+  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "data/info"), pdb = pdb, files_only = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
 #' @rdname data_names
 #' @export
 model_names.pdb_github <- function(pdb, ...) {
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "models/info"), pdb = pdb)
-  pns <- pns[grepl(pns, pattern = "\\.json")]
-  basename(remove_file_extension(pns))
+  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "models/info"), pdb = pdb, files_only = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
 #' @rdname reference_posterior_names
 #' @export
 reference_posterior_names.pdb_github <- function(pdb, type, ...) {
   path <- paste("reference_posteriors", reference_posterior_type_path(type), "info", sep = "/")
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = path), pdb = pdb)
-  pns <- pns[grepl(pns, pattern = "\\.json")]
-  basename(remove_file_extension(pns))
+  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = path), pdb = pdb, files_only = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
 
@@ -126,12 +123,14 @@ is_pdb_endpoint.pdb_github <- function(pdb, ...) {
   all(pdb_minimum_contents() %in% dir_github)
 }
 
-github_dir <- function(gh_path, pdb, recursive = FALSE, full.names = TRUE, ...){
+github_dir <- function(gh_path, pdb, recursive = FALSE, full.names = TRUE, files_only = FALSE, ...){
   if(recursive) stop("not implemented")
   if(!full.names) stop("not implemented")
   checkmate::assert_class(pdb, c("pdb_github"))
+  checkmate::assert_flag(files_only)
   x <- gh::gh(gh_path, .token = github_pat(pdb), ...)
-  unlist(lapply(x, FUN=function(x) x$name))
+  if (files_only) x <- Filter(function(entry) identical(entry$type, "file"), x)
+  vapply(x, function(entry) entry$name, character(1), USE.NAMES = FALSE)
 }
 
 github_path <- function(pdb, type, path = NULL){

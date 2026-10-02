@@ -563,6 +563,11 @@ construction and writing. The same rule applies to rename, link, and
 import operations. Relative model implementation paths such as
 `models/stan/example.v2-model.stan` remain paths, not resource names.
 
+Database name listings preserve dots within identifiers, ignore
+unrelated files and directories, and return `character(0)` when no
+matching records exist. Posterior records use `.json`; data, model and
+reference metadata use `.info.json`.
+
 Before writing, local output paths are checked against the database
 root, including existing symlink targets, missing parent directories,
 and the temporary JSON files used to build ZIP archives. An escaping or

@@ -44,7 +44,8 @@ test_that("GitHub reference names use the requested type without network access"
     subdir = "posterior_database", ref = "fixture-ref")), class = c("pdb_github", "pdb"))
   requested <- NULL
   testthat::local_mocked_bindings(
-    github_dir = function(gh_path, pdb) {
+    github_dir = function(gh_path, pdb, files_only) {
+      expect_true(files_only)
       requested <<- gh_path
       "reference.info.json"
     }, .package = "posteriordb"

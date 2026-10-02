@@ -10,12 +10,12 @@ assert_pdb_resource_name <- function(name) {
 
 remove_file_extension <- function(x) {
   checkmate::assert_character(x, pattern = "\\..{1,5}$")
-  unlist(lapply(strsplit(x, "\\."), function(x) x[1]))
+  tools::file_path_sans_ext(x)
 }
 
 get_file_extension <- function(x) {
   checkmate::assert_character(x, pattern = "\\..{1,5}$")
-  unlist(lapply(strsplit(x, "\\."), function(x) x[2]))
+  tools::file_ext(x)
 }
 
 stop2 <- function(...) {
