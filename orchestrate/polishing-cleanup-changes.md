@@ -4,7 +4,8 @@ Updated 2026-10-02. Implementation branch: `main`.
 
 This report explains the cleanup through implementation commit `472f867`
 and continuation checkpoint `811b425`, including the small fixes made before
-the orchestration loop started. It describes what each change solves;
+the orchestration loop started and the bounded follow-up audit below. It
+describes what each change solves;
 [conversation-handoff.md](conversation-handoff.md) holds the detailed
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
@@ -317,9 +318,71 @@ were left alone.
 
 ## Follow-up Ponytail audit
 
-The report above is written first, as requested. A new read-only whole-repo
-complexity audit will now inspect the current source. Straightforward,
-behavior-preserving findings will be fixed with clean-file checks, appropriate
-verification and commits. Numerical redesign, API policy changes and new
-backend features remain in the active guide. The observed audit result and
-any resulting commits will be recorded here when that pass finishes.
+The detailed report was committed first at `c83343b`. A fresh Luna/medium
+agent then applied the Ponytail audit skill read-only to the current source,
+using the graph to narrow scope and source to verify findings. It identified
+three remaining duplication candidates; no dependencies or speculative
+abstractions were proposed. The coordinator made the following bounded changes.
+
+### Remove repeated dimension validation
+
+`extract_rstan_fit_for_bundle()` validated selected declared axes before
+checking saved variables, then repeated its numeric, finite, nonnegative and
+whole-number checks while building output shapes. The earlier validation
+already rejects those invalid declarations with the applicable variable names.
+The later duplicate block is removed. Integer conversion, the guard on the
+converted dimensions, zero-sized declaration rejection and complete saved
+scalar coverage checks remain. This removes four production lines without
+changing variable selection, unconstrained counts or diagnostic acceptance.
+The existing extraction regressions cover valid shapes, fractional/zero-sized
+declarations and incomplete saved variables.
+
+### Reuse the model-info rename implementation
+
+Model-info and model-code rename methods previously maintained the same loop
+over every implementation metadata field. The model-code method now calls
+the existing concrete model-info method and attaches its result to the code.
+That method still performs the filesystem migration once and updates matching
+implementation paths. No new helper or dispatch contract was introduced.
+Code text, framework, connection, unrelated implementation fields and explicit
+NULL implementations are preserved. The filesystem action-planning loop is
+kept because it also records file moves. This removes twelve production lines.
+
+The new public regression also exposed an existing recursive default:
+`pdb = pdb(x)` could evaluate its own argument promise instead of the getter.
+The defect was reproduced against the original HEAD implementations for data,
+model-code and posterior renames. All three now use the qualified existing
+getter, `posteriordb::pdb(x)`, so attached objects can be renamed without
+passing their connection again. Tests exercise all three object paths, saved
+files and downstream posterior links. Generated rename help was updated.
+
+### Leave the GitHub download candidate open
+
+The audit proposed replacing the copy method's duplicated GET branch with
+`github_download()`. Source inspection showed that this helper returns
+success for an existing destination when overwrite is false; the copy method
+currently attempts the download and its disk writer rejects that situation.
+The shared copy generic validates output paths, but direct method calls and
+races need consideration before declaring the substitution equivalent.
+This optional simplification remains open. It is not a reproduced transport
+bug, and it does not change the deferred manual cache policy (P3).
+
+### Verification and commits for this pass
+
+The touched source, test and generated-help files were clean before editing;
+no pre-edit preservation commit was needed. Both original focused suites
+passed before simplification (extraction36/rename58). Final extraction36 and
+rename69 passed in development and a newly installed, namespace-only package.
+The added regressions reuse disposable database fixtures; no live GitHub or
+user database was involved. `git diff --check` passed. The production change
+is a net deletion of sixteen lines, with no dependency added. This pass does
+not close another backlog ID: the remaining count stays eighteen.
+
+Independent Sol 6.1/high review approved the frozen production patch and
+independently passed extraction36/rename69. Its sole fixture suggestion was
+to use the supported `stan_version` field; that change was applied, approved
+and verified again in development and the installed package. The audit,
+inventory and review agents all finished read-only with no edits or commits
+owed. The post-edit implementation commit is **`5b88e7d`**. This report and
+the linked handoff are committed in a separate final documentation checkpoint.
+Unrelated pre-existing working-tree changes remain untouched.

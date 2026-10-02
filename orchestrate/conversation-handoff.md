@@ -30,6 +30,7 @@ branch layout persists.
 | [implementation-guide-stan-workflow-gaps.md](implementation-guide-stan-workflow-gaps.md) | Separate optional proposals: CmdStanR bundles, provenance, archived RStan count recovery. |
 | [agentic-implementation-orchestration.md](agentic-implementation-orchestration.md) | Implementation protocol, work units, worker/reviewer templates, and kickoff prompt. |
 | [agentic_orchestration_alt.md](agentic_orchestration_alt.md) | Alternative **Plus-only OR Claude Code-only** assignments and kickoff prompts; neither requires both providers. |
+| [polishing-cleanup-changes.md](polishing-cleanup-changes.md) | Detailed explanations of implemented changes, partial work, remaining issues and the follow-up Ponytail audit. |
 
 ## Historical review conclusions
 
@@ -133,6 +134,21 @@ The final documentation checkpoint is a subsequent commit; use `git log`
 to identify the current HEAD rather than assuming this implementation SHA
 is the latest commit. Both agents finished read-only work and confirmed
 that they have no edits or commits owed. Do not relaunch an old task.
+
+The maintainer subsequently authorized a bounded report/audit polishing pass.
+The [detailed report](polishing-cleanup-changes.md) was committed at `c83343b`
+before a fresh read-only Luna/medium audit. Its small changes remove repeated
+dimension validation, reuse the existing model-info rename method, and fix
+recursive connection defaults found while exercising object renames. This
+does not resume the broader backlog or change its eighteen remaining IDs.
+The follow-up implementation is committed at `5b88e7d`: extraction36 and
+rename69 passed development and installed namespace-only checks, and a
+separate Sol 6.1/high reviewer approved the final patch. The fixture-only
+review suggestion was applied and rechecked. All three read-only agents
+finished with no edits or commits owed; no agent work is pending.
+The audit also suggested sharing GitHub download code; that optional cut is
+still open because the helper's existing-file behavior differs from the copy
+method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
