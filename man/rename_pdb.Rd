@@ -14,15 +14,15 @@ rename_pdb(x, new_name, ...)
 
 \method{rename_pdb}{character}(x, new_name, type = NULL, pdb = pdb_default(), ...)
 
-\method{rename_pdb}{pdb_data}(x, new_name, pdb = pdb(x), ...)
+\method{rename_pdb}{pdb_data}(x, new_name, pdb = posteriordb::pdb(x), ...)
 
 \method{rename_pdb}{pdb_data_info}(x, new_name, pdb = NULL, ...)
 
 \method{rename_pdb}{pdb_model_info}(x, new_name, pdb = NULL, ...)
 
-\method{rename_pdb}{pdb_model_code}(x, new_name, pdb = pdb(x), ...)
+\method{rename_pdb}{pdb_model_code}(x, new_name, pdb = posteriordb::pdb(x), ...)
 
-\method{rename_pdb}{pdb_posterior}(x, new_name, pdb = pdb(x), ...)
+\method{rename_pdb}{pdb_posterior}(x, new_name, pdb = posteriordb::pdb(x), ...)
 }
 \arguments{
 \item{x}{an object to rename, or a character name.}

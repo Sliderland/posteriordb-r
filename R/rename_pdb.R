@@ -45,7 +45,7 @@ rename_pdb.character <- function(x, new_name, type = NULL,
 
 #' @rdname rename_pdb
 #' @export
-rename_pdb.pdb_data <- function(x, new_name, pdb = pdb(x), ...){
+rename_pdb.pdb_data <- function(x, new_name, pdb = posteriordb::pdb(x), ...){
   checkmate::assert_class(info(x), "pdb_data_info")
   rename_pdb_entity(info(x)$name, new_name, type = "data", pdb = pdb, ...)
   new_info <- info(x)
@@ -83,27 +83,15 @@ rename_pdb.pdb_model_info <- function(x, new_name, pdb = NULL, ...){
 
 #' @rdname rename_pdb
 #' @export
-rename_pdb.pdb_model_code <- function(x, new_name, pdb = pdb(x), ...){
+rename_pdb.pdb_model_code <- function(x, new_name, pdb = posteriordb::pdb(x), ...){
   checkmate::assert_class(info(x), "pdb_model_info")
-  old_name <- info(x)$name
-  rename_pdb_entity(old_name, new_name, type = "model", pdb = pdb, ...)
-  new_info <- info(x)
-  new_info$name <- new_name
-  for (implementation in seq_along(new_info$model_implementations)) {
-    fields <- names(new_info$model_implementations[[implementation]])
-    for (field in fields) {
-      value <- new_info$model_implementations[[implementation]][[field]]
-      new_info$model_implementations[[implementation]][[field]] <-
-        rename_pdb_model_path(value, old_name, new_name)
-    }
-  }
-  info(x) <- new_info
+  info(x) <- rename_pdb.pdb_model_info(info(x), new_name, pdb = pdb, ...)
   x
 }
 
 #' @rdname rename_pdb
 #' @export
-rename_pdb.pdb_posterior <- function(x, new_name, pdb = pdb(x), ...){
+rename_pdb.pdb_posterior <- function(x, new_name, pdb = posteriordb::pdb(x), ...){
   old_name <- x$name
   rename_pdb_entity(old_name, new_name, type = "posterior", pdb = pdb, ...)
   x$name <- new_name

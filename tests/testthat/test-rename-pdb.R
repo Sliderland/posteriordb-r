@@ -147,6 +147,40 @@ test_that("data and model renames update the complete local PDB graph", {
     pattern = "^\\.pdb-rename-(stage|backup)-"), 0L)
 })
 
+test_that("model-code rename preserves code and unrelated implementation metadata", {
+  fixture <- make_rename_fixture()
+  code <- model_code("model_old", "stan", pdb = fixture$pdb)
+  metadata <- info(code)
+  metadata$model_implementations["pymc"] <- list(NULL)
+  metadata$model_implementations$stan$stan_version <- "test-version"
+  info(code) <- metadata
+
+  renamed <- rename_pdb(code, "model_new")
+  expect_identical(as.character(renamed), as.character(code))
+  expect_identical(framework(renamed), framework(code))
+  expect_identical(pdb(renamed), pdb(code))
+  metadata$name <- "model_new"
+  metadata$model_implementations$stan$model_code <- "models/stan/model_new.stan"
+  expect_identical(info(renamed), metadata)
+  expect_false(file.exists(file.path(fixture$root, "models/stan/model_old.stan")))
+  expect_identical(readLines(file.path(fixture$root, "models/stan/model_new.stan")),
+                   as.character(code))
+  expect_identical(posterior("data_old-model_new", fixture$pdb)$model_name, "model_new")
+})
+
+test_that("data and posterior renames use their attached connection", {
+  fixture <- make_rename_fixture()
+  data <- get_data("data_old", fixture$pdb)
+  renamed_data <- rename_pdb(data, "data_new")
+  expect_identical(info(renamed_data)$name, "data_new")
+  expect_equal(get_data("data_new", fixture$pdb), renamed_data, ignore_attr = TRUE)
+  old_posterior <- posterior("data_new-model_old", fixture$pdb)
+  renamed_posterior <- rename_pdb(old_posterior, "posterior_new")
+  expect_identical(renamed_posterior$name, "posterior_new")
+  expect_identical(posterior("posterior_new", fixture$pdb)$reference_posterior_name,
+                   "posterior_new")
+})
+
 test_that("rename rejects unsafe names and collisions without mutation", {
   fixture <- make_rename_fixture()
   on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)

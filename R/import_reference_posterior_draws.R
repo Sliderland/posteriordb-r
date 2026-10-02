@@ -804,11 +804,7 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     stop("Requested Stan variable(s) were not saved in the fit: ", paste(unsaved, collapse = ", "), call. = FALSE)
 
   output_shapes <- stats::setNames(lapply(selected_bases, function(base) {
-    raw_axes <- declared[[base]]
-    if (!is.numeric(raw_axes) || anyNA(raw_axes) || any(!is.finite(raw_axes)) ||
-        any(raw_axes < 0L) || any(raw_axes != floor(raw_axes)))
-      stop("Stan variable `", base, "` has invalid declared dimensions.", call. = FALSE)
-    axes <- as.integer(raw_axes)
+    axes <- as.integer(declared[[base]])
     if (any(axes <= 0L))
       stop("Stan variable `", base, "` has zero-sized or invalid declared dimensions; exclude it explicitly to continue.", call. = FALSE)
     saved <- scalar_names[sub("\\[.*$", "", scalar_names) == base]
