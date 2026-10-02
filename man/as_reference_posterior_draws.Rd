@@ -110,4 +110,10 @@ dimensions are always retained. Declared counts for actual model parameters
 must match the fit's unconstrained counts; dimensions naming derived outputs
 are permitted when those outputs are saved in the fit. The importer does not verify that the fit used the posterior's
 model source code or data.
+Version fields for R, its session and Makevars describe the import
+environment. Backend package versions describe the installed interface;
+RStan's recorded Stan version also comes from its installed library.
+A Stan version reported by CmdStan CSV metadata describes the fitted
+executable and is retained when available. Environment versions do not
+establish an archived fit's original sampling environment.
 }

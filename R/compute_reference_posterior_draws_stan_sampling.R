@@ -84,11 +84,10 @@ compute_reference_posterior_draws_stan_sampling <- function(
 }
 
 stan_fit_sampling_versions <- function(metadata) {
-  versions <- list(
-    r_version = metadata$r_version %||% R.version$version.string,
-    posterior_version = metadata$posterior_version %||%
-      paste("posterior", utils::packageVersion("posterior"))
-  )
+  versions <- pdb_stan_sampling_versions(include_rstan = FALSE)
+  versions$r_version <- metadata$r_version %||% versions$r_version
+  versions$posterior_version <- metadata$posterior_version %||%
+    paste("posterior", utils::packageVersion("posterior"))
   for (name in c(
     "rstan_version", "cmdstanr_version", "cmdstan_version", "stan_version"
   )) {
@@ -257,7 +256,7 @@ posterior_dimension_names <- function(x) {
 }
 
 #' Extract relevant stan versions
-pdb_stan_sampling_versions <- function() {
+pdb_stan_sampling_versions <- function(include_rstan = TRUE) {
   M <- file.path(
     Sys.getenv("HOME"),
     ".R",
@@ -276,7 +275,7 @@ pdb_stan_sampling_versions <- function() {
       collapse = "\n"
     )
   )
-  if (requireNamespace("rstan", quietly = TRUE)) {
+  if (include_rstan && requireNamespace("rstan", quietly = TRUE)) {
     versions$rstan_version <- paste("rstan", utils::packageVersion("rstan"))
   }
   versions

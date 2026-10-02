@@ -14,6 +14,12 @@
 #' must match the fit's unconstrained counts; dimensions naming derived outputs
 #' are permitted when those outputs are saved in the fit. The importer does not verify that the fit used the posterior's
 #' model source code or data.
+#' Version fields for R, its session and Makevars describe the import
+#' environment. Backend package versions describe the installed interface;
+#' RStan's recorded Stan version also comes from its installed library.
+#' A Stan version reported by CmdStan CSV metadata describes the fitted
+#' executable and is retained when available. Environment versions do not
+#' establish an archived fit's original sampling environment.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
@@ -974,13 +980,7 @@ new_import_reference_posterior_info <- function(
 }
 
 imported_reference_posterior_versions <- function(metadata) {
-  versions <- pdb_stan_sampling_versions()
-  versions$posterior_version <- metadata$posterior_version
-  versions$stan_version <- metadata$stan_version
-  if (!is.null(metadata$rstan_version)) versions$rstan_version <- metadata$rstan_version
-  if (!is.null(metadata$cmdstanr_version)) versions$cmdstanr_version <- metadata$cmdstanr_version
-  if (!is.null(metadata$cmdstan_version)) versions$cmdstan_version <- metadata$cmdstan_version
-  versions
+  stan_fit_sampling_versions(metadata)
 }
 
 write_imported_reference_posterior_draws <- function(x, pdb, overwrite,

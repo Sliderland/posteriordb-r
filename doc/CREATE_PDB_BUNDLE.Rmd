@@ -859,6 +859,14 @@ provenance separately where needed. Unknown, duplicate, or misspelled
 bundle arguments and unsupported metadata fields are rejected rather
 than silently ignored.
 
+Existing-posterior imports record the current R session and Makevars, and
+the installed backend interface version. RStan's recorded Stan version also
+comes from its currently installed library. A CmdStanR import does not probe
+or add RStan versions; its CSV-reported Stan version describes the fitted
+executable and is retained when available. These environment fields do not
+prove which package versions produced an archived fit; unavailable historical
+evidence remains unknown.
+
 Use a separate database directory when experimenting with writes.
 Supplying a connection during construction does not persist anything,
 but `write_pdb()` and `import_reference_posterior_draws(write = TRUE)`

@@ -5,7 +5,7 @@
 \alias{pdb_stan_sampling_versions}
 \title{Extract relevant stan versions}
 \usage{
-pdb_stan_sampling_versions()
+pdb_stan_sampling_versions(include_rstan = TRUE)
 }
 \description{
 Extract relevant stan versions
