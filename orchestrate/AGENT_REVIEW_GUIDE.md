@@ -79,24 +79,6 @@ not silently change numerical policy to match a sentence in a document.
 
 ## S3 dispatch and object contracts
 
-### S2. Registration, direct-method calls, and subclass behavior — mixed
-
-Locations: `NAMESPACE`, `R/reference_posterior.R`,
-`R/compute_reference_posterior_draws_stan_sampling.R`, `R/pdb.R`.
-
-External thinning registration and stale transformation evidence were verified in the P1 unit; see the handoff checkpoint. Remaining S2 work follows.
-
-Also inspect internal calls such as `run_stan.pdb_posterior()` and
-`posterior.character()`: call a generic where subclass dispatch is intended;
-use an explicitly named worker where dispatch is deliberately bypassed.
-
-Review `class(x)[1]` allowlists in serialization, `pdb_type()` inferring type
-from the first class string, and methods removing `class(x)[1]`. Prepending a
-subclass should not accidentally change database type or select the wrong
-serialization branch. Decide which classes promise extensibility, then test
-those promises. Do not indiscriminately append base classes: `pdb()` serves
-both as a connection factory for character input and a connection accessor.
-
 ### S4. Similar conversion APIs have different semantics — design review
 
 Locations: `as.reference_posterior_draws()` versus

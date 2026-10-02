@@ -144,7 +144,7 @@ Suggested order for confirmed defects:
 | Report partial writes; future rollback open | P4 | Maintainer chose to retain partial bundle/component writes on I/O failure, report successful components, and document inspection/retry and contribution PR review. Keep automatic rollback open for colleague discussion. Existing rename/bibliography recovery fixes remain in place. |
 | Deferred: cache contract | P3 | Maintainer deferred this on 2026-10-02; preserve current manual refresh until resumed. Original proposal: Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
 | Review remaining remove/API boundaries | Relevant V6 | Write/cache containment and archive checks are verified (P9). Clarify arbitrary-path removal semantics before changing compatibility. |
-| Repair public object/S3 contracts | S2, S4, S5 | Align signatures/registration, preserve connection/framework inputs, and support documented subclass behavior. Do not make every helper generic. |
+| Repair remaining conversion contracts | S4, S5 | Clarify wrapping/import semantics; framework setter remains deferred. Preserve existing public aliases. |
 | Repair database/object checking | V2 | In-memory checking actually checks the supplied object. |
 | Deferred: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan/custom-path writer support remains open. |
 | Normalize other validation | V3, V4, remaining V6 | Validate summary fields/lengths and batch options; distinguish missing optional resources from malformed ones. |
