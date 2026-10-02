@@ -221,15 +221,11 @@ reference_lag1_ac <- function(x) {
 ess_bounds <- function(x){
   checkmate::assert_class(x, "draws")
 
-  npar <- posterior::nvariables(x)
   ndraws <- posterior::ndraws(x)
   # We approximate ESS SD as follows (after some simulations)
   # We then use 4 SD to check the ESSs
   approx_ess_sd <- sqrt(7) * sqrt(ndraws)
   bnds <- ndraws + 4 * c(approx_ess_sd, -approx_ess_sd)
-
-  #  alpha <- 1 - exp(log(p)/npar)
-  #  essb <- esst <- NULL # To mask check NOTEs
 
   list(ess_bulk = bnds,
        ess_tail = bnds)

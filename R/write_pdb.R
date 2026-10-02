@@ -503,10 +503,6 @@ write_pdb.pdb_model_code <- function(x, pdb,  overwrite = FALSE, ...){
 write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
   assert_model_info(x)
   if (!"keywords" %in% names(x)) x["keywords"] <- list(NULL)
-  implementations <- x$model_implementations
-  # Keep caller-supplied implementation metadata as-is. In particular, do not
-  # manufacture null version/framework fields or discard optional values.
-  x$model_implementations <- implementations
   class(x) <- c(class(x), "list")
   write_json_to_path(x, "models/info", pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
 }

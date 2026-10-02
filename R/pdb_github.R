@@ -195,7 +195,6 @@ github_download <- function(download_url, to, pat, overwrite){
   } else {
     ret <- httr::GET(download_url, httr::add_headers(c("Authorization" = paste0("token ", pat))), httr::write_disk(to, overwrite = overwrite))
   }
-  httr::http_error(ret)
   httr::status_code(ret) == 200L
 }
 

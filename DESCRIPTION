@@ -30,7 +30,6 @@ Suggests:
     covr,
     cmdstanr,
     dplyr,
-    dotenv,
     httr,
     git2r,
     remotes,

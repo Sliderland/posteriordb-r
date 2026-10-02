@@ -154,7 +154,6 @@ reference_diagnostic_metrics <- function(draws, extracted, checks) {
   out <- list()
   if ("ndraws" %in% checks) out$ndraws <- posterior::ndraws(draws)
   if ("nchains" %in% checks) out$nchains <- posterior::nchains(draws)
-  vars <- posterior::variables(draws)
   if ("mean_lag1_ac" %in% checks) {
     out$mean_lag1_ac <- reference_lag1_ac(draws)
   }
