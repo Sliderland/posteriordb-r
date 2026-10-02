@@ -21,3 +21,9 @@ run_stan(x, stan_args, backend = c("rstan", "cmdstanr"), ...)
 \description{
 Run Stan on a posterior
 }
+\details{
+For CmdStanR, RStan-style `iter`/`warmup` and supported `control`
+  settings are translated to native arguments. Conflicting aliases and
+  unsupported controls raise an error before compilation. See
+  [compute_reference_posterior_draws()] for supported controls.
+}

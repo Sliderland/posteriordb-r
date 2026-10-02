@@ -3,6 +3,16 @@
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
 #' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
+#' @details With CmdStanR, `iter`/`warmup` become `iter_sampling`/`iter_warmup`
+#'   and `cores` becomes `parallel_chains`. Supported nested RStan controls
+#'   are `adapt_delta`, `max_treedepth`, `stepsize`, `adapt_engaged`, `metric`,
+#'   `adapt_init_buffer`, `adapt_term_buffer`, and `adapt_window`.
+#'   `stepsize` becomes `step_size`; adaptation buffers/window lose the
+#'   `adapt_` prefix. Other controls raise an error rather than being discarded.
+#'   Supply each setting once: aliases or nested controls cannot override an
+#'   explicit native setting. Native CmdStanR arguments can be supplied directly.
+#'   NULL `iter`, `warmup`, and `control` entries are omitted. Explicit native
+#'   `diagnostics = NULL` remains supported; do not also supply `validate_csv`.
 #'
 #' @export
 compute_reference_posterior_draws <- function(

@@ -843,6 +843,20 @@ Important limitations:
 
 ## Fit and provenance limitations
 
+When computing new reference draws with
+`compute_reference_posterior_draws(..., backend = "cmdstanr")`, stored sampler
+arguments can use RStan-style `iter`/`warmup`, `cores`, and supported `control`
+settings. `stepsize` maps to `step_size`; `adapt_init_buffer`,
+`adapt_term_buffer`, and `adapt_window` map to `init_buffer`, `term_buffer`,
+and `window`. `adapt_delta`, `max_treedepth`, `adapt_engaged`, and `metric`
+retain their names. Unsupported controls (such as `adapt_gamma` or
+`stepsize_jitter`) raise an error before compilation. Conflicting aliases or
+nested/direct settings also raise an error; supply each setting once.
+NULL `iter`, `warmup`, and `control` entries are omitted. To disable CmdStanR's
+post-sampling diagnostics, use `diagnostics = NULL`; do not combine it with
+the legacy `validate_csv` alias.
+Existing-fit import does not replay these settings or sample again.
+
 Bundle creation currently accepts completed RStan HMC fits, not CmdStanR
 fits, optimization/variational results, or merged fits with
 inconsistent/repeated chain IDs. CmdStanR fits can use the importer and
