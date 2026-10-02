@@ -93,8 +93,9 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | V1 | Verified at `b9515c1`: bibliography result captured; eight status assertions and 48 bibliography assertions passed in an installed package. |
 | P4 | Partial at `ebb5d9e`: rename/bibliography restoration results checked and failed-recovery backups retained. Rename 58 and bibliography 48 assertions passed. Broader component/bundle write atomicity remains open. |
 | P9 | Partial at `587bb86`, simplified at `8e5de0c`: names and local destination containment guarded; focused development and installed checks passed. Common cache archive-member validation remains open. |
-| P3 | Decision needed: investigation found longstanding manual cache-refresh behavior; even a new connection can share the session cache. No automatic-invalidation change authorized by the earlier investigation. Revisit the intended compatibility contract before changing it. |
-| S2–S5 | Open; revalidate against current source. |
+| P3 | Deferred by maintainer on 2026-10-02. Preserve existing manual cache refresh; retain the issue in the active guide for later decision. |
+| S3 | Verified at `a5ef7c9`: shared coercion retains and validates an explicit connection; thinning forwards it, standalone NULL remains supported, JSON excludes connection attributes. Regression failed with eight assertions before repair and passed all 16 afterward. Installed reference-connections, import-external-stanfit (50 assertions, real RStan), and bundle-write-integrity (40 assertions) passed. Independent Sol 6.1/high review found no defects and reran the 16-assertion regression against repository sources. |
+| S2, S4, S5 | Open; revalidate against current source. |
 | D1–D7 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
 | P1, P5–P8, P10 | Open; P1 is the next integrity unit. |
 | V2–V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
@@ -105,6 +106,6 @@ legacy tests mutate it. Do not run that harness until isolated. Focused tests
 must use inspected disposable fixtures. Existing passing runs are evidence
 for their listed commits only; new changes require new checks.
 
-Active unit: P1 inventory (read-only Luna/medium); coordinator owns all edits.
+Active unit: P1 inventory completed (read-only Luna/medium); coordinator owns all edits.
 Next: reproduce stale transformation evidence, settle the narrow retention
 contract, repair the shared cause, test, freeze for independent review, commit.

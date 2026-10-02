@@ -17,6 +17,13 @@ documentation branch `Agent-ToDo` itself is based on `8aeef19`; these findings
 describe the reviewed feature snapshot, not implementation present on that
 documentation branch.
 
+## Active backlog maintenance — 2026-10-02
+
+Completed implementation findings are removed from this active backlog.
+Their commit/test evidence is in [the implementation checkpoint](conversation-handoff.md#implementation-checkpoint--2026-10-02); original findings remain in Git history.
+Partial findings below retain only the remaining work as it is revalidated.
+P3 is deferred by the maintainer; keep it visible until explicitly resumed.
+
 ## Your task
 
 Review the package for inconsistent public behavior, S3 contract violations,
@@ -72,30 +79,6 @@ not silently change numerical policy to match a sentence in a document.
 
 ## S3 dispatch and object contracts
 
-### S1. Generic/method positional arguments disagree — reproduced
-
-Location: `R/create_pdb_bundle.R`, `create_pdb_bundle()` and
-`create_pdb_bundle.stanfit()`.
-
-The generic begins with `(fit, data, added_by, added_date, ...)`. Its method
-begins with `(fit, data, model_code, posterior, added_by, added_date, ...)`.
-The call below treats `"Reviewer"` as a model name after dispatch and tries
-to load `models/stan/Reviewer.stan`:
-
-```r
-create_pdb_bundle(fit, list(), "Reviewer", Sys.Date(), pdb = connection)
-```
-
-Align the generic's common arguments and the method's common arguments in
-name, position, and intended defaults. One compatible direction is to keep
-the generic's positional sequence in the method and place method-specific
-arguments after those arguments. Consider making extra options named-only,
-but assess existing direct-method calls before choosing that interface.
-
-Run `tools::checkS3methods(dir = ".")`; it already reports this mismatch.
-Audit all generics/methods, not just this pair. Test named, positional,
-omitted-default, and explicit-NULL calls through the exported generic.
-
 ### S2. Registration, direct-method calls, and subclass behavior — mixed
 
 Locations: `NAMESPACE`, `R/reference_posterior.R`,
@@ -123,23 +106,6 @@ subclass should not accidentally change database type or select the wrong
 serialization branch. Decide which classes promise extensibility, then test
 those promises. Do not indiscriminately append base classes: `pdb()` serves
 both as a connection factory for character input and a connection accessor.
-
-### S3. Coercion drops an explicitly supplied connection — reproduced
-
-Locations: `R/reference_posterior.R`,
-`as.reference_posterior_draws.draws_list()`;
-`R/compute_reference_posterior_draws_stan_sampling.R`, its stanfit method;
-`R/import_reference_posterior_draws.R`, the external converter.
-
-`as.pdb_reference_posterior_draws(draws, info = ri, pdb = connection)` returns
-an object whose `pdb()` is NULL. The draws-list method accepts `...` but does
-not attach the supplied connection. Both fit conversion paths pass `pdb`
-through this route, while bundle assembly explicitly attaches it later.
-
-Choose a consistent connection contract for constructors and conversions.
-If `pdb` is accepted, preserve it; if unsupported, reject it clearly rather
-than silently ignoring it. Verify connection retention across conversions,
-subsetting, thinning, and serialization, including explicit NULL.
 
 ### S4. Similar conversion APIs have different semantics — design review
 
@@ -355,22 +321,11 @@ thinning changes the draws themselves. Test public generic calls as well as
 the direct method. Leave priority to the maintainer; do not make blanket
 recomputation of all diagnostics the default fix.
 
-### P2. Failed bundle writes leave a dangling reference link — reproduced
+### P3. Ordinary writes/removals leave stale cache entries — deferred by maintainer
 
-Locations: bundle assembly and `write_pdb.pdb_reference_bundle()`.
-
-A failed-diagnostic bundle writes data, model, and posterior but skips draws.
-The persisted posterior nevertheless names the skipped reference posterior.
-Reproduced with a 40-draw candidate: the report says reference draws were not
-written, while posterior JSON points to `failed-data-failed-model`.
-
-Preserve the documented ability to save structural components. Decide how
-to represent the candidate link in memory, but only persist a reference link
-when its referenced files exist or are successfully committed. Do not clear
-a valid pre-existing link just because a replacement candidate failed.
-Verify getters and database checks after both successful and skipped writes.
-
-### P3. Ordinary writes/removals leave stale cache entries — reproduced
+Deferred on 2026-10-02. Current-source investigation found longstanding manual
+refresh semantics. Preserve current behavior; decide the cache contract before
+implementing automatic invalidation. The original proposed repair follows.
 
 Locations: `R/write_pdb.R`, `R/remove_pdb.R`, `R/pdb.R`, `R/tibble.R`.
 
@@ -509,96 +464,7 @@ for staged references. Apply the same identity distinction to summaries.
 Use a fixture where posterior and reference names differ, and verify both
 single-summary and multi-summary access.
 
-### P11. Bundle construction erases reused components' source database — reproduced
-
-Locations at `55e667e`: `R/create_pdb_bundle.R:421-424,512-515` and
-`R/write_pdb.R:248-261`. Existing-object reuse arrived in `5241f39`; the
-destination-origin guard added in `4df3f39` does not resolve this case.
-
-Supplying a connected data object from database A together with `pdb = B`
-to `create_pdb_bundle()` replaces the object's attached connection with B.
-The bundle still marks the component as reused. When same-name files exist
-in B, preflight reads that replaced connection and concludes that the
-component came from B. It skips those files without detecting the collision.
-The same connection replacement applies to a supplied model-code object.
-
-An isolated public-call probe used data named `reuse-data` with `n = 1` in A
-and `n = 2` in B. With accepted synthetic fit draws and mocked RStan
-extraction, construction with the data from A and `pdb = B`, followed by
-`write_pdb(bundle, B, overwrite = FALSE, write_summary_statistics = FALSE)`,
-successfully wrote reference draws and reported the data as reused. The
-returned bundle contained `n = 1`; a public read of B returned `n = 2`.
-Keeping A attached during construction made preflight reject that collision.
-The reproduced data path therefore permits a persisted posterior whose
-declared data differ from the data supplied for its fit.
-
-Preserve the original source connection for reused components and use it
-in preflight. Attaching the destination to newly created objects is a
-separate operation. The smallest fix is to avoid replacing reused objects'
-origin before validation, or retain that origin explicitly in the write plan.
-This is not a requirement for the optional content-fingerprint feature:
-the source identity was available and was overwritten.
-
-Test A-to-B construction with different same-name data using both overwrite
-settings; rejection must precede any writes. Cover model reuse with the same
-pattern, genuine same-database reuse, and copying into an empty destination.
-Use the exported constructor and writer so the test includes retargeting,
-not merely a private preflight call with an unmodified object.
-
-### P12. A reused posterior's new reference link exists only in memory — reproduced
-
-Locations at `55e667e`: `R/create_pdb_bundle.R:449-459,512-522` and
-`R/write_pdb.R:105-117,248-261,349-389`. `daa4e12` permits a supplied
-posterior with a NULL reference link; the final writer does not persist the
-link assigned during construction.
-
-Construction accepts an existing database-backed posterior with
-`reference_posterior_name = NULL`, assigns the inferred reference name in
-memory, and can return passing checks. Preflight classifies its existing
-posterior JSON as reused, so the writer skips that JSON. The draws writer
-then searches persisted posterior records for the reference name. When
-none points to it, writing fails with “no posterior in this database points
-to reference posterior”.
-
-An isolated public-call probe loaded an existing posterior with a NULL link,
-constructed an accepted bundle from it with mocked fit extraction, and
-called the public writer. All checks passed; data, model, and posterior were
-reported as reused. Writing raised the link error, the stored link remained
-NULL, and no reference archive was created. This is an accepted-candidate
-failure, distinct from P2's failed-candidate dangling-link problem. Do not
-describe it as an unconditional successful write of orphaned draws: the
-persisted-link guard prevents that in this reproduced case.
-
-Decide whether this reuse operation may fill an empty reference link. If
-yes, include that narrow update in the accepted-reference write plan,
-preserving descriptive fields and rejecting a different existing link.
-Stage it with the reference files, following the existing import writer's
-linking pattern where appropriate. If reuse must leave all existing
-posterior records untouched, reject this case during preflight with a clear
-instruction to link the posterior first. Do not unconditionally overwrite
-the entire reused posterior or attach a candidate link after failed checks.
-
-Test NULL, matching, and conflicting stored links through construction,
-writing, and persisted reads. Include failed diagnostics. Assert the
-destination state after success or rejection, not only the bundle's
-in-memory link.
-
 ## Validation and workflow behavior
-
-### V1. Database check can return success after bibliography failure — reproduced
-
-Location: `R/check_pdb.R`, end of `check_pdb()`.
-
-The result of `try(check_pdb_references(pdb))` is not assigned to `res`.
-The following condition inspects the preceding check's result. With that
-preceding check succeeding and bibliography validation deliberately failing,
-the function returned status 0.
-
-Capture every result, preferably with a small shared check runner that makes
-failure propagation explicit. Preserve or deliberately revise the documented
-return contract: implementation uses integer status, documentation says
-boolean. Tests must assert status/results, not merely a printed message.
-Exercise each failure independently and confirm no success message is emitted.
 
 ### V2. Posterior checking discards the supplied in-memory object — confirmed
 

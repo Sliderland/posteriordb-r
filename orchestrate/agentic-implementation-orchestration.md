@@ -122,7 +122,9 @@ Continue read-only preparation, but do not implement against a guessed base.
 ## Stage 1: turn findings into small work units
 
 Maintain a compact status list in the existing handoff document or an
-existing implementation log. Do not create a second full copy of the backlog.
+existing implementation log. Remove verified completed items from the active
+issue guide and work queue; retain commit/test evidence in the handoff and Git
+history. Keep partial, deferred, blocked, and decision-needed work visible. Do not create a second full copy of the backlog.
 Use original issue identifiers; split combined rows below into individual
 commits whenever contracts or tests are independent.
 
@@ -139,14 +141,12 @@ Suggested order for confirmed defects:
 | Work area | Finding IDs | Scope and required result |
 | --- | --- | --- |
 | Test isolation for the selected work | T1 | Use disposable databases before any write/remove test. Refactor unsafe legacy harness/tests before a broad suite run. This need not delay isolated bug probes. |
-| Preserve reused-object origin | P11 | Source A must not become source B merely because B is the destination. Test constructor-to-writer behavior. |
-| Coordinate persisted reference links | P2, P12 | Failed/unchecked candidates do not create dangling links; accepted reuse with a NULL link has an explicit, consistent write contract. |
 | Invalidate obsolete acceptance evidence | P1 | Supported transformations invalidate draw-dependent checks/counts; writers cannot accept stale evidence for changed draws. |
 | Preserve recoverable files | P4 | Failed restoration keeps backups and reports their locations; required write failures have a defined recovery contract. Handle existing rollback defects before adding transaction machinery. |
-| Invalidate caches | P3 | Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
+| Deferred: cache contract | P3 | Maintainer deferred this on 2026-10-02; preserve current manual refresh until resumed. Original proposal: Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
 | Validate write/remove boundaries | P9, relevant V6 | Reject unsafe resource/path inputs before mutation using shared existing validation. Keep resource names distinct from implementation paths. |
-| Repair public object/S3 contracts | S1–S5 | Align signatures/registration, preserve connection/framework inputs, and support documented subclass behavior. Do not make every helper generic. |
-| Repair database/object checking | V1, V2 | Failure status includes bibliography failure; in-memory checking actually checks the supplied object. |
+| Repair public object/S3 contracts | S2, S4, S5 | Align signatures/registration, preserve connection/framework inputs, and support documented subclass behavior. Do not make every helper generic. |
+| Repair database/object checking | V2 | In-memory checking actually checks the supplied object. |
 | Repair lookup/path/reader contracts | P5–P8, P10 | Follow explicit metadata links and correct type/framework paths; handle dots, empty databases, and distinct reference names. |
 | Normalize other validation | V3, V4, remaining V6 | Validate summary fields/lengths and batch options; distinguish missing optional resources from malformed ones. |
 | Consolidate applicable diagnostics | D1–D3 | Shared numerical workers and required-check evaluation, preserving fixed thresholds, selective/deferred behavior, and analytical applicability. |
