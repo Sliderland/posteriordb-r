@@ -71,3 +71,40 @@ Prior documentation commits: `a0b10aa` (initial documents), `d484878`
 (commit review/P11/P12), `32e9ccc` (orchestration), and `0876fcf`
 (separate Plus/Claude profiles). This handoff summarizes the conversation;
 it does not declare the backlog implemented or authorize publishing changes.
+
+## Implementation checkpoint — 2026-10-02
+
+Authorized scope: address outstanding confirmed implementation defects using
+the Plus-only orchestration profile. One writer; Luna/medium for bounded
+read-only inventories, Sol 6.1/high for independent frozen-patch review.
+Check assigned files before editing, preserve existing changes in a pre-edit
+commit when necessary, and commit each coherent tested unit. Optional new
+backend/provenance features remain outside this defect-fixing scope.
+
+Implementation branch: `main`, starting at `b9515c1`. The existing handoff
+was preserved before editing in `cd01b5c`. Other dirty/untracked files remain
+outside ownership. Available: R 4.6.0, RStan 2.32.7, CmdStanR 0.9.0,
+CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
+
+| Findings | Current status and evidence |
+| --- | --- |
+| S1 | Verified at `688c7d8`: common positional arguments aligned; focused installed tests and S3 signature checker passed. |
+| P2, P11, P12 | Verified at `56cb0dd`: persisted candidate links guarded, reused origins retained, accepted reused posterior requires a matching stored link. Empty-link updates use the existing importer. Forty isolated integrity assertions passed, including namespace-only installed loading. |
+| V1 | Verified at `b9515c1`: bibliography result captured; eight status assertions and 48 bibliography assertions passed in an installed package. |
+| P4 | Partial at `ebb5d9e`: rename/bibliography restoration results checked and failed-recovery backups retained. Rename 58 and bibliography 48 assertions passed. Broader component/bundle write atomicity remains open. |
+| P9 | Partial at `587bb86`, simplified at `8e5de0c`: names and local destination containment guarded; focused development and installed checks passed. Common cache archive-member validation remains open. |
+| P3 | Decision needed: investigation found longstanding manual cache-refresh behavior; even a new connection can share the session cache. No automatic-invalidation change authorized by the earlier investigation. Revisit the intended compatibility contract before changing it. |
+| S2–S5 | Open; revalidate against current source. |
+| D1–D7 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
+| P1, P5–P8, P10 | Open; P1 is the next integrity unit. |
+| V2–V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
+| T1–T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Legacy harness isolation, complementary backend coverage, and broader public documentation remain open. |
+
+Legacy `tests/testthat.R` still selects a configured user database and several
+legacy tests mutate it. Do not run that harness until isolated. Focused tests
+must use inspected disposable fixtures. Existing passing runs are evidence
+for their listed commits only; new changes require new checks.
+
+Active unit: P1 inventory (read-only Luna/medium); coordinator owns all edits.
+Next: reproduce stale transformation evidence, settle the narrow retention
+contract, repair the shared cause, test, freeze for independent review, commit.
