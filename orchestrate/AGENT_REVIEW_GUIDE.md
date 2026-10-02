@@ -31,6 +31,11 @@ are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
 
+The [2026-10-03 whole-repo audit](whole-repo-audit-2026-10-03.md) is completed
+through `abdc357`: summary acceptance, directory/failed-transfer caching and
+explicit link destinations are repaired, with reviewed dead-code cuts.
+Its findings are not new unfinished queue entries; the seven IDs below remain.
+
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
 | Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |

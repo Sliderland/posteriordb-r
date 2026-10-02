@@ -1,6 +1,14 @@
 # Focused cleanup: implemented changes and remaining work
 
-Updated 2026-10-02. Implementation branch: `main`.
+Updated 2026-10-03. Implementation branch: `main`.
+
+The latest whole-repository audit is documented in
+[whole-repo-audit-2026-10-03.md](whole-repo-audit-2026-10-03.md). It adds
+reviewed summary-acceptance, directory/failed-transfer caching and explicit
+link-destination fixes (`b079707`, `eb4daeb`, `a1ad0b0`), then removes
+11 source/package lines and one unused dependency (`abdc357`). Final
+development and installed offline suites each passed 1,337 assertions with
+42 integration skips. The seven-ID queue and maintainer deferrals are unchanged.
 
 The initial sections explain cleanup through `472f867` and checkpoint
 `811b425`. The resumed sections below record subsequent verified units through

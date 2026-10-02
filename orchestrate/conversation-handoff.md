@@ -135,6 +135,15 @@ from the active guide; this checkpoint and Git retain their evidence.
 
 ## Resume checkpoint — current 2026-10-02
 
+Latest completed pass: **2026-10-03**, implementation `abdc357`, following
+`b079707`, `eb4daeb` and `a1ad0b0`. Read the
+[fresh whole-repo audit report](whole-repo-audit-2026-10-03.md) for findings,
+before/after behavior, cuts, review corrections and verification. Both final
+offline suites passed 1,337 assertions with 42 explicit skips. All agents
+finished read-only work; owned implementation files are committed and no
+patch/review is pending. The seven-ID queue and its unanswered/deferred
+choices remain unchanged. Older checkpoints below record prior history.
+
 Previous checkpoint: the maintainer asked to finish the current unit and stop
 for that usage window. V2 completed at `472f867` on `main`. All implementation changes,
 tests, generated help and user-guide changes from this run are committed.
