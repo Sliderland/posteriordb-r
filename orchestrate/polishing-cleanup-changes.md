@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**15 of the original 33 finding IDs are closed. Eighteen remain open,
+**16 of the original 33 finding IDs are closed. Seventeen remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -285,14 +285,30 @@ restarting already-completed P11/P2/P12 work.
 | Area | IDs | Remaining work |
 | --- | --- | --- |
 | Public API | S4, S5 | Explain wrapping versus fit import and construction APIs; the framework setter is deferred. |
-| Diagnostics and fits | D1–D7 | Shared compatible calculations/acceptance, analytical applicability, extraction routing, constrained counts/selection coverage, identity policy and version metadata. |
+| Diagnostics and fits | D1–D6 | Shared compatible calculations/acceptance, analytical applicability, extraction routing, constrained counts/selection coverage and identity policy. |
 | Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4–V6 | Batch-list ambiguity, silently dropped CmdStanR settings, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
 
-The next suggested small unit is **D7 version metadata agreement**, followed
-by **V5 CmdStanR settings translation**. Read-only inventories exist for both;
-they still need a fresh reproduction, implementation, tests and final review.
+The next suggested small unit is **V5 CmdStanR settings translation**. D7
+version metadata is verified at `e3e59e6`; the resumed-run checkpoint below
+records its reproduction, implementation and verification.
+
+### Resumed work: version metadata — D7
+
+CmdStanR internal-sampling metadata lacked the R session and Makevars required
+by its own validator. Importing also started with a helper that could add
+RStan metadata to a CmdStanR result. The fix reuses the existing R-environment
+helper with RStan probing disabled for fit metadata, and shares the same
+constructor between internal sampling and import. Available backend fields
+are preserved. Documentation separates installed interface/environment
+versions from CmdStan CSV evidence and avoids claims of historical provenance.
+
+Commit `e3e59e6` passed versions11/extraction36 in development and installed
+namespace-only checks, plus independent review. A genuine CmdStan CSV check
+passed both normally and in a clean subprocess with RStan actually unavailable
+through normal library lookup. This closes D7; it does not add a provenance
+framework, change acceptance or expand bundle backend support.
 
 The maintainer explicitly deferred P3 cache behavior, S5 framework relabelling
 and non-Stan writing. P4 currently retains and reports partial writes; future
@@ -307,7 +323,7 @@ The coordinator was the sole writer. Luna/medium supplied bounded read-only
 inventories; a separate Sol 6.1/high reviewed frozen patches and sought
 counterexamples. Review findings were reproduced, repaired and re-reviewed.
 Both agents finished without edits or commits owed. The current workflow and
-restart instructions are in the [resume checkpoint](conversation-handoff.md#resume-checkpoint--paused-2026-10-02).
+restart instructions are in the [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02).
 
 Checks use disposable fixtures and temporary installed libraries. Test counts
 above belong to their named candidates; they are not summed into a full-suite
@@ -375,8 +391,8 @@ passed before simplification (extraction36/rename58). Final extraction36 and
 rename69 passed in development and a newly installed, namespace-only package.
 The added regressions reuse disposable database fixtures; no live GitHub or
 user database was involved. `git diff --check` passed. The production change
-is a net deletion of sixteen lines, with no dependency added. This pass does
-not close another backlog ID: the remaining count stays eighteen.
+is a net deletion of sixteen lines, with no dependency added. That polishing
+pass did not close another backlog ID: eighteen remained at its checkpoint.
 
 Independent Sol 6.1/high review approved the frozen production patch and
 independently passed extraction36/rename69. Its sole fixture suggestion was

@@ -22,11 +22,11 @@ documentation branch.
 Completed implementation findings are removed from this active backlog.
 Their commit/test evidence is in [the implementation checkpoint](conversation-handoff.md#implementation-checkpoint--2026-10-02); original findings remain in Git history.
 Partial findings below retain only the remaining work as it is revalidated.
-Implementation is paused at the maintainer's request. Read the
-[resume checkpoint](conversation-handoff.md#resume-checkpoint--paused-2026-10-02)
+Implementation resumed at the maintainer's request. Read the
+[resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**18 of the original 33 finding IDs remain open, partial, or deferred; 15
+**17 of the original 33 finding IDs remain open, partial, or deferred; 16
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -34,7 +34,7 @@ active queue; dated audit/review reports are historical inputs.
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
 | Conversion/API contracts | S4, S5 | S4 clarification remains; S5 constructor fixed, setter deferred. |
-| Diagnostics, extraction, counts and versions | D1–D7 | Revalidate current source; preserve numerical/provenance contracts. D7 is the suggested next small unit. |
+| Diagnostics, extraction and counts | D1–D6 | Revalidate current source; preserve numerical/provenance contracts. D7 versions are verified; V5 is next. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4–V6 | Batch forms, CmdStanR options, and smaller API/validation questions. |
 | Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
@@ -266,24 +266,6 @@ source comparison for reused model objects. Do not resample a fit to establish
 identity. Restrict compilation fallback for stale RStan instances to the
 specific missing-instance case where possible, rather than hiding unrelated
 errors behind an expensive fallback.
-
-### D7. Version metadata construction disagrees with validation — reproduced
-
-Locations: `stan_fit_sampling_versions()`, `pdb_stan_sampling_versions()`,
-`imported_reference_posterior_versions()`, `new_bundle_reference_info()`, and
-`assert_reference_posterior_info()`.
-
-The CmdStanR internal-sampling helper creates version fields without
-`r_Makevars` and `r_session`; the validator requires both when CmdStanR
-versions are present. Its output fails the validator.
-
-Use shared metadata construction with explicit backend and provenance.
-Distinguish versions at original sampling time from the current import/check
-environment. The CmdStanR importer currently starts from a helper that queries
-the installed RStan version and initially includes RStan metadata; it should
-not require RStan merely to import a CmdStanR fit or imply that RStan sampled
-it. Test helper/validator agreement and backend-only dependency environments.
-Preserve unknown original versions honestly rather than manufacturing them.
 
 ## Persistence, transformations, names, and cache
 

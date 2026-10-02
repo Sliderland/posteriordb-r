@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
-**Start at the [resume checkpoint](#resume-checkpoint--paused-2026-10-02).**
-Implementation is paused at the maintainer's request. The historical review
+**Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
+Implementation resumed at the maintainer's request; D7 is complete and V5 is next. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -103,7 +103,8 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S2 | Verified: external thinning registration at `5f93031`, subclass/type/serialization repairs at `e6b2b89`. Initial seven failures/errors; independent review found repeated subclass dispatch and sampler mismatch, reproduced before repair. Delegation now skips already-visited subclass methods and restores the original class chain, preserving direct exported method calls. Final subclass27, transformation28 and connection16 passed development, installed namespace-only and independent Sol review. Installed summary11, integrity57 and resource170 passed; S3 checker clean; help/bundle guide regenerated. Concrete internal backend/name-method bypasses retained after caller audit; no new generics/workers. |
 | S4 | Open; revalidate conversion/compatibility contracts. |
 | S5 | Partial at `d01d58b`: character constructor preserves all five frameworks, keeps Stan default, and requires matching non-NULL implementation metadata through shared assertion. Initial6 failures; final19 passed development, installed namespace-only and independent Sol review. Installed standalone17, lookup9, resource170 and integrity57 passed; help regenerated. Replacement setter deferred by maintainer on 2026-10-02; preserve existing relabelling behavior for now. |
-| D1–D7 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
+| D1–D6 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
+| D7 | Verified at `e3e59e6`: shared version construction satisfies the reference schema and avoids RStan probing for CmdStanR. Initial schema/probe regressions failed; final versions11/extraction36 passed development, installed namespace-only and independent review. Genuine CmdStan CSV extraction/version validation also passed in a clean subprocess with RStan unavailable. See the resumed-run details below; no historical-version or acceptance guarantee is added. |
 | P1 | Verified at `5f93031`: transformations clear obsolete evidence, retain correct counts/connections, align variable diagnostics and raw sampler inputs; actual-count guards reject forged flags. Initial regression had 14 failures; final 28 assertions pass. Independent Sol review found and then verified repairs for reordered unnamed metrics and adaptive thinning; only fixed positive integer periods are supported. Namespace-only installed transformation and path tests passed (28 and 170 assertions); connections, generic acceptance, deferred checks, integrity, real-RStan imports, diagnostics and lag checks also passed, with one configured-corpus ESS test skipped. `tools::checkS3methods(dir = ".")` passed. Guide/help regenerated. |
 | P7 | Verified at `2a71a30`: selected reference type maps consistently across listing/read/write/remove; GitHub consumes type. Original reproduction had one local error and two mocked-GitHub path failures. Final24 assertions passed development, installed namespace-only and independent Sol review. Installed rename58, resource170 and integrity40 passed; S3 checker clean. Help/bundle guide regenerated. Live GitHub unrun. |
 | P6 | Verified at `182615b`: stdlib extension helpers, precise per-kind suffix removal, file-only local/GitHub listings and cache metadata names preserve dots/empty character vectors. Initial reproduction had three failures/errors; final listing24/reference27 passed development, installed namespace-only and independent Sol review. Installed rename58, resource170, integrity57 and search23 passed; reviewer also checked full-path cache stripping under a dotted directory. Bundle guide regenerated. Live GitHub/corpus-dependent filter/tibble tests unrun. |
@@ -125,10 +126,10 @@ changes require new checks.
 No writer/reviewer owns an unfinished patch. Completed issues are removed
 from the active guide; this checkpoint and Git retain their evidence.
 
-## Resume checkpoint — paused 2026-10-02
+## Resume checkpoint — current 2026-10-02
 
-The maintainer asked to finish the current unit and stop for this usage
-window. V2 is complete at `472f867` on `main`. All implementation changes,
+Previous checkpoint: the maintainer asked to finish the current unit and stop
+for that usage window. V2 completed at `472f867` on `main`. All implementation changes,
 tests, generated help and user-guide changes from this run are committed.
 The final documentation checkpoint is a subsequent commit; use `git log`
 to identify the current HEAD rather than assuming this implementation SHA
@@ -152,27 +153,49 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**15 of the original 33 finding IDs are fully verified; 18 remain open,
+**16 of the original 33 finding IDs are fully verified; 17 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S4–S5, D1–D7, P3/P4/P8, V4–V6 and T1–T3. These are tracking groups, not
-18 equally sized bugs. Several require a behavior decision or an audit.
+S4–S5, D1–D6, P3/P4/P8, V4–V6 and T1–T3. These are tracking groups, not
+17 equally sized bugs. Several require a behavior decision or an audit.
 
-Suggested next unit: **D7 version metadata agreement**. Luna inspected the
-current constructors: `stan_fit_sampling_versions()` omits required
-`r_Makevars`/`r_session`; the import-version helper starts from a helper that
-can query/add RStan even for CmdStanR. Reuse the existing current-R-environment
-construction, add only the relevant backend evidence, and check agreement
-with the existing validator. Keep unknown sampling-time versions unknown.
-This inventory is not implementation or new passing-test evidence; reproduce
-the defect and review the actual newer source before editing.
-
-After that, **V5** is another bounded candidate: preserve supported CmdStanR
+Suggested next unit: **V5**: preserve supported CmdStanR
 controls, map RStan `stepsize` to installed CmdStanR's `step_size`, reject
 unsupported/conflicting settings instead of silently dropping/overwriting
 them. Luna inspected CmdStanR 0.9.0's local `sample()` formals. Recheck the
 installed version and supported mappings; do not build an option registry.
 V4 must preserve legitimate common nested `control` and initialization lists.
+
+### Resumed run — D7 verified at `e3e59e6`
+
+The maintainer authorized the remaining implementation plan and explicitly
+kept P3, the S5 setter and non-Stan writing deferred. The same one-writer,
+Luna/medium inventory and separate Sol 6.1/high review loop continues.
+
+D7 reused the existing R-environment helper, with an explicit switch to skip
+RStan probing. Both version constructors now agree with the reference-info
+schema; CmdStanR paths omit RStan and preserve available backend fields.
+Help and the bundle guide distinguish installed R/RStan versions from the
+Stan version reported by CmdStan CSVs. No new provenance scheme was added.
+Assigned files were clean before editing; no preservation commit was needed.
+
+Two failing-before regressions established the missing session/Makevars
+fields and forbidden RStan probe. Final versions11/extraction36 passed in
+development and an installed namespace-only package; independent review
+passed both and approved the final documentation correction. A genuine
+CmdStan 2.40 Bernoulli executable produced 40 saved draws; extraction and
+public reference-info validation passed. The same check passed in a fresh
+subprocess whose temporary package library excluded RStan: normal
+`requireNamespace("rstan")` returned FALSE, package lookup was empty, and
+RStan was never loaded. This tests availability, not a mocked fit class.
+The short run emitted adaptation warnings and is not acceptance evidence.
+
+The dependency-only library check used symlinks to the installed packages
+excluding RStan, with the verified posteriordb library first. Within that
+subprocess only, base `.Library` and `.libPaths()` pointed to the temporary
+view. Host packages were untouched. No live GitHub, Windows, or full package
+suite was run. The code/test/generated-guide commit is `e3e59e6`; this
+Markdown checkpoint follows separately.
 
 ### Maintainer decisions and questions for later
 
@@ -201,8 +224,9 @@ V4 must preserve legitimate common nested `control` and initialization lists.
   fallback, arbitrary-path removal, summary return values or endpoint return
   contracts. The active guide contains the specific examples.
 
-No answer is needed to end this session. Ask about a choice when its unit
-is selected; do not infer approval for a deferred change from elapsed time.
+The maintainer confirmed the three explicit deferrals again during the
+resumed run. Ask about any new choice when its unit is selected; do not
+infer approval for a deferred change from elapsed time.
 
 ### How this implementation loop worked
 
