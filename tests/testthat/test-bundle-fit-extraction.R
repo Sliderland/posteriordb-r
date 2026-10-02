@@ -46,6 +46,7 @@ make_bundle_extraction_fit <- function(dimensions = list(mu = integer(), theta =
     dimnames = list(NULL, NULL, c("divergent__", "energy__")))
   structure(list(
     stanmodel = list(model_code = source), par_dims = dimensions,
+    .MISC = list(stan_fit_instance = list(constrained_param_names = function(...) names(dimensions))),
     sim = list(chains = 2L),
     stan_args = list(
       list(method = "sampling", algorithm = algorithm,
@@ -179,6 +180,7 @@ test_that("bundle extraction rejects unsupported provenance and incomplete varia
   zero <- make_bundle_extraction_fit()
   # A Stan declaration can be zero-sized while no scalar name appears in draws.
   zero$par_dims <- list(theta = 0L, mu = integer())
+  zero$.MISC$stan_fit_instance$constrained_param_names <- function(...) c("theta", "mu")
   zero$.draws <- posterior::as_draws_array(array(rnorm(16), c(8, 2, 1),
     dimnames = list(NULL, NULL, "mu")))
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(zero), "zero-sized")

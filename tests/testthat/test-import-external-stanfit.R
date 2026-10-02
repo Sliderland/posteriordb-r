@@ -419,6 +419,9 @@ cmdstanr_fit_fixture <- function(iterations = 40L, chains = 2L) {
     }
     unconstrained
   }
+  fit$variable_skeleton <- function(transformed_parameters = TRUE, generated_quantities = TRUE) {
+    list(alpha = 0, undeclared = 0)
+  }
   fit$sampler_diagnostics <- function(inc_warmup = FALSE, format = "draws_array", ...) {
     posterior::as_draws_array(sampler)
   }
@@ -454,4 +457,26 @@ test_that("CmdStanR MCMC fits are imported through their CSV-backed methods", {
   expect_match(info(rpd)$comments, "cmdstanr::CmdStanMCMC")
   expect_equal(attr(rpd, "sampling_metadata")$cmdstanr_version,
                paste("cmdstanr", utils::packageVersion("cmdstanr")))
+})
+
+
+test_that("CmdStan parameter schema protects saved zero-free-coordinate values", {
+  fit <- cmdstanr_fit_fixture()
+  original_draws <- fit$draws
+  fit$draws <- function(...) {
+    draws <- original_draws(...)
+    posterior::bind_draws(draws,
+      posterior::as_draws_array(array(1, c(40, 2, 1),
+        dimnames = list(NULL, NULL, "fixed[1]"))), along = "variable")
+  }
+  fit$variable_skeleton <- function(...) list(alpha = 0, undeclared = 0, fixed = 1)
+  object <- structure(list(name = "zero-free-posterior", reference_posterior_name = NULL,
+    dimensions = list(alpha = 1L)), class = "pdb_posterior")
+  connection <- structure(list(), class = c("pdb_local", "pdb"))
+  imported <- as_reference_posterior_draws(fit, object, connection, include = "alpha")
+  expect_true("fixed[1]" %in% posterior::variables(imported))
+  expect_true(is.na(info(imported)$diagnostics$mean_lag1_ac[["fixed[1]"]]))
+  expect_true(nzchar(info(imported)$checks_made$check_failed))
+  expect_error(as_reference_posterior_draws(fit, object, connection, exclude = "fixed"),
+    "Cannot exclude required")
 })

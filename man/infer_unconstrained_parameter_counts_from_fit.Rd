@@ -34,8 +34,10 @@ invalidated it, use \code{\link[=infer_posterior_dimensions]{infer_posterior_dim
 matching data. CmdStanR uses its unconstrain-draws method and may need
 compiled model methods and the fit's supporting files. Only parameter-block
 variables with nonzero unconstrained counts are returned, not transformed
-parameters or generated quantities. Unknown names and empty selections
-raise errors.
+parameters or generated quantities. Parameters with zero free coordinates
+(such as \code{simplex[1]}) have no count entry; fit import and bundles retain
+their saved values using the parameter-block schema. Unknown names and empty
+count selections raise errors.
 }
 \seealso{
 \code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}}, \code{\link[=reconstruct_stan_output]{reconstruct_stan_output()}}

@@ -145,7 +145,7 @@ compute_stan_sampling_diagnostics <- function(
   # Mean absolute lag-1 autocorrelation across chains. This is kept as a
   # separate diagnostic from ESS because ESS is informative but is not part
   # of the reference-draw acceptance policy.
-  d$mean_lag1_ac <- mean_lag1_ac(pd)
+  d$mean_lag1_ac <- reference_lag1_ac(pd)
 
   # Sampler diagnostics are extracted at the external-fit boundary.  The
   # fallback keeps the existing internally-sampled workflow unchanged.
@@ -221,17 +221,14 @@ sampler_params_to_draws_array <- function(sampler_params) {
 #' be one positive integer unconstrained-coordinate count, not a constrained
 #' output shape. Names are not expanded into indexed draw columns.
 #'
-#' @param x A named dimensions list from a [pdb_posterior], containing
+#' @param x A named dimensions list or numeric vector containing
 #'   positive integer unconstrained parameter counts.
 #' @return A character vector of base names, in dimensions-list order.
 #' @seealso [infer_posterior_dimensions()]
 #' @keywords internal
 #' @md
 posterior_dimension_names <- function(x) {
-  checkmate::assert_list(x, min.len = 1L)
-  checkmate::assert_named(x)
-  checkmate::assert_character(names(x), min.chars = 1L, unique = TRUE)
-  validate_posterior_dimension_counts(x)
+  x <- validate_posterior_dimension_counts(x)
   names(x)
 }
 

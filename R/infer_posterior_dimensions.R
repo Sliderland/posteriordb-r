@@ -81,8 +81,10 @@ infer_posterior_dimensions <- function(
 #' matching data. CmdStanR uses its unconstrain-draws method and may need
 #' compiled model methods and the fit's supporting files. Only parameter-block
 #' variables with nonzero unconstrained counts are returned, not transformed
-#' parameters or generated quantities. Unknown names and empty selections
-#' raise errors.
+#' parameters or generated quantities. Parameters with zero free coordinates
+#' (such as `simplex[1]`) have no count entry; fit import and bundles retain
+#' their saved values using the parameter-block schema. Unknown names and empty
+#' count selections raise errors.
 #' @seealso [infer_posterior_dimensions()], [reconstruct_stan_output()]
 #' @md
 #' @export
@@ -151,4 +153,23 @@ validate_posterior_dimension_counts <- function(dimensions) {
       stop("Posterior dimension for `", nm, "` must be one positive integer unconstrained-parameter count.", call. = FALSE)
   }
   dimensions
+}
+
+# Saved parameter-block names are independent of positive free-coordinate counts.
+# In particular, simplex[1] has a saved value but no unconstrained coordinate.
+fitted_parameter_names <- function(fit) {
+  if (inherits(fit, "stanfit")) {
+    instance <- rstan_fit_slot(fit, ".MISC")$stan_fit_instance
+    if (is.null(instance)) stop("The stanfit has no usable compiled parameter schema.", call. = FALSE)
+    scalar_names <- instance$constrained_param_names(FALSE, FALSE)
+    checkmate::assert_character(scalar_names, any.missing = FALSE, unique = TRUE)
+    return(unique(sub("\\.[0-9].*$", "", sub("\\[.*$", "", scalar_names))))
+  }
+  if (inherits(fit, "CmdStanMCMC")) {
+    schema <- fit$variable_skeleton(transformed_parameters = FALSE, generated_quantities = FALSE)
+    checkmate::assert_list(schema)
+    checkmate::assert_names(names(schema), type = "unique")
+    return(names(schema))
+  }
+  stop("Parameter schema requires a stanfit or CmdStanMCMC object.", call. = FALSE)
 }

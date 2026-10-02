@@ -380,14 +380,8 @@ assemble_standalone_fit_bundle <- function(
   draws_array <- extracted$draws
   all_vars <- setdiff(posterior::variables(draws_array), "lp__")
   bases <- unique(sub("\\[.*$", "", all_vars))
-  if (identical(include, "all")) include <- NULL
-  if (identical(include, "none")) include <- character(0)
-  include <- validate_variable_selection(include, "include")
-  exclude <- validate_variable_selection(exclude, "exclude")
-  chosen_bases <- setdiff(
-    union(if (is.null(include)) bases else include, names(extracted$dimensions)),
-    exclude %||% character()
-  )
+  # Extraction already selected complete saved outputs using the model schema.
+  chosen_bases <- bases
   chosen <- all_vars
   if (!length(chosen)) {
     stop("Variable selection leaves no saved draws.", call. = FALSE)

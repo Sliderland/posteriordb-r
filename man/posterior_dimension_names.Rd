@@ -8,7 +8,7 @@
 posterior_dimension_names(x)
 }
 \arguments{
-\item{x}{A named dimensions list from a \link{pdb_posterior}, containing
+\item{x}{A named dimensions list or numeric vector containing
 positive integer unconstrained parameter counts.}
 }
 \value{

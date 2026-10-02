@@ -145,6 +145,7 @@ as_reference_posterior_draws_external <- function(
   }
 
   fitted_counts <- infer_unconstrained_parameter_counts_from_fit(fit)
+  fitted_parameters <- fitted_parameter_names(fit)
   common <- intersect(keep_dimensions, names(fitted_counts))
   mismatched_counts <- common[vapply(common, function(nm)
     !identical(as.integer(posterior_dimensions[[nm]]), as.integer(fitted_counts[[nm]])), logical(1))]
@@ -154,7 +155,7 @@ as_reference_posterior_draws_external <- function(
   }
 
   selected_bases <- resolve_import_variable_selection(
-    extracted$draws, union(keep_dimensions, names(fitted_counts)), include, exclude
+    extracted$draws, union(keep_dimensions, fitted_parameters), include, exclude
   )
   draws <- filter_external_posterior_draws(
     extracted$draws,
@@ -762,21 +763,26 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     stop("Unknown Stan variable(s) in `include`: ", paste(setdiff(include, declared_bases), collapse = ", "), call. = FALSE)
   if (!is.null(exclude) && length(setdiff(exclude, declared_bases)))
     stop("Unknown Stan variable(s) in `exclude`: ", paste(setdiff(exclude, declared_bases), collapse = ", "), call. = FALSE)
-  parameter_counts <- tryCatch(
-    infer_unconstrained_parameter_counts_from_fit(fit),
+  parameter_schema <- tryCatch(
+    list(counts = infer_unconstrained_parameter_counts_from_fit(fit),
+         names = fitted_parameter_names(fit)),
     error = function(error) {
       if (is.null(data)) stop(error)
-      # Serialized stanfit objects may retain draws and source but lose their
-      # compiled model instance. Recompile from source and the supplied data;
-      # this recovers parameter coordinates without resampling the saved fit.
-      infer_posterior_dimensions(code, data, backend = "rstan")
+      # Recover the compiled schema from saved source and caller-supplied data;
+      # a zero-chain fit obtains names and counts without resampling the fit.
+      recovered <- suppressWarnings(rstan::stan(
+        model_code = code, data = data, chains = 0L, refresh = 0L
+      ))
+      list(counts = infer_unconstrained_parameter_counts_from_fit(recovered),
+           names = fitted_parameter_names(recovered))
     }
   )
-  protected <- intersect(names(parameter_counts), exclude)
+  parameter_counts <- parameter_schema$counts
+  protected <- intersect(parameter_schema$names, exclude)
   if (length(protected))
     stop("Cannot exclude parameter-block variables: ", paste(protected, collapse = ", "), call. = FALSE)
   selected_bases <- setdiff(
-    union(if (is.null(include)) declared_bases else include, names(parameter_counts)),
+    union(if (is.null(include)) declared_bases else include, parameter_schema$names),
     exclude %||% character()
   )
   if (!length(selected_bases)) stop("Variable selection leaves no saved draws.", call. = FALSE)
