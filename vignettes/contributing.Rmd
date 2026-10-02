@@ -170,6 +170,8 @@ When we have added the data and the model, we can add a posterior object connect
 
 Again, information on the different parts of the metadata can be found in [github.com/stan-dev/posteriordb/doc/DATABASE_CONTENT.md](https://github.com/stan-dev/posteriordb/blob/master/doc/DATABASE_CONTENT.md).
 
+Not all of the variables in the model code file are relevant for the posterior. For example, we might have generated quantities that are not relevant for diagnosing the posterior. As a result, the posterior dimensions list is a good opportunity to make explicit which named variables are relevant. Additionally, the values in this dimensions list should correspond to the number of unconstrained parameters associated with this variable. If we have already 
+
 
 ```{r}
 x <- list(pdb_model_code = mc,
