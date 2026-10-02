@@ -128,8 +128,8 @@ already sampled `rstan::stanfit`. The default workflow accepts the actual
 Stan input list and human labels. Existing database objects can also be
 reused, either as objects or names. This function does not resample the fit
 or write files; it reads named records through the package getters and may
-recompile the model only to recover dimensions from a fit with a stale
-compiled pointer.
+recompile the model only to recover dimensions when compiled parameter-name
+methods are absent. Errors from available methods propagate without recovery.
 }
 \details{
 The default variable selection includes saved parameters, transformed
@@ -161,9 +161,11 @@ link together with the accepted reference files.
 
 The bundle embeds its content in memory and remains usable before database
 persistence. Supplied data is recorded as caller-supplied; this function
-cannot establish that it produced the fit. If a serialized RStan fit has
-lost its compiled pointer, the model source can be recompiled with the
-supplied data to recover unconstrained parameter counts; the saved fit is
+cannot establish that it produced the fit. If a serialized RStan fit no longer
+exposes compiled parameter-name methods, the model source is recompiled with
+the supplied data to recover unconstrained parameter counts, bypassing RStan's
+lookup of same-source archived models. Errors from available methods, including
+inconsistent counts or invalid names, are not retried; the saved fit is
 not resampled. With `check = FALSE`, raw
 sampler diagnostics are retained so [check_reference_posterior_draws()]
 can check the bundle later without rerunning sampling. For example:

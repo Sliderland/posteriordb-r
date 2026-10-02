@@ -766,19 +766,22 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     stop("Unknown Stan variable(s) in `include`: ", paste(setdiff(include, declared_bases), collapse = ", "), call. = FALSE)
   if (!is.null(exclude) && length(setdiff(exclude, declared_bases)))
     stop("Unknown Stan variable(s) in `exclude`: ", paste(setdiff(exclude, declared_bases), collapse = ", "), call. = FALSE)
-  parameter_schema <- tryCatch(
-    list(counts = infer_unconstrained_parameter_counts_from_fit(fit),
-         names = fitted_parameter_names(fit)),
-    error = function(error) {
-      if (is.null(data)) stop(error)
-      # Recover the compiled schema from saved source and caller-supplied data;
-      # a zero-chain fit obtains names and counts without resampling the fit.
-      recovered <- suppressWarnings(rstan::stan(
-        model_code = code, data = data, chains = 0L, refresh = 0L
-      ))
-      list(counts = infer_unconstrained_parameter_counts_from_fit(recovered),
-           names = fitted_parameter_names(recovered))
-    }
+  schema_fit <- fit
+  instance <- rstan_fit_slot(fit, ".MISC")$stan_fit_instance
+  if (!is.null(data) && (!is.function(instance$unconstrained_param_names) ||
+                        !is.function(instance$constrained_param_names))) {
+    # Serialized fits can lose their compiled name methods. Recover the schema
+    # without resampling; errors from available methods must remain visible.
+    # Supplying stanc_ret bypasses RStan's same-source lookup, which can return
+    # the archived model itself before checking whether its instance is valid.
+    model <- rstan::stan_model(stanc_ret = rstan::stanc(model_code = code))
+    schema_fit <- suppressWarnings(rstan::sampling(
+      model, data = data, chains = 0L, refresh = 0L
+    ))
+  }
+  parameter_schema <- list(
+    counts = infer_unconstrained_parameter_counts_from_fit(schema_fit),
+    names = fitted_parameter_names(schema_fit)
   )
   parameter_counts <- parameter_schema$counts
   protected <- intersect(parameter_schema$names, exclude)

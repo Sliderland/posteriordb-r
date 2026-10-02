@@ -360,9 +360,12 @@ metadata. Passing a `pdb` connection attaches it to the objects; when a
 saved object name is supplied, the connection is also used to retrieve
 that object. Construction never writes database files.
 
-If a serialized RStan fit has lost its compiled model pointer, bundle
-construction recompiles the saved Stan source and uses the supplied data
-to recover unconstrained parameter counts. This does not resample or
+If a serialized RStan fit no longer exposes its compiled parameter-name
+methods, bundle construction recompiles the saved Stan source and uses the
+supplied data to recover unconstrained parameter counts, bypassing RStan's
+lookup of same-source archived models. Errors from available
+methods, including inconsistent counts or invalid names, propagate without
+recompilation. This does not resample or
 replace the fit's saved draws. RStan may print
 `the number of chains is less than 1; sampling not done` during this
 dimension-recovery step; that is expected.

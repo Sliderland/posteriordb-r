@@ -46,7 +46,9 @@ make_bundle_extraction_fit <- function(dimensions = list(mu = integer(), theta =
     dimnames = list(NULL, NULL, c("divergent__", "energy__")))
   structure(list(
     stanmodel = list(model_code = source), par_dims = dimensions,
-    .MISC = list(stan_fit_instance = list(constrained_param_names = function(...) names(dimensions))),
+    .MISC = list(stan_fit_instance = list(
+      constrained_param_names = function(...) names(dimensions),
+      unconstrained_param_names = function(...) names(dimensions))),
     sim = list(chains = 2L),
     stan_args = list(
       list(method = "sampling", algorithm = algorithm,
@@ -186,4 +188,36 @@ test_that("bundle extraction rejects unsupported provenance and incomplete varia
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(zero), "zero-sized")
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(zero, exclude = "theta"),
                "Cannot exclude parameter-block variables")
+})
+
+
+test_that("present parameter schemas do not recompile after count or name errors", {
+  skip_if_not_installed("rstan")
+  fit <- make_bundle_extraction_fit()
+  failed <- "counts"
+  compiled <- FALSE
+  testthat::local_mocked_bindings(
+    rstan_fit_slot = function(fit, slot_name) fit[[slot_name]],
+    rstan_fit_stan_args = function(fit) fit$stan_args,
+    extract_rstan_fit = function(fit, ...) list(draws = fit$.draws,
+      sampler_diagnostics = fit$.sampler, metadata = list()),
+    infer_unconstrained_parameter_counts_from_fit = function(fit, ...) {
+      if (failed == "counts") stop("inconsistent counts")
+      bundle_fit_count_mock(fit)
+    },
+    fitted_parameter_names = function(fit) {
+      if (failed == "names") stop("invalid parameter names")
+      names(fit$par_dims)
+    }
+  )
+  testthat::local_mocked_bindings(stan_model = function(...) {
+    compiled <<- TRUE
+    stop("unexpected compilation")
+  }, .package = "rstan")
+  for (failure in c("counts", "names")) {
+    failed <- failure
+    expect_error(posteriordb:::extract_rstan_fit_for_bundle(fit, data = list()),
+      if (failure == "counts") "inconsistent counts" else "invalid parameter names")
+    expect_false(compiled)
+  }
 })

@@ -56,3 +56,18 @@ test_that("fit import retains zero-free-coordinate parameters without accepting 
   expect_error(as_reference_posterior_draws(fit, object, connection, exclude = "fixed"),
     "Cannot exclude required")
 })
+
+
+test_that("RStan bundles recover absent compiled schema without changing draws", {
+  fit <- constrained_parameter_fit()
+  original <- extract_rstan_fit_for_bundle(fit, compute_diagnostics = FALSE)
+  archived <- fit
+  archived@.MISC <- list2env(as.list(fit@.MISC), parent = parent.env(fit@.MISC))
+  archived@.MISC$stan_fit_instance <- NULL
+  expect_null(archived@.MISC$stan_fit_instance)
+  restored <- extract_rstan_fit_for_bundle(archived, data = list(), compute_diagnostics = FALSE)
+  expect_identical(restored$dimensions, original$dimensions)
+  expect_identical(restored$output_shapes, original$output_shapes)
+  expect_equal(restored$draws, original$draws)
+  expect_equal(restored$sampler_diagnostics, original$sampler_diagnostics)
+})
