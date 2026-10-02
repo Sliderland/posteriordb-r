@@ -338,22 +338,6 @@ Rename/bibliography rollback backup preservation and shared ZIP extraction failu
 
 Check success results from zip/file.copy/write/rename operations.
 
-### P5. Posterior link lookups parse names instead of metadata — reproduced
-
-Locations: `R/pdb.R`, `pn.pdb_model_code()`, `pn.pdb_data()`, and
-`pn.pdb_model_info()`.
-
-The first two split posterior filenames at hyphens. For a posterior named
-`unit-data-unit-model`, linked to `unit-data` and `unit-model`, model-code
-lookup returns no match. These hyphenated names are used by new bundle tests.
-The model-info method currently returns all posterior names without filtering
-for its model.
-
-Read the explicit `data_name`/`model_name` links rather than guessing the
-split point. Share a link-index helper if several consumers need it. Test
-hyphens in either name, multiple linked posteriors, unrelated models, and
-standalone objects without a database connection.
-
 ### P8. Framework extension logic is already available but bypassed
 
 Locations: `model_code_file_path.character()`, model removal,
