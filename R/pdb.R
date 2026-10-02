@@ -186,12 +186,15 @@ pdb_version.pdb_local <- function(pdb, ...){
 
 #' Get all existing posterior names from a posterior database or posterior objects.
 #'
-#' @param x a \code{pdb}, \code{pdb_model_code}, \code{pdb_data}, \code{posterior} object or a list of \code{posterior} objects.
+#' @param x a \code{pdb}, \code{pdb_model_code}, \code{pdb_model_info}, \code{pdb_data}, \code{posterior} object or a list of \code{posterior} objects.
 #' @param ... further arguments supplied to specific methods (not in use)
 #'
 #' @details
 #' If a \code{pdb_model_code} or a \code{pdb_data} object is supplied, the
 #' function returns the name of all posteriors that uses the data or the model.
+#' Lookups for data, model code and model information follow the stored
+#' `data_name` or `model_name` links. They require an attached database
+#' connection and return `character(0)` when no stored posterior is linked.
 #'
 #' @export
 posterior_names <- function(x = pdb_default(), ...) {
@@ -214,23 +217,27 @@ pn.pdb_local <- function(x, ...) {
 
 #' @export
 pn.pdb_model_code <- function(x, ...) {
-  all_pn <- pn(pdb(x))
-  mn <- info(x)$name
-  all_mn <- unlist(lapply(strsplit(all_pn, "-"), function(x) x[2]))
-  all_pn[all_mn == mn]
+  linked_posterior_names(pdb(x), info(x)$name, "model_name")
 }
 
 #' @export
 pn.pdb_data <- function(x, ...) {
-  all_pn <- pn(pdb(x))
-  dn <- info(x)$name
-  all_dn <- unlist(lapply(strsplit(all_pn, "-"), function(x) x[1]))
-  all_pn[all_dn == dn]
+  linked_posterior_names(pdb(x), info(x)$name, "data_name")
 }
 
 #' @export
 pn.pdb_model_info <- function(x, ...) {
-  all_names <- pn(pdb(x))
+  linked_posterior_names(pdb(x), x$name, "model_name")
+}
+
+linked_posterior_names <- function(pdb, resource_name, field) {
+  if (is.null(pdb)) stop("Attach a database connection before looking up linked posterior names.", call. = FALSE)
+  resource_name <- unname(resource_name)
+  candidates <- pn(pdb)
+  linked <- vapply(candidates, function(name) {
+    identical(read_info_json(name, path = "posteriors", pdb = pdb)[[field]], resource_name)
+  }, logical(1))
+  candidates[linked]
 }
 
 #' @export

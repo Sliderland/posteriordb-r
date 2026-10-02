@@ -568,6 +568,12 @@ unrelated files and directories, and return `character(0)` when no
 matching records exist. Posterior records use `.json`; data, model and
 reference metadata use `.info.json`.
 
+For data or model objects with an attached database connection,
+`posterior_names(object)` follows the stored `data_name` or `model_name`
+links. It does not infer links from posterior filenames, so identifiers
+containing hyphens or dots are supported. Standalone objects need a
+database connection before their linked posterior names can be queried.
+
 Before writing, local output paths are checked against the database
 root, including existing symlink targets, missing parent directories,
 and the temporary JSON files used to build ZIP archives. An escaping or
