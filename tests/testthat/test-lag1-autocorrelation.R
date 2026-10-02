@@ -180,6 +180,7 @@ test_that("undefined lag-1 autocorrelation fails explicitly", {
 })
 
 test_that("ESS bounds are recorded without rejecting draws", {
+  local_test_database()
   skip_if_not(
     nzchar(Sys.getenv("PDB_PATH")),
     "requires a configured PosteriorDB test database"

@@ -1,128 +1,84 @@
-test_that("the package harness isolates configured databases and restores settings", {
-  root <- tempfile("harness-source-")
-  dir.create(file.path(root, "posterior_database/posteriors"), recursive = TRUE)
+test_that("the package entry point runs without inspecting a configured corpus", {
+  root <- tempfile("unused-corpus-")
+  dir.create(root)
   on.exit(unlink(root, recursive = TRUE), add = TRUE)
-  original <- file.path(root, "posterior_database/posteriors/record.json")
+  withr::local_options(list(pdb_path = root))
+  withr::local_envvar(c(PDB_PATH = root, PDB_TEST_DATABASE = "false"))
+  environment <- new.env(parent = globalenv())
+  environment$library <- function(...) NULL
+  environment$file.copy <- function(...) stop("Unexpected corpus copy")
+  called <- FALSE
+  environment$test_check <- function(...) called <<- TRUE
+  expect_silent(sys.source(file.path(testthat::test_path(), "..", "testthat.R"), environment))
+  expect_true(called)
+})
+
+test_that("opt-in database tests isolate files, configuration and settings on failure", {
+  root <- tempfile("corpus-source-")
+  dir.create(root)
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  original <- file.path(root, "record.json")
   writeLines("original", original)
   writeLines("hidden", file.path(root, ".fixture"))
   withr::local_options(list(pdb_path = root))
-  withr::local_envvar(c(PDB_PATH = "environment-is-lower-priority"))
-  harness <- file.path(testthat::test_path(), "..", "testthat.R")
-
+  withr::local_envvar(c(PDB_PATH = "environment-is-lower-priority", PDB_TEST_DATABASE = "true"))
+  oldwd <- getwd()
   for (fail in c(FALSE, TRUE)) {
-    staged <- NULL
-    environment <- new.env(parent = globalenv())
-    environment$library <- function(...) NULL
-    environment$test_check <- function(...) {
+    staged <- working <- NULL
+    run <- function() {
+      local_test_database()
       staged <<- getOption("pdb_path")
-      if (identical(staged, root)) stop("Harness did not isolate the database")
+      working <<- getwd()
+      expect_false(identical(staged, root))
       expect_identical(Sys.getenv("PDB_PATH"), staged)
+      expect_false(file.exists(".pdb_config.yml"))
       expect_identical(readLines(file.path(staged, ".fixture")), "hidden")
-      copy <- file.path(staged, "posterior_database/posteriors/record.json")
-      expect_identical(readLines(copy), "original")
-      writeLines("changed", copy)
-      if (fail) stop("injected test failure")
+      expect_identical(readLines(file.path(staged, "record.json")), "original")
+      writeLines("changed", file.path(staged, "record.json"))
+      writeLines("type: local", ".pdb_config.yml")
+      if (fail) stop("injected failure")
     }
-    if (fail) {
-      expect_error(sys.source(harness, envir = environment), "injected test failure")
-    } else {
-      expect_silent(sys.source(harness, envir = environment))
-    }
-    expect_false(dir.exists(staged))
+    if (fail) expect_error(run(), "injected failure") else expect_silent(run())
     expect_identical(readLines(original), "original")
+    expect_false(dir.exists(staged))
+    expect_false(dir.exists(working))
     expect_identical(getOption("pdb_path"), root)
     expect_identical(Sys.getenv("PDB_PATH"), "environment-is-lower-priority")
+    expect_identical(getwd(), oldwd)
   }
 })
 
-test_that("the package harness stages an environment-selected database", {
-  root <- tempfile("harness-source-")
+test_that("failed corpus copies stop before tests and preserve source files", {
+  root <- tempfile("corpus-source-")
   dir.create(root)
   on.exit(unlink(root, recursive = TRUE), add = TRUE)
-  writeLines("original", file.path(root, "record.json"))
-  withr::local_options(list(pdb_path = NULL))
-  withr::local_envvar(c(PDB_PATH = root))
-  environment <- new.env(parent = globalenv())
-  environment$library <- function(...) NULL
-  staged <- NULL
-  environment$test_check <- function(...) {
-    staged <<- Sys.getenv("PDB_PATH")
-    expect_false(identical(staged, root))
-    expect_identical(getOption("pdb_path"), staged)
-    expect_identical(readLines(file.path(staged, "record.json")), "original")
-  }
-  sys.source(file.path(testthat::test_path(), "..", "testthat.R"), envir = environment)
-  expect_false(dir.exists(staged))
-  expect_null(getOption("pdb_path"))
-  expect_identical(Sys.getenv("PDB_PATH"), root)
-})
-
-test_that("the package harness cleans up a failed database copy", {
-  root <- tempfile("harness-source-")
-  dir.create(root)
-  on.exit(unlink(root, recursive = TRUE), add = TRUE)
-  writeLines("original", file.path(root, "record.json"))
   withr::local_options(list(pdb_path = root))
-  withr::local_envvar(c(PDB_PATH = NA_character_))
-  environment <- new.env(parent = globalenv())
-  environment$library <- function(...) NULL
-  staged <- NULL
-  environment$file.copy <- function(from, to, ...) {
-    staged <<- to
-    writeLines("partial", file.path(to, "record.json"))
-    FALSE
-  }
-  environment$test_check <- function(...) stop("Tests must not run after a failed copy")
-  expect_error(
-    sys.source(file.path(testthat::test_path(), "..", "testthat.R"), envir = environment),
-    "Could not copy"
-  )
-  expect_false(dir.exists(staged))
+  withr::local_envvar(c(PDB_TEST_DATABASE = "true"))
+  writeLines("original", file.path(root, "record.json"))
+  testthat::local_mocked_bindings(file.copy = function(...) FALSE, .package = "base")
+  expect_error(local_test_database(), "Could not copy")
   expect_identical(readLines(file.path(root, "record.json")), "original")
-  expect_identical(getOption("pdb_path"), root)
-  expect_identical(Sys.getenv("PDB_PATH", unset = NA_character_), NA_character_)
 })
 
-test_that("the package harness removes a default clone and restores unset settings", {
-  skip_if_not_installed("git2r")
-  withr::local_options(list(pdb_path = NULL))
-  withr::local_envvar(c(PDB_PATH = NA_character_))
-  staged <- NULL
-  testthat::local_mocked_bindings(
-    clone = function(url, local_path, ...) {
-      staged <<- local_path
-      dir.create(local_path)
-      writeLines("cloned", file.path(local_path, "record.json"))
-    },
-    .package = "git2r"
-  )
-  environment <- new.env(parent = globalenv())
-  environment$library <- function(...) NULL
-  environment$test_check <- function(...) {
-    expect_identical(getOption("pdb_path"), staged)
-    expect_identical(Sys.getenv("PDB_PATH"), staged)
-    expect_identical(readLines(file.path(staged, "record.json")), "cloned")
-    stop("injected test failure")
-  }
-  expect_error(
-    sys.source(file.path(testthat::test_path(), "..", "testthat.R"), envir = environment),
-    "injected test failure"
-  )
-  expect_false(dir.exists(staged))
-  expect_null(getOption("pdb_path"))
-  expect_identical(Sys.getenv("PDB_PATH", unset = NA_character_), NA_character_)
-})
-
-test_that("the package harness rejects staging inside its source tree", {
-  environment <- new.env(parent = globalenv())
-  environment$library <- function(...) NULL
-  environment$file.copy <- function(...) stop("Source-overlap guard did not run")
-  harness <- file.path(testthat::test_path(), "..", "testthat.R")
-  filesystem_root <- normalizePath(tempdir(), winslash = "/")
-  while (!identical(filesystem_root, dirname(filesystem_root)))
-    filesystem_root <- dirname(filesystem_root)
-  for (root in c(tempdir(), dirname(tempdir()), filesystem_root)) {
-    withr::local_options(list(pdb_path = root))
-    expect_error(sys.source(harness, envir = environment), "outside the source database")
-  }
+test_that("direct test_file runs load safety helpers and clean up after failures", {
+  source <- tempfile("direct-corpus-")
+  directory <- tempfile("direct-tests-")
+  dir.create(source)
+  dir.create(directory)
+  on.exit(unlink(c(source, directory), recursive = TRUE), add = TRUE)
+  writeLines("original", file.path(source, "record.json"))
+  file.copy(file.path(testthat::test_path(), "helper-integration.R"), directory)
+  file <- file.path(directory, "test-direct.R")
+  writeLines(c('testthat::test_that("injected failure", {',
+    '  local_test_database()',
+    '  writeLines("changed", file.path(Sys.getenv("PDB_PATH"), "record.json"))',
+    '  testthat::expect_true(FALSE)', '})'), file)
+  withr::local_options(list(pdb_path = source))
+  withr::local_envvar(c(PDB_TEST_DATABASE = "true", PDB_PATH = source))
+  cwd <- getwd()
+  expect_error(testthat::test_file(file, reporter = "silent", stop_on_failure = TRUE), "Test failures")
+  expect_identical(readLines(file.path(source, "record.json")), "original")
+  expect_identical(getOption("pdb_path"), source)
+  expect_identical(Sys.getenv("PDB_PATH"), source)
+  expect_identical(getwd(), cwd)
 })

@@ -1,6 +1,7 @@
 context("test-pdb-reference_posterior_summary_statistics")
 
 test_that("Check that reference_posterior_summary_statistics work as expected", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(po <- posterior("eight_schools-eight_schools_noncentered", pdb_test))
@@ -26,6 +27,7 @@ test_that("Check that reference_posterior_summary_statistics work as expected", 
 
 
 test_that("compute and write summary_statistics", {
+  local_test_database()
   if(posteriordb:::on_github_actions()) skip_on_os("windows")
 
   expect_silent(pdb_test <- pdb_local())

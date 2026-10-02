@@ -23,6 +23,7 @@ test_that("default caches are isolated by resolved database endpoint", {
 })
 
 test_that("remove reference posterior cache", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
   posteriordb:::pdb_clear_cache(pdb_test)
@@ -43,6 +44,7 @@ test_that("remove reference posterior cache", {
 
 
 test_that("remove data cache", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
   pdb_clear_cache(pdb_test)

@@ -22,6 +22,7 @@ test_that("standalone bundle argument and metadata errors are actionable", {
 })
 
 test_that("a sampled stanfit produces a standalone bundle", {
+  skip_stan_integration()
   skip_if_not_installed("rstan")
   code <- paste(
     "parameters { real mu; matrix[2,3] beta; }",

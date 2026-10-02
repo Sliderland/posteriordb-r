@@ -1,6 +1,7 @@
 context("test-info")
 
 test_that("info() should extract the object information", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
   posteriordb:::pdb_clear_cache(pdb_test)

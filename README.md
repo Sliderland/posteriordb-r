@@ -302,3 +302,29 @@ info(rpd)
     ##   thin: 10
     ##   seed: 4711
     ##     adapt_delta: 0.95
+
+## Running tests
+
+The standard suite uses local fixtures. It does not clone PosteriorDB or run
+Stan compilation/MCMC or live GitHub requests:
+
+```r
+pkgload::load_all(".", helpers = FALSE, export_all = FALSE)
+testthat::test_dir("tests/testthat", package = "posteriordb")
+```
+
+Opt in separately with `PDB_TEST_DATABASE=true`, `PDB_TEST_STAN=true`, or
+`PDB_TEST_GITHUB=true`. Corpus tests also need an existing checkout in
+`PDB_PATH` (or `options(pdb_path=...)`, which takes precedence). Each corpus
+test copies that checkout and uses a temporary working directory, restoring
+settings and removing its copy even on failure. This also applies to
+`testthat::test_file()` and `devtools::test()` through the safety helper. Keep
+helper loading enabled. Tests never clone a database implicitly.
+
+Real Stan tests require the selected backend and compiler; live GitHub tests
+also require the existing credentials. The older contribution integration
+test runs a substantial sampling job and needs both database and Stan flags.
+Use a chosen PosteriorDB commit when comparing corpus results. The manual
+`Database integration` workflow takes a full commit SHA; ordinary check and
+coverage jobs run the offline suite. External corpus compatibility and real
+backend results are reported separately from fixture tests.

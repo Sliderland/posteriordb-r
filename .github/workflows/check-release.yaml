@@ -21,15 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Checkout posteriordb repo
-        uses: actions/checkout@v2
-        with:
-          repository: stan-dev/posteriordb
-          path: posteriordb
-
-      - name: Set PDB path
-        run: export PDB_PATH=$GITHUB_WORKSPACE"/posteriordb";echo $PDB_PATH;echo PDB_PATH="$PDB_PATH" >> ~/.Renviron;ls $PDB_PATH
-        shell: bash
       - uses: r-lib/actions/setup-pandoc@v2
 
       - uses: r-lib/actions/setup-r@v2

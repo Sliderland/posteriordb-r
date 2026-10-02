@@ -1,6 +1,7 @@
 constrained_parameter_fit <- local({
   fit <- NULL
   function() {
+    skip_stan_integration()
     skip_if_not_installed("rstan")
     if (is.null(fit)) {
       code <- paste(

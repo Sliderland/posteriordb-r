@@ -57,6 +57,7 @@ linked_local_pdb <- function() {
 external_fit_fixture <- local({
   fit <- NULL
   function() {
+    skip_stan_integration()
     skip_if_not_installed("rstan")
     if (is.null(fit)) {
       model_code <- "

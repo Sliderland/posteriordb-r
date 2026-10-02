@@ -1,6 +1,7 @@
 context("test-pdb")
 
 test_that("model_names and data_names works as expected", {
+  local_test_database()
   expect_silent(pdb_test <- pdb_local(Sys.getenv("PDB_PATH")))
   expect_silent(posteriors <- posterior_names(pdb_test))
   expect_silent(mn <- model_names(pdb_test))
@@ -16,6 +17,7 @@ test_that("model_names and data_names works as expected", {
 
 
 test_that("pdb_version", {
+  local_test_database()
   expect_silent(pdb_test <- pdb_local(Sys.getenv("PDB_PATH")))
   checkmate::expect_list(pdb_version(pdb_test))
   checkmate::expect_names(names(pdb_version(pdb_test)), must.include = "sha")
@@ -23,6 +25,7 @@ test_that("pdb_version", {
 
 
 test_that("pdb_local", {
+  local_test_database()
   assert_pdb_path_exists()
   if(on_github_actions()) skip_on_os("windows")
 
@@ -39,6 +42,7 @@ test_that("pdb_local", {
 
 
 test_that("pdb_config", {
+  local_test_database()
   if(on_github_actions()) skip_on_os("windows")
   skip_on_covr()
   pdb_path <- Sys.getenv("PDB_PATH")
@@ -73,6 +77,7 @@ test_that("pdb_config", {
 
 
 test_that("pdb_config", {
+  local_test_database()
   if(on_github_actions()) skip_on_os("windows")
   pdb_path <- Sys.getenv("PDB_PATH")
   expect_silent(pdbl <- pdb_local(pdb_path))

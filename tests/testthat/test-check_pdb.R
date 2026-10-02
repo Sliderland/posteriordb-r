@@ -2,6 +2,7 @@ context("test-check_pdb")
 
 
 test_that("test checking a posterior database", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
 

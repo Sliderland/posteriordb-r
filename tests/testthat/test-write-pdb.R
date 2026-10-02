@@ -1,6 +1,7 @@
 context("test-write-pdb")
 
 test_that("write data", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
@@ -38,6 +39,7 @@ test_that("write data", {
 
 
 test_that("write model", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
@@ -88,6 +90,7 @@ test_that("write model", {
 
 
 test_that("write posterior", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
@@ -137,6 +140,7 @@ test_that("write posterior", {
 
 
 test_that("write reference_posterior", {
+  local_test_database()
   if(on_github_actions()) skip_on_os("windows")
 
   expect_silent(pdb_test <- pdb_local())

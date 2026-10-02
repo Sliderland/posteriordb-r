@@ -1,0 +1,36 @@
+name: Database integration
+on:
+  workflow_dispatch:
+    inputs:
+      pdb_revision:
+        description: Full 40-character PosteriorDB commit SHA
+        required: true
+        type: string
+jobs:
+  database-integration:
+    runs-on: ubuntu-latest
+    env:
+      PDB_TEST_DATABASE: 'true'
+      PDB_TEST_STAN: 'false'
+      PDB_TEST_GITHUB: 'false'
+      PDB_REVISION: ${{ inputs.pdb_revision }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        with:
+          repository: stan-dev/posteriordb
+          ref: ${{ inputs.pdb_revision }}
+          path: posteriordb
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat, any::pkgload
+      - name: Test the selected corpus in disposable copies
+        shell: Rscript {0}
+        run: |
+          stopifnot(grepl('^[0-9a-fA-F]{40}$', Sys.getenv('PDB_REVISION')))
+          Sys.setenv(PDB_PATH = file.path(Sys.getenv('GITHUB_WORKSPACE'), 'posteriordb'))
+          pkgload::load_all('.', helpers = FALSE, export_all = FALSE)
+          testthat::test_dir('tests/testthat', package = 'posteriordb')
