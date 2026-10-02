@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**24 of the original 33 finding IDs are closed. Nine remain open,
+**25 of the original 33 finding IDs are closed. Eight remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -288,9 +288,9 @@ restarting already-completed P11/P2/P12 work.
 | Diagnostics and fits | D6 | Identity policy and compilation-fallback audit. |
 | Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
-| Tests and docs | T2–T3 | Complementary real backend/constrained coverage, dependencies and broader public docs. T1 isolation is verified. |
+| Dependencies and docs | T3 | Optional-dependency guards and broader public docs. T1 isolation and T2 complementary coverage are verified. |
 
-Current priorities are genuine CmdStan coverage/dependency guards (T2/T3),
+Current priorities are dependency guards and public documentation (T3),
 bounded V6 defects and V4 usage documentation. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
@@ -546,3 +546,24 @@ Independent review reproduced two additional failures (partial cache reuse and
 warning-induced recovery abort), both repaired and rechecked. Help and bundle
 guide regenerated; Windows/live GitHub unrun. Arbitrary-path removal and manual
 cache refresh policies were preserved.
+
+### Resumed work: genuine constrained CmdStan coverage — T2
+
+The new gated integration checks public count inference and fit import against
+compiled CmdStan CSV output, including simplex/correlation/covariance/Cholesky,
+matrices, arrays and a zero-free-coordinate parameter. It verifies saved values,
+derived-output selection, diagnostic agreement and safe rejection of a short
+failed candidate. The fixture reuses the real-RStan model rather than introducing
+another fixture framework.
+
+It exposed a practical precision prerequisite: default rounded CSV values can
+violate constrained matrix checks. The short count-inference helper now requests
+18 significant figures; help and the bundle guide tell external-fit users to
+retain precision and supporting files. It does not invent counts when the
+backend cannot recover them.
+
+Commit `5b3c675`; genuine CmdStan18 passed development, independent review and
+an installed subprocess where RStan was unavailable. Shared real-RStan20 passed
+development/installed, with installed dimension18/version11 checks. Windows,
+live GitHub and long-run accepted CmdStan persistence were unrun. T2 is complete
+within the requested complementary coverage; T3 dependency/docs work remains.

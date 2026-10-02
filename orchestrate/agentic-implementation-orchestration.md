@@ -164,7 +164,7 @@ The active queue and handoff hold their evidence. Suggested remaining units:
 | Partial: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan writing deferred, custom-path writer contract open. |
 | Normalize remaining validation | V6; V4 deferred | Distinguish missing optional resources from malformed ones. Preserve batch classification; V5 sampler translation is verified. |
 | Resolve documented fit-identity choice | D6 | Stronger identity verification is awaiting maintainer input; compilation fallback needs a narrow missing-instance audit. Fixed NULL policy is implemented; preserve honest provenance. |
-| Complete complementary tests/docs/dependencies | T2, T3 | Add installed-package/public-contract/backend coverage and accurate source documentation alongside affected fixes. |
+| Complete dependency/docs consolidation | T3 | T2 complementary public/backend/installed coverage is verified. Guard optional dependencies and consolidate accurate public source documentation. |
 
 This is a starting priority order, not permission for one giant patch.
 Several rows touch the same files and must be serialized. Discover concrete

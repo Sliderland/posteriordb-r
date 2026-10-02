@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation and the scoped I/O-result audit are complete. V4 is deferred. The historical review
+Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation, the scoped I/O-result audit and complementary CmdStan coverage are complete. V4 is deferred. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -121,7 +121,8 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
 | V5 | Verified at `3d519bb`: supported controls translated, aliases/conflicts/NULL options handled and native iteration names matched exactly. Final arguments55/versions11 passed development and installed namespace-only; independent review approved and reran arguments55. Genuine CmdStan CSV40-draw smoke confirmed step_size0.5 and disabled adaptation for both chains. Help and bundle guide regenerated; no broad suite run. |
 | T1 | Verified at `1e80aea`: default tests are offline; each opt-in corpus test copies the configured database, scopes both path settings and working directory, and cleans up even after failure. Direct `test_file()` loads the same helper. Stan/GitHub integrations have separate explicit flags; automatic CI uses fixtures and a manual corpus workflow pins a full revision SHA. Development and installed namespace-only suites each passed 1,203 assertions with 40 explicit skips and a nonexistent corpus sentinel; harness33 and independent review passed. Manual corpus CI, live GitHub and Windows runtime remain unrun. |
-| T2–T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Complementary backend coverage and broader public documentation remain open. |
+| T2 | Verified at `5b3c675`: public compiled CmdStan constrained/CSV integration18 passed development, installed with RStan unavailable, and independent review. Existing shared real-RStan20 plus dimension18/version11 passed installed. See resumed-run details for precision requirements and limitations. |
+| T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Complementary backend coverage and broader public documentation remain open. |
 
 The package harness now isolates configured database paths, but direct
 test/coverage runs can bypass it and working-directory configuration can
@@ -159,14 +160,13 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**24 of the original 33 finding IDs are fully verified; 9 remain open,
+**25 of the original 33 finding IDs are fully verified; 8 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S5, D6, P3/P4/P8, V4/V6 and T2–T3. These are tracking groups, not
-9 equally sized bugs. Several require a behavior decision or an audit.
+S5, D6, P3/P4/P8, V4/V6 and T3. These are tracking groups, not
+8 equally sized bugs. Several require a behavior decision or an audit.
 
-Next priorities within the current usage window: complementary genuine CmdStan
-coverage/dependency guards (T2/T3), then bounded V6 defects and V4 usage examples. Each stays a bounded reviewed unit with
+Next priorities within the current usage window: dependency guards and broader documentation (T3), then bounded V6 defects and V4 usage examples. Each stays a bounded reviewed unit with
 its own implementation and checkpoint commits. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
 
@@ -391,6 +391,33 @@ other files were unchanged. Generated help and bundle guide rendered; independen
 Sol review approved. Initial injected ZIP/cache/removal/rollback failures were
 reproduced before repair. Windows runtime/live GitHub remain unrun. P4 stays
 open for the maintainer's future sequential-write rollback discussion.
+
+### Resumed run — T2 verified at `5b3c675`
+
+A new opt-in genuine CmdStan integration uses the existing real-RStan model
+text through one small test helper. It checks 29 positive free coordinates,
+complete constrained CSV columns (49 including requested derived outputs),
+zero-free `simplex[1]` preservation, public import/count APIs, metric agreement
+with the standalone report, and failed-candidate write rejection without any
+file changes. It does not claim reference acceptance from two short chains.
+
+The first real run exposed default CSV precision loss: rounded Cholesky rows
+failed CmdStanR's unconstraining checks. The package's short source/data count
+inference now requests `sig_figs = 18` (one runtime line); external fit users
+must retain sufficient precision and supporting files. Help/bundle guide
+explain this prerequisite; no approximate counts or private model API added.
+A CSV comparison assertion initially used an unsupported selector option;
+explicit variable selection fixed the test before final verification.
+
+Final genuine CmdStan18 passed development, independent Sol review, and fresh
+installed namespace-only execution in an isolated library view with RStan
+unavailable (`requireNamespace` false; no RStan namespace loaded afterward).
+Shared real-RStan20 passed development and installed; installed dimensions18
+and versions11 passed. Guide/help regenerated. Windows/live GitHub and accepted
+long-run CmdStan reference persistence were not run; existing offline persistence
+and acceptance regressions remain complementary evidence. T2's bounded real-fit,
+public-contract and installed-namespace coverage is complete; future full
+backend/platform matrices are optional integration work, not unfinished T2.
 
 ### Maintainer decisions and questions for later
 

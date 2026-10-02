@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**9 of the original 33 finding IDs remain open, partial, or deferred; 24
+**8 of the original 33 finding IDs remain open, partial, or deferred; 25
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -37,7 +37,7 @@ active queue; dated audit/review reports are historical inputs.
 | Diagnostics, extraction and counts | D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D5 diagnostics/extraction/schema coverage and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting/operation-result audit fixed, future rollback open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
-| Tests, dependencies and documentation | T2–T3 | T1 offline/per-test isolation is verified; complementary integration, dependencies and broader docs remain. |
+| Dependencies and documentation | T3 | T1 isolation and T2 complementary public/backend/installed coverage are verified; dependency guards and broader docs remain. |
 
 Keep P3, the S5 setter, non-Stan writing, and V4 batch classification deferred until the maintainer
 explicitly resumes those choices. Do not reopen completed fixes to fill an
@@ -260,28 +260,6 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
   and uninitialized connection states before changing callers.
 
 ## Tests, dependencies, and documentation
-
-### T2. Keep useful mocks; add public-contract and installed-package coverage
-
-Locations: `test-generic-bundle-acceptance.R`, `test-bundle-fit-extraction.R`,
-`test-create-pdb-bundle.R`, `test-reference_posterior.R`.
-
-Mocking extraction is appropriate for testing assembly/acceptance, and mocking
-unconstrained count inference is appropriate for tests of saved array coverage.
-Those tests do not establish that actual fit extraction/count inference works.
-Named-only calls do not establish positional argument compatibility. Direct
-method calls do not establish S3 registration.
-
-Retain tests of important boundaries and add a limited set of complementary
-public-generic tests. Install into a temporary library and test in a clean
-subprocess. Include namespace-only usage. Add small real-fit tests for the
-specific constrained/count contracts, separately from fast fixture tests.
-
-Important regression matrix: compare all applicable workflows using the same
-draws and sampler inputs; verify metric equality, acceptance equality, names,
-metadata, and JSON round trips. Differences should have an explicit reason.
-Do not write tests that merely repeat implementation branches or couple to
-private helper names without asserting useful behavior.
 
 ### T3. Dependency contracts and public docs need consolidation
 
