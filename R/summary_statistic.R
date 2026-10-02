@@ -59,6 +59,9 @@ assert_reference_posterior_summary_statistic <- function(x){
 #' @param type the type of summary statistic to extract
 #' @param ... further arguments supplied to specific methods.
 #' @return a [pdb_reference_posterior_summary_statistic] object.
+#' @details Stored summaries use the posterior's `reference_posterior_name`
+#'   link for both payload and metadata; that name may differ from the
+#'   posterior's own name.
 #' @export
 reference_posterior_summary_statistic <- function(x, ...){
   UseMethod("reference_posterior_summary_statistic")
@@ -99,7 +102,7 @@ reference_posterior_summary_statistic.list <- function(x, info, type, ...){
 
 
 #' Read reference_posterior_summary_statistic json object
-#' @param x a data, model or posterior name
+#' @param x a reference-posterior name
 #' @param pdb a posterior db object to access the info json from
 #' @param ... further arguments. Currently not used.
 #' @noRd
@@ -114,7 +117,7 @@ read_reference_posterior_summary_statistic <- function(x, pdb, type, ...) {
   rpssfp <- pdb_cached_local_file_path(pdb, file.path("reference_posteriors", "summary_statistics", type, type,  paste0(x, ".json")), unzip = FALSE)
   rpssd <- jsonlite::read_json(rpssfp, simplifyVector = TRUE)
 
-  rpssi <- reference_posterior_info(x, pdb, type = type)
+  rpssi <- read_reference_posterior_info(x = x, type = type, pdb = pdb)
   rpss <- reference_posterior_summary_statistic(rpssd, rpssi, type)
 
   assert_reference_posterior_summary_statistic(rpss)

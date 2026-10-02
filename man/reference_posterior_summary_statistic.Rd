@@ -50,3 +50,8 @@ a [pdb_reference_posterior_summary_statistic] object.
 \description{
 Reference posterior summary statistics
 }
+\details{
+Stored summaries use the posterior's `reference_posterior_name`
+  link for both payload and metadata; that name may differ from the
+  posterior's own name.
+}
