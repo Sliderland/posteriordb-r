@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation is next. V4 is deferred. The historical review
+Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation is complete. V4 is deferred. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -120,7 +120,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | V4 | Deferred by maintainer on 2026-10-02 after discussion of nested-list ambiguity. Preserve current batch behavior; clarify workflow usage in the guide. |
 | V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
 | V5 | Verified at `3d519bb`: supported controls translated, aliases/conflicts/NULL options handled and native iteration names matched exactly. Final arguments55/versions11 passed development and installed namespace-only; independent review approved and reran arguments55. Genuine CmdStan CSV40-draw smoke confirmed step_size0.5 and disabled adaptation for both chains. Help and bundle guide regenerated; no broad suite run. |
-| T1 | Partial at `31ca4e9`: package harness copies the selected configured corpus or clones into a fresh disposable tree; both path settings are scoped and restored, and failures clean staged files. Initial isolation regression failed before repair; final 37 assertions passed development, installed namespace-only, and independent Sol review. Review repaired Windows/root overlap guards and optional git2r test behavior. Windows runtime/real clone/broad suite unrun. Direct test/coverage runs bypassing the entry point, config-file isolation, offline fixtures and integration separation remain open. |
+| T1 | Verified at `1e80aea`: default tests are offline; each opt-in corpus test copies the configured database, scopes both path settings and working directory, and cleans up even after failure. Direct `test_file()` loads the same helper. Stan/GitHub integrations have separate explicit flags; automatic CI uses fixtures and a manual corpus workflow pins a full revision SHA. Development and installed namespace-only suites each passed 1,203 assertions with 40 explicit skips and a nonexistent corpus sentinel; harness33 and independent review passed. Manual corpus CI, live GitHub and Windows runtime remain unrun. |
 | T2–T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Complementary backend coverage and broader public documentation remain open. |
 
 The package harness now isolates configured database paths, but direct
@@ -159,13 +159,13 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**23 of the original 33 finding IDs are fully verified; 10 remain open,
+**24 of the original 33 finding IDs are fully verified; 9 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S5, D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
-10 equally sized bugs. Several require a behavior decision or an audit.
+S5, D6, P3/P4/P8, V4/V6 and T2–T3. These are tracking groups, not
+9 equally sized bugs. Several require a behavior decision or an audit.
 
-Next priorities within the current usage window: safe offline test entry points (T1), operation-result checks (P4), and
+Next priorities within the current usage window: operation-result checks (P4), and
 complementary genuine CmdStan coverage/dependency guards (T2/T3). Each stays a bounded reviewed unit with
 its own implementation and checkpoint commits. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
@@ -337,6 +337,33 @@ bounded mock. Independent review approved and passed real coverage20/import54/
 extraction36. Genuine compiled CmdStan count/schema coverage is still T2 work.
 Files were clean before editing; guide/help regenerated and committed with
 code/tests. No user database was involved.
+
+### Resumed run — T1 verified at `1e80aea`
+
+The old package entry point staged a corpus, but direct test and coverage
+runs bypassed it; ordinary tests also implicitly cloned or used live backends.
+Default tests now use the existing offline fixtures. Corpus, Stan and GitHub
+checks require `PDB_TEST_DATABASE`, `PDB_TEST_STAN` and `PDB_TEST_GITHUB`
+respectively, set to `true`. Each corpus test creates its own disposable copy,
+including hidden entries, and scopes options, environment and working directory
+with cleanup on failure. The helper runs at the test call site, so direct
+`test_file()` and coverage runs get the same protection.
+
+Automatic CI no longer checks out the external corpus. The new manual database
+compatibility workflow requires a full commit SHA. README source/rendered text
+explain the flags and commands. No runtime package behavior changed. Per-test
+corpus copying is deliberately simple; replace heavy cases with small fixtures
+if opt-in copy cost matters rather than adding a fixture-cache framework.
+
+Final development and freshly installed namespace-only suites each passed
+1,203 assertions with 40 explicit integration skips, `NOT_CRAN=true`, all
+integration flags disabled, and a nonexistent PDB_PATH sentinel. The isolation
+harness passed 33 assertions, including direct-file loading and failure cleanup;
+independent Sol review approved and reran those 33. An initial fixture syntax
+error was corrected before both full final runs. Real corpus/manual CI, live
+GitHub and Windows runtime were not run for this unit. README's new section was
+kept in sync with its Rmd; full README Rmd execution still depends on a live
+configured corpus and is part of the broader T3 documentation work.
 
 ### Maintainer decisions and questions for later
 

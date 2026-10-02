@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**10 of the original 33 finding IDs remain open, partial, or deferred; 23
+**9 of the original 33 finding IDs remain open, partial, or deferred; 24
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -37,7 +37,7 @@ active queue; dated audit/review reports are historical inputs.
 | Diagnostics, extraction and counts | D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D5 diagnostics/extraction/schema coverage and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
-| Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
+| Tests, dependencies and documentation | T2–T3 | T1 offline/per-test isolation is verified; complementary integration, dependencies and broader docs remain. |
 
 Keep P3, the S5 setter, non-Stan writing, and V4 batch classification deferred until the maintainer
 explicitly resumes those choices. Do not reopen completed fixes to fill an
@@ -252,42 +252,6 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
   and uninitialized connection states before changing callers.
 
 ## Tests, dependencies, and documentation
-
-### T1. Make package tests independent of a user's database contents
-
-Locations: `tests/testthat/test-write-pdb.R`, `test-contributing.R`,
-`test-reference_posterior_summary_statistic.R`, `test-pdb.R`, getters/checkers,
-and `.github/workflows/`.
-
-Seventeen of the thirty test files contain environment/live-database
-references. That count describes references, not seventeen wholly unsuitable
-test files. Some new tests already use good temporary fixtures.
-
-The concrete concern is mutation: older write/contribution tests operate on
-`pdb_local()` from PDB_PATH, use fixed names such as `test_data` and
-`test_model`, overwrite files, and later remove them. Cleanup often occurs
-only at the end, so failures can leave modifications; pre-existing records
-with those names can be overwritten or deleted.
-
-Partial repair: the package `tests/testthat.R` entry point now stages a copy
-of the configured corpus (or a fresh upstream clone), uses both path settings,
-and cleans up/restores settings on success or failure. Direct test/coverage
-runs still require explicit disposable paths. Offline minimal fixtures,
-configuration-file isolation, and separation of integration tests remain open.
-
-Create reusable fixture builders for minimal databases, linked models/data,
-references with distinct names, bibliography, and synthetic draws. Use
-per-test temp directories and scoped cleanup. Keep the builders small and
-composable; do not duplicate an entire production database in every test.
-
-Separate package unit/fixture tests from optional database compatibility
-tests, real-backend tests, and live GitHub tests. Test the package's database
-validator with intentionally valid/invalid fixtures; validate the actual
-PosteriorDB corpus in its own workflow or a clearly identified integration
-job. Pin the external database revision when reproducibility is important.
-Assert failure reasons/results instead of specific corpus counts or only
-messages. Standard package tests should not need PDB_PATH, credentials,
-network access, Stan compilation, or a user's database checkout.
 
 ### T2. Keep useful mocks; add public-contract and installed-package coverage
 

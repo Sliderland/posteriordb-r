@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**23 of the original 33 finding IDs are closed. Ten remain open,
+**24 of the original 33 finding IDs are closed. Nine remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -288,10 +288,9 @@ restarting already-completed P11/P2/P12 work.
 | Diagnostics and fits | D6 | Identity policy and compilation-fallback audit. |
 | Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
-| Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
+| Tests and docs | T2–T3 | Complementary real backend/constrained coverage, dependencies and broader public docs. T1 isolation is verified. |
 
-Current priorities are offline test isolation (T1), operation-result checks
-(P4), and genuine CmdStan coverage/dependency guards (T2/T3). D1–D5, D7, V5 and S4 are verified; V4
+Current priorities are operation-result checks (P4), and genuine CmdStan coverage/dependency guards (T2/T3). D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -505,3 +504,20 @@ inventory and review agents all finished read-only with no edits or commits
 owed. The post-edit implementation commit is **`5b88e7d`**. This report and
 the linked handoff are committed in a separate final documentation checkpoint.
 Unrelated pre-existing working-tree changes remain untouched.
+
+### Resumed work: safe offline tests — T1
+
+The default suite no longer clones or requires an external database. Existing
+small fixture tests run normally; legacy corpus tests explicitly opt in and
+copy the configured corpus per test. Both path settings and the working
+directory are scoped, so failure cannot leave writes in the source database
+or configuration files in the repository. Direct test-file and coverage
+execution use the same helper. Real Stan and live GitHub tests have separate
+opt-ins. Automatic CI stays offline; manual corpus compatibility requires a
+pinned full revision SHA. The README explains the commands and flag combinations.
+
+Commit `1e80aea`; development and installed namespace-only runs each passed
+1,203 assertions with 40 integration skips against a nonexistent corpus sentinel.
+Harness33 and independent review passed. Manual corpus CI/live GitHub/Windows
+remain unrun. This closes T1's test isolation contract; complementary real-fit
+coverage and dependency/documentation work remain under T2/T3.
