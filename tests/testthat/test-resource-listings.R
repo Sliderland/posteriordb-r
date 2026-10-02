@@ -49,3 +49,79 @@ test_that("GitHub resource listings preserve dotted names and exclude directorie
   expect_identical(data_names(connection), character())
   expect_identical(reference_posterior_names(connection, "draws"), character())
 })
+
+test_that("GitHub directory caching pairs file names and URLs and reports failures", {
+  skip_if_not_installed("httr")
+  cache <- withr::local_tempdir("github-directory-cache-")
+  connection <- structure(list(cache_path = cache, github = list(username = "fixture",
+    repo = "database", subdir = "posterior_database", ref = "fixture-ref")),
+    class = c("pdb_github", "pdb"))
+  testthat::local_mocked_bindings(gh = function(...) list(
+    list(name = "nested", type = "dir", download_url = NULL),
+    list(name = "value.json", type = "file", download_url = "https://fixture/value.json")
+  ), .package = "gh")
+  calls <- list()
+  failure <- NULL
+  testthat::local_mocked_bindings(github_download = function(download_url, to, pat, overwrite) {
+    calls[[length(calls) + 1L]] <<- list(url = download_url, name = basename(to), overwrite = overwrite)
+    if (identical(failure, "invalid")) stop("invalid download URL")
+    writeLines("payload", to)
+    if (identical(failure, "throw")) stop("interrupted download")
+    !identical(failure, "false")
+  })
+  suppressMessages(pdb_cache_dir(connection, "posteriors"))
+  expect_identical(calls, list(list(url = "https://fixture/value.json", name = "value.json",
+    overwrite = FALSE)))
+  expect_identical(list.files(file.path(cache, "posteriors")), "value.json")
+  for (mode in c("false", "throw")) {
+    unlink(file.path(cache, "posteriors/value.json"))
+    failure <- mode
+    expect_error(suppressMessages(pdb_cache_dir(connection, "posteriors")),
+      if (mode == "false") "Could not download" else "interrupted download")
+    expect_identical(list.files(file.path(cache, "posteriors")), character())
+  }
+  writeLines("cached", file.path(cache, "posteriors/value.json"))
+  failure <- "invalid"
+  expect_error(suppressMessages(pdb_cache_dir(connection, "posteriors")), "invalid download URL")
+  expect_identical(readLines(file.path(cache, "posteriors/value.json")), "cached")
+})
+
+test_that("local directory caching reports copy failures and removes partial files", {
+  root <- withr::local_tempdir("local-directory-cache-")
+  for (path in c("posteriors", "cache")) dir.create(file.path(root, path))
+  source <- file.path(root, "posteriors/value.json")
+  writeLines('{"name":"value","data_name":"data","model_name":"model","keywords":"needle"}', source)
+  original <- readLines(source)
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb"))
+  failure <- "false"
+  testthat::local_mocked_bindings(pdb_file_copy = function(pdb, from, to, overwrite) {
+    writeLines("partial", to)
+    if (failure == "throw") stop("interrupted copy")
+    FALSE
+  })
+  for (mode in c("false", "throw")) {
+    failure <- mode
+    expect_error(search_posteriors(connection, "needle", fields = "posterior"),
+      if (mode == "false") "Could not copy" else "interrupted copy")
+    expect_identical(list.files(file.path(root, "cache/posteriors")), character())
+  }
+  expect_identical(readLines(source), original)
+})
+
+test_that("local caching preserves source files when the cache aliases the database", {
+  parent <- withr::local_tempdir("overlapping-directory-cache-")
+  root <- file.path(parent, "database")
+  dir.create(file.path(root, "posteriors"), recursive = TRUE)
+  source <- file.path(root, "posteriors/value.json")
+  writeLines("{}", source)
+  paths <- c(root, file.path(root, "."))
+  alias <- file.path(parent, "alias")
+  if (file.symlink(root, alias)) paths <- c(paths, alias)
+  for (cache in paths) {
+    connection <- structure(list(pdb_local_endpoint = root, cache_path = cache),
+      class = c("pdb_local", "pdb"))
+    expect_silent(pdb_cache_dir(connection, "posteriors"))
+    expect_identical(readLines(source), "{}")
+  }
+})

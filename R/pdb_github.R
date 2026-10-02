@@ -207,12 +207,18 @@ pdb_cache_dir.pdb_github <- function(pdb, path, ...){
   if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "contents", path = path), .token = pat)
-  download_urls <- unlist(lapply(ghp, FUN = function(x) x$download_url))
-  fns <- unlist(lapply(ghp, FUN = function(x) x$name))
+  ghp <- Filter(function(entry) identical(entry$type, "file"), ghp)
   message("Downloading github content...")
-  for(i in seq_along(download_urls)){
-    to <- pdb_cache_path(pdb = pdb, path = file.path(path, fns[i]))
-    github_download(download_url = download_urls[i], to = to, pat = pat, overwrite = FALSE)
+  for (entry in ghp) {
+    to <- pdb_cache_path(pdb = pdb, path = file.path(path, entry$name))
+    was_cached <- file.exists(to)
+    tryCatch({
+      if (!isTRUE(github_download(entry$download_url, to, pat, overwrite = FALSE)))
+        stop("Could not download file to cache: ", to, call. = FALSE)
+    }, error = function(error) {
+      if (!was_cached) unlink(to)
+      stop(error)
+    })
   }
   message("Done.")
 }

@@ -14,6 +14,7 @@ search_test_pdb <- function(empty = FALSE) {
       list(
         name = "data_a-model_a", data_name = "data_a",
         model_name = "model_a",
+        added_by = "tester", added_date = "2026-01-01",
         keywords = c("pathfinder", "time series", "A.B literal")
       ),
       "posteriors/data_a-model_a.json"
@@ -21,7 +22,8 @@ search_test_pdb <- function(empty = FALSE) {
     write_info(
       list(
         name = "data_a-model_b", data_name = "data_a",
-        model_name = "model_b", keywords = c("other", "time series")
+        model_name = "model_b", keywords = c("other", "time series"),
+        added_by = "tester", added_date = "2026-01-01"
       ),
       "posteriors/data_a-model_b.json"
     )
@@ -119,4 +121,21 @@ test_that("the metadata reader dispatches for character names", {
     "data_a-model_a", path = "posteriors", pdb = pdb
   )
   expect_equal(record$name, "data_a-model_a")
+})
+
+test_that("metadata tables and search ignore source subdirectories", {
+  for (empty in c(FALSE, TRUE)) {
+    connection <- search_test_pdb(empty)
+    withr::defer(unlink(c(connection$pdb_local_endpoint, connection$cache_path),
+      recursive = TRUE))
+    table <- posteriors_tbl_df(connection)
+    matches <- search_posteriors(connection, "time series", fields = "posterior")
+    for (name in c("archive", "directory.json")) {
+      nested <- file.path(connection$pdb_local_endpoint, "posteriors", name)
+      dir.create(nested)
+      writeLines("not metadata", file.path(nested, "nested.json"))
+    }
+    expect_identical(posteriors_tbl_df(connection), table)
+    expect_identical(search_posteriors(connection, "time series", fields = "posterior"), matches)
+  }
 })

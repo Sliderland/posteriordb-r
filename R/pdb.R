@@ -640,10 +640,19 @@ pdb_cache_dir <- function(pdb, path, ...){
 #' @keywords internal
 pdb_cache_dir.pdb_local <- function(pdb, path, ...){
   fns <- dir(pdb_file_path(pdb, path), full.names = FALSE)
+  fns <- fns[!dir.exists(pdb_file_path(pdb, path, fns))]
   froms <- file.path(path, fns)
   tos <- pdb_cache_path(pdb = pdb, path = file.path(path, fns))
   for(i in seq_along(froms)){
-    pdb_file_copy(pdb = pdb, from = froms[i], to = tos[i], overwrite = TRUE)
+    if (file.exists(tos[i]) && identical(
+        normalizePath(pdb_file_path(pdb, froms[i])), normalizePath(tos[i]))) next
+    tryCatch({
+      if (!isTRUE(pdb_file_copy(pdb = pdb, from = froms[i], to = tos[i], overwrite = TRUE)))
+        stop("Could not copy file to cache: ", tos[i], call. = FALSE)
+    }, error = function(error) {
+      unlink(tos[i])
+      stop(error)
+    })
   }
 }
 

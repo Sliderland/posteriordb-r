@@ -692,6 +692,9 @@ Database name listings preserve dots within identifiers, ignore unrelated
 files and directories, and return `character(0)` when no matching records
 exist. Posterior records use `.json`; data, model and reference metadata
 use `.info.json`.
+Metadata table and keyword-search reads also ignore subdirectories. Failed local
+metadata copies or GitHub downloads report an error and remove partial cache
+files. GitHub downloads retain a file that was already cached before the failure.
 
 For data or model objects with an attached database connection,
 `posterior_names(object)` follows the stored `data_name` or `model_name`
