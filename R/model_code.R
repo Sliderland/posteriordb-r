@@ -9,6 +9,9 @@
 #' @seealso framework()
 #' @details A posterior with embedded code returns it for the matching
 #'   framework. Other frameworks use the attached database, if available.
+#'   Character-code construction preserves the requested framework (default
+#'   `stan`) and requires a matching non-NULL implementation in `info`.
+#'   Construction keeps the code unchanged; it does not compile or translate it.
 #'
 #' @export
 model_code <- function(x, ...) {
@@ -63,9 +66,9 @@ as.model_code.stanmodel <- function(x, info, ...){
 
 #' @rdname model_code
 #' @export
-as.model_code.character <- function(x, info, framework, ...){
+as.model_code.character <- function(x, info, framework = "stan", ...){
   class(x) <- "pdb_model_code"
-  framework(x) <- "stan"
+  framework(x) <- framework
   info(x) <- info
   assert_model_code(x)
   x
@@ -153,6 +156,7 @@ assert_model_code <- function(x){
   checkmate::assert_string(x)
   checkmate::assert_choice(framework(x), choices = supported_frameworks())
   checkmate::assert_class(info(x), "pdb_model_info")
+  checkmate::assert_list(info(x)$model_implementations[[framework(x)]])
 }
 
 #' Identify the framework for a given [model_code]
