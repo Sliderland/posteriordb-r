@@ -407,10 +407,40 @@ is_pdb_endpoint_local_path <- function(x) {
 }
 
 
+pdb_json_archive_member <- function(path) {
+  members <- utils::unzip(path, list = TRUE)$Name
+  if (length(members) != 1L || !grepl("[.]json$", members[[1L]])) {
+    stop("Expected a single JSON member in ZIP archive '", path, "'.", call. = FALSE)
+  }
+  assert_pdb_resource_name(members[[1L]])
+  if (grepl("^[A-Za-z]:", members[[1L]])) {
+    stop("Archive members must be relative filenames.", call. = FALSE)
+  }
+  members[[1L]]
+}
+
+pdb_extract_json_archive <- function(path, member, directory) {
+  target <- file.path(directory, member)
+  tryCatch({
+    withCallingHandlers(
+      utils::unzip(path, files = member, exdir = directory),
+      warning = function(warning) stop(conditionMessage(warning), call. = FALSE)
+    )
+    checkmate::assert_file_exists(target)
+  }, error = function(error) {
+    unlink(target)
+    stop(error)
+  })
+}
+
 #' Read json file from \code{path}
 #'
 #' @details
-#' Copies the file to the cache and return path
+#' Copies the file to the cache and returns its path. Archives must contain
+#' one safe root JSON member matching the requested filename. Failed
+#' extraction removes incomplete output. Cache destinations remain inside
+#' the configured cache root. Existing cached files still require manual
+#' refresh when the source changes.
 #'
 #' @param pdb a \code{pdb} to read from.
 #' @param path a \code{pdb} to read from.
@@ -432,10 +462,16 @@ pdb_cached_local_file_path <- function(pdb, path, unzip = FALSE){
 
   # Copy (and unzip) file to cache
   if(unzip){
-    cp_zip <- paste0(cp, ".zip")
-    pdb_file_copy(pdb, from = path_zip, to = cp_zip, overwrite = TRUE)
-    utils::unzip(zipfile = cp_zip, exdir = dirname(cp_zip))
-    file.remove(cp_zip)
+    cp_zip <- pdb_cache_path(pdb, path_zip)
+    on.exit(unlink(cp_zip), add = TRUE)
+    checkmate::assert_true(pdb_file_copy(pdb, from = path_zip, to = cp_zip, overwrite = TRUE))
+    member <- pdb_json_archive_member(cp_zip)
+    if (!identical(member, basename(cp))) {
+      stop("Archive member does not match the requested JSON file.", call. = FALSE)
+    }
+    pdb_extract_json_archive(cp_zip, member, dirname(cp_zip))
+    cp <- pdb_cache_path(pdb, path)
+    checkmate::assert_file_exists(cp)
   } else {
     pdb_file_copy(pdb, from = path, to = cp, overwrite = TRUE)
   }
@@ -448,7 +484,13 @@ pdb_cached_local_file_path <- function(pdb, path, unzip = FALSE){
 #' @param pdb a \code{pdb} object.
 #' @param path a \code{pdb} path.
 pdb_cache_path <- function(pdb, path){
-  cp <- file.path(pdb$cache_path, path)
+  checkmate::assert_character(path, any.missing = FALSE)
+  cache <- structure(list(pdb_local_endpoint = pdb$cache_path),
+                     class = c("pdb_local", "pdb"))
+  cp <- vapply(path, function(relative) {
+    if (identical(relative, "")) return(file.path(pdb$cache_path, ""))
+    pdb_local_resource_path(cache, relative)
+  }, character(1), USE.NAMES = FALSE)
   for(i in seq_along(cp)){
     if(!dir.exists(dirname(cp[i]))){
       dir.create(dirname(cp[i]), showWarnings = FALSE, recursive = TRUE)

@@ -549,6 +549,13 @@ files with that name, it can be copied to the target. Partial or
 ambiguous same-name files for a reused object stop the operation
 regardless of `overwrite`.
 
+Cached data/draw archives must contain one JSON file with the requested
+filename at the archive root. Unexpected members, nested paths, and
+unsafe cache destinations are rejected before extraction. Linking and
+renaming use the same archive-member validation. Failed extraction
+removes incomplete output rather than retaining it as a cached file or
+repacking it during rename.
+
 Resource names must be nonempty single path components. Names such as
 `example.v2-model` are valid; names containing `/`, `\\`, control
 characters, or the entire name `.` or `..` are rejected during

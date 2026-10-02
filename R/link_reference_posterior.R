@@ -66,10 +66,8 @@ link_reference_posterior_object <- function(target, reference_posterior, pdb, ve
   if (!identical(reference_info$name, reference_posterior)) {
     stop("Reference-posterior info name does not match its file name.", call. = FALSE)
   }
-  members <- tryCatch(utils::unzip(draws_path, list = TRUE)$Name,
-                      error = function(error) character())
-  members <- members[!grepl("/$", members)]
-  if (length(members) != 1L || !identical(members[[1L]], paste0(reference_posterior, ".json"))) {
+  member <- pdb_json_archive_member(draws_path)
+  if (!identical(member, paste0(reference_posterior, ".json"))) {
     stop("Reference-draw archive must contain its named JSON file.", call. = FALSE)
   }
 

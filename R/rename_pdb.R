@@ -246,25 +246,16 @@ rename_pdb_add_reference_actions <- function(actions, pdb, old_name, new_name) {
 }
 
 rename_pdb_stage_zip <- function(source, destination, member_name) {
-  listing <- tryCatch(
-    utils::unzip(source, list = TRUE)$Name,
-    error = function(error) {
-      stop("Cannot inspect ZIP archive '", source, "': ", conditionMessage(error), call. = FALSE)
-    }
-  )
-  files <- listing[!grepl("/$", listing)]
-  if (length(files) != 1L || !grepl("[.]json$", files[[1]])) {
-    stop("Expected a single JSON member in ZIP archive '", source, "'.", call. = FALSE)
-  }
+  member <- pdb_json_archive_member(source)
   extraction <- tempfile(".pdb-rename-unzip-")
   dir.create(extraction, recursive = TRUE, showWarnings = FALSE)
   on.exit(unlink(extraction, recursive = TRUE, force = TRUE), add = TRUE)
-  utils::unzip(source, exdir = extraction)
-  old_member <- file.path(extraction, files[[1]])
+  pdb_extract_json_archive(source, member, extraction)
+  old_member <- file.path(extraction, member)
   new_member <- file.path(extraction, member_name)
   dir.create(dirname(new_member), recursive = TRUE, showWarnings = FALSE)
   if (!file.rename(old_member, new_member)) {
-    stop("Could not rename ZIP member '", files[[1]], "'.", call. = FALSE)
+    stop("Could not rename ZIP member '", member, "'.", call. = FALSE)
   }
   oldwd <- setwd(extraction)
   on.exit(setwd(oldwd), add = TRUE)
