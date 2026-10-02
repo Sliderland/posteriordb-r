@@ -75,8 +75,7 @@ as.reference_posterior_info.list <- function(x, type = NULL, pdb = NULL, ...) {
 #' @keywords internal
 read_reference_posterior_info <- function(x, type, pdb = NULL, ...) {
   if(is.null(x)) stop("There is currently no reference posterior for this posterior.")
-  type_path <- type
-  if(type %in% supported_summary_statistic_types()) type_path <- paste("summary_statistics", type, sep = "/")
+  type_path <- reference_posterior_type_path(type)
   reference_posterior_info <- read_info_json(x, path = paste0("reference_posteriors/", type_path, "/info"), pdb = pdb, ...)
   class(reference_posterior_info) <- "pdb_reference_posterior_info"
   assert_reference_posterior_info(reference_posterior_info)
@@ -327,6 +326,11 @@ print.pdb_reference_posterior_info <- function(x, ...) {
 }
 
 supported_reference_posterior_types <- function() c("draws", supported_summary_statistic_types())
+
+reference_posterior_type_path <- function(type) {
+  checkmate::assert_choice(type, supported_reference_posterior_types())
+  if (type == "draws") type else paste("summary_statistics", type, sep = "/")
+}
 
 #' Thin draws to reduce their size and autocorrelation of the chains.
 #'

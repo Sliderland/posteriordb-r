@@ -79,8 +79,7 @@ remove_pdb.pdb_reference_posterior_draws <- function(x, pdb, remove_info = TRUE,
 remove_pdb.pdb_reference_posterior_info <- function(x, pdb, type, ...){
   checkmate::assert_choice(type, choices = supported_reference_posterior_types())
   fn <- paste0(x$name, ".info.json")
-  type_path <- type
-  if(type %in% supported_summary_statistic_types()) type_path <- paste("summary_statistics", type, sep = "/")
+  type_path <- reference_posterior_type_path(type)
   fp <- pdb_file_path(pdb, "reference_posteriors", type_path, "info", fn)
   remove_pdb(fp, pdb)
 }

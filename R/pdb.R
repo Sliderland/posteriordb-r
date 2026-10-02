@@ -297,8 +297,9 @@ data_names.pdb_local <- function(pdb = pdb_default(), ...) {
 #' Get all existing reference posterior names from a posterior database
 #'
 #' @param pdb a \code{pdb} object.
-#' @param type supported reference posterior types.
+#' @param type One of `draws`, `mean_value`, or `mean_squared_value`.
 #' @param ... Further argument to methods.
+#' @return Names of reference posteriors available for the selected type.
 #'
 #' @export
 reference_posterior_names <- function(pdb = pdb_default(), type, ...) {
@@ -309,7 +310,7 @@ reference_posterior_names <- function(pdb = pdb_default(), type, ...) {
 #' @rdname reference_posterior_names
 #' @export
 reference_posterior_names.pdb_local <- function(pdb = pdb_default(), type, ...) {
-  pns <- dir(pdb_file_path(pdb, "reference_posteriors", type, "info"),
+  pns <- dir(pdb_file_path(pdb, "reference_posteriors", reference_posterior_type_path(type), "info"),
              recursive = TRUE, full.names = FALSE)
   pns <- pns[grepl(pns, pattern = "\\.info\\.json$")]
   basename(remove_file_extension(pns))

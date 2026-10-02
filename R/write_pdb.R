@@ -376,8 +376,7 @@ write_pdb.pdb_reference_posterior_info <- function(x, pdb, overwrite = FALSE, ty
   checkmate::assert_choice(type, choices = supported_reference_posterior_types())
   assert_reference_posterior_info(x)
   class(x) <- c(class(x), "list")
-  type_path <- type
-  if(type %in% supported_summary_statistic_types()) type_path <- paste("summary_statistics", type, sep = "/")
+  type_path <- reference_posterior_type_path(type)
   write_json_to_path(x, paste("reference_posteriors", type_path, "info", sep = "/"), pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
 }
 

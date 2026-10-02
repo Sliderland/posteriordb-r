@@ -615,6 +615,12 @@ causes an error if a destination file already exists. Each write happens
 separately, so successful earlier writes remain if a later write fails.
 Set `overwrite = TRUE` only when replacing existing files is intended.
 
+Use `reference_posterior_names(pdbl, type = "draws")` to list stored
+draw references. Use `type = "mean_value"` or
+`type = "mean_squared_value"` to list the corresponding stored
+summaries. Each type is listed separately for local and GitHub
+connections.
+
 If the associated posterior JSON is missing, writing reference draws
 stops before writing any reference-draw or summary-statistic files. This
 ensures the saved reference posterior is linked from an existing
