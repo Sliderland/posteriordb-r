@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**14 of the original 33 finding IDs remain open, partial, or deferred; 19
+**13 of the original 33 finding IDs remain open, partial, or deferred; 20
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -34,7 +34,7 @@ active queue; dated audit/review reports are historical inputs.
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
 | Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |
-| Diagnostics, extraction and counts | D1/D2/D4–D6 | Revalidate current source; preserve numerical/provenance contracts. D3 analytical acceptance and D7 versions are verified. |
+| Diagnostics, extraction and counts | D1/D4–D6 | Revalidate current source; preserve numerical/provenance contracts. D2 alignment/acceptance, D3 analytical acceptance and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
 | Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
@@ -162,24 +162,6 @@ Concrete implementation sequence:
    mapping to existing JSON flag names. Specify method-specific applicability.
 7. Compare immediate/deferred paths on the same retained sampler arrays.
 8. Remove old calculations only after the cross-workflow comparisons pass.
-
-### D2. One policy exists, but acceptance evaluation is still duplicated
-
-Locations: `reference_draw_policy()`, `reference_diagnostic_evaluation()`,
-`check_stan_sampling_quality()`, `bundle_acceptance_flags()`,
-`assert_checked_*()`, and `summary_statistics_from_checked_reference_draws()`.
-
-Thresholds already have a common source. Preserve that work. Consolidate
-which checks apply, evaluation, and the mapping from report keys to stored
-JSON flag names. Avoid duplicating lists of six successful booleans in
-multiple places. Retain the distinct draw-count rules for draws and summaries.
-
-Check names and alignment, not only vector lengths: diagnostic values for
-the wrong variables/chains should not count as evidence for the current
-object. Test missing/undefined/nonfinite metrics, exact boundaries, failed
-checks, and count metadata inconsistent with the actual draws. Investigate
-stale values after transformations without making ordinary writes recompute
-all expensive diagnostics by default.
 
 ### D4. Fit extraction is a useful boundary; route workflows consistently
 

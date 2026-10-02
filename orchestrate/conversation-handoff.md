@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D7/V5/S4/D3 are complete; diagnostics alignment is next. V4 is deferred. The historical review
+Implementation resumed at the maintainer's request; D7/V5/S4/D3/D2 are complete; shared diagnostic workers are next. V4 is deferred. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -104,6 +104,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S4 | Verified at `a5880da`: documentation distinguishes saved-name lookup/list construction and dotted draw wrapping/underscore fit import, corrects component/dimensions names and return type, and explains actual-class dispatch through historical wrappers. Existing aliases and runtime behavior preserved. Public construction/alias probe, development and installed connections16/standalone36 passed; independent documentation review approved. No new tests for this documentation-only unit. |
 | S5 | Partial at `d01d58b`: character constructor preserves all five frameworks, keeps Stan default, and requires matching non-NULL implementation metadata through shared assertion. Initial6 failures; final19 passed development, installed namespace-only and independent Sol review. Installed standalone17, lookup9, resource170 and integrity57 passed; help regenerated. Replacement setter deferred by maintainer on 2026-10-02; preserve existing relabelling behavior for now. |
 | D1–D6 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
+| D2 | Verified at `12ea517`: shared evaluator/flag mapping and check worker, diagnostic variable/chain identity validation at check/write boundaries. Eight focused suites passed development and installed checks; independent review approved. |
 | D3 | Verified at `9eaf04f`: method-specific required flags fix analytical checking/writing and automatic summaries without fabricated HMC evidence. Analytical33 plus five affected suites passed development and installed checks; independent review approved. |
 | D7 | Verified at `e3e59e6`: shared version construction satisfies the reference schema and avoids RStan probing for CmdStanR. Initial schema/probe regressions failed; final versions11/extraction36 passed development, installed namespace-only and independent review. Genuine CmdStan CSV extraction/version validation also passed in a clean subprocess with RStan unavailable. See the resumed-run details below; no historical-version or acceptance guarantee is added. |
 | P1 | Verified at `5f93031`: transformations clear obsolete evidence, retain correct counts/connections, align variable diagnostics and raw sampler inputs; actual-count guards reject forged flags. Initial regression had 14 failures; final 28 assertions pass. Independent Sol review found and then verified repairs for reordered unnamed metrics and adaptive thinning; only fixed positive integer periods are supported. Namespace-only installed transformation and path tests passed (28 and 170 assertions); connections, generic acceptance, deferred checks, integrity, real-RStan imports, diagnostics and lag checks also passed, with one configured-corpus ESS test skipped. `tools::checkS3methods(dir = ".")` passed. Guide/help regenerated. |
@@ -156,14 +157,13 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**19 of the original 33 finding IDs are fully verified; 14 remain open,
+**20 of the original 33 finding IDs are fully verified; 13 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S5, D1/D2/D4–D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
-14 equally sized bugs. Several require a behavior decision or an audit.
+S5, D1/D4–D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
+13 equally sized bugs. Several require a behavior decision or an audit.
 
-Next priorities within the current usage window: finish the diagnostic
-acceptance/alignment defects (D2), shared diagnostic/extraction workers
+Next priorities within the current usage window: shared diagnostic/extraction workers
 (D1/D4), parameter schema coverage (D5), operation-result checks (P4), and
 safe offline test entry points (T1). Each stays a bounded reviewed unit with
 its own implementation and checkpoint commits. Lower-priority API choices
@@ -260,6 +260,26 @@ summary. Explicit cache clearing after overwrite preserves deferred P3.
 Help and the bundle guide were regenerated. Assigned files were clean before
 editing; no pre-edit commit was needed. No backend/network integration or
 broad package suite was required for this unit. Agents remain read-only.
+
+### Resumed run — D2 verified at `12ea517`
+
+Reports and stored-draw checks now share the existing policy evaluator;
+reference/summary checkers share one worker with distinct count rules. A
+single small report-to-JSON flag mapping also feeds assertions, bundle flags,
+and summary evidence transfer. Required Stan metric labels must match the
+current variable set or positional chain1..n labels; the existing count guard
+validates labels at check and write boundaries. Reordered named vectors and
+unnamed legacy positional vectors remain supported. Mismatched ESS labels
+produce informational FALSE rather than rejecting otherwise valid draws.
+No diagnostic formulas changed and writers do not recompute metrics.
+
+The initial alignment regressions reproduced acceptance of unrelated labels.
+Final alignment22, diagnostics53, lag23 (one corpus skip), analytical33,
+transformation28, acceptance28, deferred22 and integrity57 passed development
+and installed namespace-only. Independent review approved and reran
+alignment22/diagnostics53; no corpus-wide or live-backend check was done.
+Assigned files were clean; implementation, tests and regenerated guide/help
+are one commit and the queue/checkpoint is separate.
 
 ### Maintainer decisions and questions for later
 

@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**19 of the original 33 finding IDs are closed. Fourteen remain open,
+**20 of the original 33 finding IDs are closed. Thirteen remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -285,14 +285,14 @@ restarting already-completed P11/P2/P12 work.
 | Area | IDs | Remaining work |
 | --- | --- | --- |
 | Public API | S5 | Framework setter remains deferred; construction and conversion documentation is verified. |
-| Diagnostics and fits | D1–D6 | Shared compatible calculations/acceptance, analytical applicability, extraction routing, constrained counts/selection coverage and identity policy. |
+| Diagnostics and fits | D1/D4–D6 | Shared compatible calculations, extraction routing, constrained counts/selection coverage and identity policy. |
 | Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
 
-Current priorities are diagnostic acceptance/alignment (D2), shared diagnostic
+Current priorities are shared diagnostic
 workers/extraction (D1/D4), parameter coverage (D5), operation-result checks
-(P4), and offline test isolation (T1). D3, D7, V5 and S4 are verified; V4
+(P4), and offline test isolation (T1). D2, D3, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -366,6 +366,22 @@ Initial regressions reproduced the defect. Analytical33 and five affected
 suites passed in development and an installed namespace-only package;
 independent review approved. Explicit cache refresh after a summary overwrite
 respects the deferred cache policy. Commit: `9eaf04f`.
+
+### Resumed work: shared acceptance and diagnostic identities — D2
+
+Previously, acceptable numbers with unrelated variable or chain labels could
+pass, and reports/stored checks repeated threshold evaluation and success-flag
+lists. Both gates now share a checker and the existing policy evaluator;
+a small flag-name mapping supplies the persisted schema consistently.
+Named required metrics must match current variables or positional chains,
+including at writer guards. Reordered named and unnamed legacy metrics remain
+supported. Optional ESS mismatches are informational FALSE. No calculations
+or E-FMI conventions changed and ordinary writers do not rerun diagnostics.
+
+Eight focused suites passed development and installed namespace-only checks,
+including new alignment22 and existing diagnostics53. Independent review
+approved and reran those two. Help and the bundle guide explain labels and
+legacy positional interpretation. Commit: `12ea517`.
 
 ## Verification and agent workflow
 
