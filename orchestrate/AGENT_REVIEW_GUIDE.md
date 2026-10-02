@@ -506,6 +506,12 @@ The concrete concern is mutation: older write/contribution tests operate on
 only at the end, so failures can leave modifications; pre-existing records
 with those names can be overwritten or deleted.
 
+Partial repair: the package `tests/testthat.R` entry point now stages a copy
+of the configured corpus (or a fresh upstream clone), uses both path settings,
+and cleans up/restores settings on success or failure. Direct test/coverage
+runs still require explicit disposable paths. Offline minimal fixtures,
+configuration-file isolation, and separation of integration tests remain open.
+
 Create reusable fixture builders for minimal databases, linked models/data,
 references with distinct names, bibliography, and synthetic draws. Use
 per-test temp directories and scoped cleanup. Keep the builders small and

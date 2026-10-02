@@ -293,10 +293,14 @@ code**, since the option can override the environment. Inspect setup files
 and automatic `.Renviron`/dotenv behavior as applicable. Use `Rscript --vanilla`
 for a controlled subprocess and scoped restoration/cleanup inside tests.
 
-Do not run the legacy full suite against a maintainer database. An empty
-environment variable is insufficient: the historical `tests/testthat.R`
-clones a database when no path is configured, and legacy tests mutate a
-configured database. Audit the selected tests and helpers before execution.
+The `tests/testthat.R` entry point now copies a configured database to a
+disposable tree, sets both path settings, and restores settings/removes the
+copy after success or failure. With neither setting configured it still
+clones upstream, so this entry point remains an integration harness with
+network/backend requirements. Direct `test_file()`, `devtools` and coverage
+runs can bypass this entry point; explicitly isolate their paths. Audit the
+selected tests and helpers before execution, including working-directory
+configuration files that can override the database settings.
 Minimal fixtures suffice for fast tests; use a disposable copy/pinned corpus
 only for the integration tests that require one. Do not change production
 default paths just to protect the test run.
