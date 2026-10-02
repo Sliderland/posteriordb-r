@@ -7,7 +7,9 @@
 #' @param posterior a posterior name or [pdb_posterior] object.
 #' @param reference_posterior the reference-posterior name. Defaults to
 #'   `posterior` when it is a character name, or the object's name otherwise.
-#' @param pdb a local PosteriorDB connection. Defaults to [pdb_default()].
+#' @param pdb a local destination connection. An explicitly supplied connection
+#'   is used even for object input. When omitted, use the object's connection
+#'   for a posterior object, or [pdb_default()] for a name.
 #' @param verify verify the written link by reading the posterior JSON.
 #' @return The updated [pdb_posterior] object, invisibly.
 #' @export
@@ -20,7 +22,7 @@ link_reference_posterior <- function(
   checkmate::assert_flag(verify)
 
   if (inherits(posterior, "pdb_posterior")) {
-    pdb <- pdb(posterior)
+    if (missing(pdb)) pdb <- posteriordb::pdb(posterior)
     posterior_name <- posterior$name
   } else {
     posterior_name <- posterior

@@ -674,6 +674,12 @@ files with that name, it can be copied to the target. Partial or
 ambiguous same-name files for a reused object stop the operation
 regardless of `overwrite`.
 
+To link reference files already stored in a destination, use
+`link_reference_posterior(posterior_name, reference_posterior = reference_name, pdb = my_pdb)`.
+Both the reference info and draw archive must exist there. With a posterior
+object, an explicit `pdb` selects the destination and its saved posterior record
+is read by name. Omitting `pdb` uses the object's attached connection.
+
 Cached data/draw archives must contain one JSON file with the requested
 filename at the archive root. Unexpected members, nested paths, and unsafe
 cache destinations are rejected before extraction. Linking and renaming

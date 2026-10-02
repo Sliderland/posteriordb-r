@@ -17,7 +17,9 @@ link_reference_posterior(
 \item{reference_posterior}{the reference-posterior name. Defaults to
 `posterior` when it is a character name, or the object's name otherwise.}
 
-\item{pdb}{a local PosteriorDB connection. Defaults to [pdb_default()].}
+\item{pdb}{a local destination connection. An explicitly supplied connection
+is used even for object input. When omitted, use the object's connection
+for a posterior object, or [pdb_default()] for a name.}
 
 \item{verify}{verify the written link by reading the posterior JSON.}
 }

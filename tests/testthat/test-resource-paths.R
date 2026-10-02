@@ -44,6 +44,39 @@ resource_path_snapshot <- function(parent) {
   }), paths)
 }
 
+test_that("linking honors an explicit destination instead of the object's connection", {
+  testthat::local_mocked_bindings(pdb_default = function(...) stop("unexpected default connection"))
+  source <- resource_path_fixture()
+  destination <- resource_path_fixture()
+  for (fixture in list(source, destination)) {
+    bundle <- resource_path_objects(fixture$pdb)
+    suppressMessages(write_pdb(bundle, fixture$pdb, write_summary_statistics = FALSE))
+    unlinked <- bundle$posterior
+    unlinked["reference_posterior_name"] <- list(NULL)
+    unlinked$embedded_reference_draws <- NULL
+    write_pdb(unlinked, fixture$pdb, overwrite = TRUE)
+    pdb_clear_cache(fixture$pdb)
+  }
+  object <- posterior(unlinked$name, source$pdb)
+  stored_link <- function(fixture) jsonlite::read_json(file.path(fixture$root,
+    "posteriors", paste0(object$name, ".json")))$reference_posterior_name
+  result <- link_reference_posterior(object, pdb = destination$pdb)
+  expect_identical(pdb(result), destination$pdb)
+  expect_null(stored_link(source))
+  expect_identical(stored_link(destination), object$name)
+
+  result <- link_reference_posterior(object)
+  expect_identical(pdb(result), source$pdb)
+  expect_identical(stored_link(source), object$name)
+  attr(object, "pdb") <- NULL
+  expect_identical(pdb(link_reference_posterior(object, pdb = destination$pdb)), destination$pdb)
+
+  unlink(file.path(destination$root, "reference_posteriors/draws/draws",
+    paste0(object$name, ".json.zip")))
+  expect_error(link_reference_posterior(result, pdb = destination$pdb), "Both reference-posterior")
+  expect_identical(stored_link(source), object$name)
+})
+
 test_that("constructors, writers, rename and linking share safe resource names", {
   fixture <- resource_path_fixture()
   bundle <- resource_path_objects(fixture$pdb)
