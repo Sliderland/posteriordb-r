@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**13 of the original 33 finding IDs remain open, partial, or deferred; 20
+**11 of the original 33 finding IDs remain open, partial, or deferred; 22
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -34,7 +34,7 @@ active queue; dated audit/review reports are historical inputs.
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
 | Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |
-| Diagnostics, extraction and counts | D1/D4–D6 | Revalidate current source; preserve numerical/provenance contracts. D2 alignment/acceptance, D3 analytical acceptance and D7 versions are verified. |
+| Diagnostics, extraction and counts | D5, D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D4 diagnostics/extraction and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
 | Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
@@ -113,73 +113,6 @@ can decide whether to require matching implementation metadata or a new
 object when changing frameworks.
 
 ## Diagnostics, fit extraction, and acceptance
-
-### D1. Share diagnostic calculations — confirmed duplication
-
-Locations:
-
-- `R/utils_reference_posterior.R`: `mean_lag1_ac()` and acceptance helpers.
-- `R/reference_draw_diagnostics.R`: metric calculation and report evaluation.
-- `R/compute_reference_posterior_draws_stan_sampling.R`:
-  `compute_stan_sampling_diagnostics()`.
-- `R/create_pdb_bundle.R`: `bundle_full_diagnostic_report()`.
-- `R/import_reference_posterior_draws.R`: E-FMI helpers.
-
-Lag-1 autocorrelation has two implementations. Constant chains cause an
-exception in one and NA plus a reported failure in another. R-hat and ESS
-are calculated through different routes as well.
-
-Use a small common calculation layer accepting normalized draws and optional
-sampler inputs. Preserve scalar-variable names and chain identities. It can
-return undefined values with explanations; callers can then either produce a
-report or raise an error. Keep exception/report presentation out of the
-numerical formula itself.
-
-Do not blindly deduplicate E-FMI formulas. The RStan helper uses
-`sum(diff(energy)^2) / length(energy) / var(energy)`, whereas the other helper
-uses `mean(diff(energy)^2) / var(energy)`. This finite-sample difference is
-explicitly documented in the code. Establish the intended backend
-compatibility contract and retain a normalization option if needed. Test
-short energy sequences, constant energy, missing energy, and thresholds.
-
-Compare shared results across direct-fit reports, existing-posterior imports,
-internally sampled draws, immediate bundle checks, and deferred bundle checks.
-Use deterministic fixtures and tolerances appropriate to the calculation.
-
-Concrete implementation sequence:
-
-1. Record current results on one normalized fixture, including failures and
-   optional metrics. Identify intentional differences before moving code.
-2. Extract one lag-1 worker returning named values; make undefined values
-   explicit. Let the existing strict wrapper raise errors from those values.
-3. Share R-hat/ESS workers or one `posterior::summarise_draws()` route,
-   ensuring optional checks do not trigger unrequested calculations.
-4. Share the E-FMI calculation with explicit normalization where backend
-   equivalence requires it; share divergence counts and treedepth metrics.
-5. Route report creation and stored-diagnostic creation through those workers.
-   Keep their existing output schemas through small adapters.
-6. Route acceptance evaluation through one policy implementation, with a
-   mapping to existing JSON flag names. Specify method-specific applicability.
-7. Compare immediate/deferred paths on the same retained sampler arrays.
-8. Remove old calculations only after the cross-workflow comparisons pass.
-
-### D4. Fit extraction is a useful boundary; route workflows consistently
-
-Locations: `extract_external_stan_fit()` and its methods,
-`extract_rstan_fit_for_bundle()`, `assemble_standalone_fit_bundle()`, and
-`compute_reference_posterior_draws_stan_sampling()`.
-
-Maintain a documented normalized record: post-warmup draws, aligned sampler
-diagnostics, honest metadata, and optional source/counts/output shapes.
-Backend access belongs in extraction methods; assembly/calculation should
-operate on that record. Internal RStan sampling currently follows a separate
-diagnostic/conversion route, and bundle construction calls a backend helper
-directly rather than the extraction generic.
-
-Reduce those differences where their contracts agree. Preserve bundle-only
-coverage/source checks and selective extraction. Check how missing sampler
-metrics are handled: a backend-neutral calculation should not unexpectedly
-fall back to `rstan::get_sampler_params()` on a draws_array.
 
 ### D5. Counts, output shapes, and parameter selection need regression coverage
 

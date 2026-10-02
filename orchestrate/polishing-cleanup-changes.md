@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**20 of the original 33 finding IDs are closed. Thirteen remain open,
+**22 of the original 33 finding IDs are closed. Eleven remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -285,14 +285,13 @@ restarting already-completed P11/P2/P12 work.
 | Area | IDs | Remaining work |
 | --- | --- | --- |
 | Public API | S5 | Framework setter remains deferred; construction and conversion documentation is verified. |
-| Diagnostics and fits | D1/D4–D6 | Shared compatible calculations, extraction routing, constrained counts/selection coverage and identity policy. |
+| Diagnostics and fits | D5, D6 | Constrained counts/selection coverage and identity policy. |
 | Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
 
-Current priorities are shared diagnostic
-workers/extraction (D1/D4), parameter coverage (D5), operation-result checks
-(P4), and offline test isolation (T1). D2, D3, D7, V5 and S4 are verified; V4
+Current priorities are parameter coverage (D5), operation-result checks
+(P4), and offline test isolation (T1). D1–D4, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -382,6 +381,25 @@ Eight focused suites passed development and installed namespace-only checks,
 including new alignment22 and existing diagnostics53. Independent review
 approved and reran those two. Help and the bundle guide explain labels and
 legacy positional interpretation. Commit: `12ea517`.
+
+### Resumed work: shared diagnostics and extraction — D1/D4
+
+Duplicated diagnostic loops could diverge across fit reports, imports and
+immediate/deferred bundles. Small shared workers now compute lag, R-hat/ESS,
+divergences and E-FMI. Undefined lag remains NA in reports and an error in the
+existing strict wrapper. Explicit normalization preserves both backends'
+E-FMI formulas. Review reproduced a wrong RStan fallback convention when
+E-FMI metadata was absent; that fallback now uses backend identity.
+
+Internal sampling and bundles reuse the existing fit-extraction generic;
+assembly stays independent of backend fit access. Missing generic sampler
+metrics become unavailable rather than accidentally invoking RStan accessors.
+No new dependency, extraction framework or CmdStan bundle support was added.
+The final worker/report/deferred/acceptance checks passed development and
+installed namespaces; broader focused installed checks passed before the
+small reviewed fallback correction. Genuine RStan import50 passed, and
+genuine CmdStan CSV calculations matched in a clean child without RStan.
+Independent final review approved; guide regenerated. Commit: `2c55964`.
 
 ## Verification and agent workflow
 

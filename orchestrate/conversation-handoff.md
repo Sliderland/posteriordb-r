@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D7/V5/S4/D3/D2 are complete; shared diagnostic workers are next. V4 is deferred. The historical review
+Implementation resumed at the maintainer's request; D1–D4/D7/V5/S4 are complete; constrained parameter coverage is next. V4 is deferred. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -104,6 +104,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S4 | Verified at `a5880da`: documentation distinguishes saved-name lookup/list construction and dotted draw wrapping/underscore fit import, corrects component/dimensions names and return type, and explains actual-class dispatch through historical wrappers. Existing aliases and runtime behavior preserved. Public construction/alias probe, development and installed connections16/standalone36 passed; independent documentation review approved. No new tests for this documentation-only unit. |
 | S5 | Partial at `d01d58b`: character constructor preserves all five frameworks, keeps Stan default, and requires matching non-NULL implementation metadata through shared assertion. Initial6 failures; final19 passed development, installed namespace-only and independent Sol review. Installed standalone17, lookup9, resource170 and integrity57 passed; help regenerated. Replacement setter deferred by maintainer on 2026-10-02; preserve existing relabelling behavior for now. |
 | D1–D6 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
+| D1, D4 | Verified at `2c55964`: small shared diagnostic kernels, explicit E-FMI normalization/fallback, generic extraction routing and no RStan accessor fallback for draw arrays. Focused development/installed checks, genuine RStan50 and genuine CmdStan CSV/no-RStan agreement passed; independent review approved. |
 | D2 | Verified at `12ea517`: shared evaluator/flag mapping and check worker, diagnostic variable/chain identity validation at check/write boundaries. Eight focused suites passed development and installed checks; independent review approved. |
 | D3 | Verified at `9eaf04f`: method-specific required flags fix analytical checking/writing and automatic summaries without fabricated HMC evidence. Analytical33 plus five affected suites passed development and installed checks; independent review approved. |
 | D7 | Verified at `e3e59e6`: shared version construction satisfies the reference schema and avoids RStan probing for CmdStanR. Initial schema/probe regressions failed; final versions11/extraction36 passed development, installed namespace-only and independent review. Genuine CmdStan CSV extraction/version validation also passed in a clean subprocess with RStan unavailable. See the resumed-run details below; no historical-version or acceptance guarantee is added. |
@@ -157,14 +158,13 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**20 of the original 33 finding IDs are fully verified; 13 remain open,
+**22 of the original 33 finding IDs are fully verified; 11 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S5, D1/D4–D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
-13 equally sized bugs. Several require a behavior decision or an audit.
+S5, D5/D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
+11 equally sized bugs. Several require a behavior decision or an audit.
 
-Next priorities within the current usage window: shared diagnostic/extraction workers
-(D1/D4), parameter schema coverage (D5), operation-result checks (P4), and
+Next priorities within the current usage window: parameter schema coverage (D5), operation-result checks (P4), and
 safe offline test entry points (T1). Each stays a bounded reviewed unit with
 its own implementation and checkpoint commits. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
@@ -281,6 +281,35 @@ alignment22/diagnostics53; no corpus-wide or live-backend check was done.
 Assigned files were clean; implementation, tests and regenerated guide/help
 are one commit and the queue/checkpoint is separate.
 
+### Resumed run — D1/D4 verified at `2c55964`
+
+Named lag, scalar-variable R-hat/ESS, divergence counts and E-FMI calculations
+now use small shared workers rather than repeated loops. The strict lag
+wrapper still rejects short/undefined series; reports retain named NA values.
+The E-FMI worker explicitly preserves RStan sum(diff(energy)^2)/n/var(energy)
+versus CmdStan mean(diff(energy)^2)/var(energy). Review found and reproduced a
+pre-existing wrong-normalization fallback when RStan metadata lacked E-FMI;
+the shared report fallback now chooses using backend metadata/provenance.
+Deferred bundles forward provenance and drop their duplicate calculation.
+
+Both internally sampled backends and bundle construction route through the
+existing extraction generic. Saved source/count coverage remains bundle-only,
+selective reports remain selective, and this adds no CmdStan bundle support.
+A generic draws array with absent sampler evidence no longer calls RStan
+fit accessors; absent required metrics remain NA and fail acceptance. The
+legacy private worker still supports actual stanfit fallback.
+
+Missing-metric and fallback regressions failed before their respective fixes.
+Final workers27/diagnostics53/deferred22/acceptance28 passed development and
+installed namespace-only. Before the reviewed fallback repair, the broader
+installed set also passed lag23 (one corpus skip), extraction36, alignment22,
+transformation28 and versions11. Independent final review approved and reran
+workers27/deferred22. Genuine RStan import50 passed. Genuine saved CmdStan
+CSV diagnostics matched report/stored calculations in a clean subprocess
+with RStan unavailable and never loaded; short-fit ESS warnings were expected,
+with no reference-acceptance claim. Guide rendered; files were clean before
+editing and the implementation commit is separate from this checkpoint.
+
 ### Maintainer decisions and questions for later
 
 - **V4 deferred:** preserve batch-list classification. Document the supported
@@ -302,8 +331,8 @@ are one commit and the queue/checkpoint is separate.
   Keep automatic rollback open for colleague discussion. Changing this
   choice later is feasible, but needs staging/restoration and failure tests;
   the current code does not commit the project to a transaction framework.
-- **Numerical/identity choices:** preserve the intentional E-FMI finite-sample
-  normalization difference until D1 resolves it; clarify whether partial
+- **Numerical/identity choices:** D1 preserves the intentional E-FMI finite-sample
+  normalization difference explicitly; clarify whether partial
   parameter selections represent a marginal or complete model in D5.
   D6 stronger source/data verification is an optional policy enhancement,
   not an undisclosed guarantee of the current importer.
