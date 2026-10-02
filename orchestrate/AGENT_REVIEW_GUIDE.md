@@ -122,10 +122,11 @@ Constructor slice verified at `d01d58b`: requested framework retained,
 omitted framework preserves Stan, and matching metadata is required.
 The stanmodel-specific coercion retains its fixed Stan choice.
 
-Remaining: replacement accessor relabelling needs an explicit contract.
-Maintainer choice between matching-metadata enforcement, new-object-only
-conversion, or preserving the existing setter is pending. Do not change
-the setter until that choice arrives.
+Remaining, deferred by maintainer on 2026-10-02: the replacement accessor
+changes the framework label on existing code without translating it or
+updating metadata. Preserve the existing setter for now. Future discussion
+can decide whether to require matching implementation metadata or a new
+object when changing frameworks.
 
 ## Diagnostics, fit extraction, and acceptance
 
