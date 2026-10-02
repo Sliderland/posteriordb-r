@@ -6,7 +6,8 @@
 #'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
 #'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
 #'   chain, and no divergent transitions. ESS bounds are recorded but do not
-#'   determine acceptance.
+#'   determine acceptance. Analytical draws require the stated draw count
+#'   and matching count metadata; Stan sampling checks do not apply.
 #'
 #' @param x a posterior name, posterior object or reference_posterior_draws object
 #' @param ... currently not used.
@@ -71,7 +72,8 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
 #'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
 #'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
 #'   chain, and no divergent transitions. ESS bounds are recorded but do not
-#'   determine acceptance.
+#'   determine acceptance. Analytical draws require the stated draw count
+#'   and matching count metadata; Stan sampling checks do not apply.
 #'
 #' @param x a posterior name, posterior object, reference-posterior draws, or
 #'   a `pdb_reference_bundle` returned by [create_pdb_bundle()].

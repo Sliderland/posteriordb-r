@@ -44,12 +44,8 @@ compute_reference_posterior_summary_statistic <- function(rpd, summary_statistic
 summary_statistics_from_checked_reference_draws <- function(rpd) {
   assert_checked_reference_posterior_draws(rpd)
   reference_checks <- info(rpd)$checks_made
-  shared_checks <- c(
-    "nchains_is_gte_4",
-    "abs_mean_lag1_ac_below_0_05",
-    "r_hat_below_1_01",
-    "efmi_above_0_2",
-    "no_divergent_transitions"
+  shared_checks <- setdiff(
+    required_reference_draw_checks(info(rpd)$inference$method), "ndraws_is_10k"
   )
   summary_draws <- rpd
   summary_info <- info(rpd)

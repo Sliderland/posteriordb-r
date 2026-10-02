@@ -31,5 +31,6 @@ Requires at least 10,000 retained draws. For Stan sampling,
   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
   chain, and no divergent transitions. ESS bounds are recorded but do not
-  determine acceptance.
+  determine acceptance. Analytical draws require the stated draw count
+  and matching count metadata; Stan sampling checks do not apply.
 }

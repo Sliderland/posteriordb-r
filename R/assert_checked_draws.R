@@ -2,8 +2,9 @@
 #' are true
 #'
 #' @details
-#' This functionasserts that the reference posterior draws comply
-#' with the criterias of the reference posterior draws.
+#' Requires the count flag for the chosen gate and, for Stan sampling,
+#' the chain, autocorrelation, R-hat, E-FMI and divergence flags. Analytical
+#' draws require count evidence only; HMC checks do not apply.
 #'
 #' See \url{https://github.com/stan-dev/posteriordb/blob/master/doc/REFERENCE_POSTERIOR_DEFINITION.md} for details.
 #'
@@ -26,12 +27,11 @@ assert_checked_reference_posterior_draws.pdb_reference_posterior_draws <- functi
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
 assert_checked_reference_posterior_draws.pdb_reference_posterior_info <- function(x){
-  checkmate::assert_true(x$checks_made$ndraws_is_10k)
-  checkmate::assert_true(x$checks_made$nchains_is_gte_4)
-  checkmate::assert_true(x$checks_made$abs_mean_lag1_ac_below_0_05)
-  checkmate::assert_true(x$checks_made$r_hat_below_1_01)
-  checkmate::assert_true(x$checks_made$efmi_above_0_2)
-  checkmate::assert_true(x$checks_made$no_divergent_transitions)
+  for (name in required_reference_draw_checks(x$inference$method)) {
+    checkmate::assert_true(x$checks_made[[name]],
+      .var.name = paste0("checks_made$", name))
+  }
+  invisible(TRUE)
 }
 
 
@@ -60,10 +60,19 @@ assert_checked_summary_statistics_draws.pdb_reference_posterior_summary_statisti
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
 assert_checked_summary_statistics_draws.pdb_reference_posterior_info <- function(x){
-  checkmate::assert_true(x$checks_made$ndraws_is_gte_10k)
-  checkmate::assert_true(x$checks_made$nchains_is_gte_4)
-  checkmate::assert_true(x$checks_made$abs_mean_lag1_ac_below_0_05)
-  checkmate::assert_true(x$checks_made$r_hat_below_1_01)
-  checkmate::assert_true(x$checks_made$efmi_above_0_2)
-  checkmate::assert_true(x$checks_made$no_divergent_transitions)
+  for (name in required_reference_draw_checks(x$inference$method, summary = TRUE)) {
+    checkmate::assert_true(x$checks_made[[name]],
+      .var.name = paste0("checks_made$", name))
+  }
+  invisible(TRUE)
+}
+
+# Applicable acceptance flags, shared by assertions and summary transfer.
+required_reference_draw_checks <- function(method, summary = FALSE) {
+  checkmate::assert_choice(method, c("stan_sampling", "analytical"))
+  count_check <- if (summary) "ndraws_is_gte_10k" else "ndraws_is_10k"
+  c(count_check, if (method == "stan_sampling") c(
+    "nchains_is_gte_4", "abs_mean_lag1_ac_below_0_05", "r_hat_below_1_01",
+    "efmi_above_0_2", "no_divergent_transitions"
+  ))
 }

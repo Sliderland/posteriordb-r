@@ -64,7 +64,7 @@ Existing object writers invisibly return `TRUE`. Writing a
 a function to simplify writing to a local pdb.
 }
 \details{
-Writing reference draws requires all recorded reference acceptance
+Writing reference draws requires all applicable reference acceptance
   flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
   Unchecked or failed reference draws, or draws without a saved posterior,
   are rejected before files are written. A successful reference-draw write

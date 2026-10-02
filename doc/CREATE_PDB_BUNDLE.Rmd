@@ -39,6 +39,15 @@ generic using the actual fit class; prefer the generic for fit import.
 Wrapping a draw object does not establish that it passes contribution checks.
 Use `check_reference_posterior_draws()` or fit import before writing it.
 
+For prepared analytical draws, set `inference$method = "analytical"` in the
+reference metadata and record `diagnostics$ndraws` matching the retained draws.
+`check_reference_posterior_draws()` requires exactly 10,000 draws;
+`check_summary_statistics_draws()` permits at least 10,000. Analytical draws
+receive only the applicable count flag, without invented HMC diagnostics.
+The ordinary reference-draw writer also supports them and writes the two
+supported summaries by default once the posterior link is saved. This does
+not add analytical fits to `create_pdb_bundle()`, which remains a Stan-fit workflow.
+
 Choose the workflow based on whether the data, model, and posterior
 records already exist:
 
