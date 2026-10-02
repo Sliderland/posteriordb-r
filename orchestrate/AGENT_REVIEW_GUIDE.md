@@ -327,6 +327,13 @@ remains open for discussion with colleagues; this decision does not close P4.
 Changing the policy later requires staging/restoration and failure tests,
 but no transaction framework is needed for the current reporting contract.
 
+Current reporting contract implemented at `ed51544`: shared writes identify
+the failed destination, bundle failures list completed components, and ZIP
+creation/JSON-cleanup results are checked without deleting recoverable JSON
+on failure. Contribution/bundle guides explain inspection, retry, cache
+refresh, and pull-request review. This closes the reporting slice, not the
+future rollback policy or the remaining operation-result audit below.
+
 Rename/bibliography rollback backup preservation and shared ZIP extraction failure handling are verified; see the handoff for commits and checks. The remaining scope is broader component/bundle failure behavior and operation-result checks.
 
 Check success results from zip/file.copy/write/rename operations.

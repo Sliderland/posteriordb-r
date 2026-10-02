@@ -91,7 +91,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S1 | Verified at `688c7d8`: common positional arguments aligned; focused installed tests and S3 signature checker passed. |
 | P2, P11, P12 | Verified at `56cb0dd`: persisted candidate links guarded, reused origins retained, accepted reused posterior requires a matching stored link. Empty-link updates use the existing importer. Forty isolated integrity assertions passed, including namespace-only installed loading. |
 | V1 | Verified at `b9515c1`: bibliography result captured; eight status assertions and 48 bibliography assertions passed in an installed package. |
-| P4 | Partial at `ebb5d9e`: rename/bibliography restoration results checked and failed-recovery backups retained. Rename 58 and bibliography 48 assertions passed. Maintainer chose on 2026-10-02 to keep partial bundle/component writes on I/O failure, report successful components, and document inspection/retry and pull-request review. Reporting/docs implementation remains pending; future automatic rollback remains open for colleague discussion. |
+| P4 | Partial: rename/bibliography recovery at `ebb5d9e`; partial-write reporting at `ed51544`. Maintainer chose on 2026-10-02 to keep partial bundle/component writes on I/O failure, report completed components/destination, and document inspection/retry/cache refresh/PR review. ZIP/JSON-cleanup errors retain recoverable files. Vignette pre-edit preservation `d83998e`. Six regression failures before repair; final integrity57 passed development and installed namespace-only, with independent Sol review. Installed reference24, rename58, resource170, acceptance28 passed; guides/help rendered (contribution examples disabled). Future automatic rollback remains open for colleague discussion, as does the remaining operation-result audit. |
 | P9 | Verified: names/write containment at `587bb86`/`8e5de0c`; common archive/cache boundaries at `fe74ebc`. One safe root JSON member, requested filename matching, cache containment, and partial extraction cleanup shared with rename/link. Initial archive regression had ten failures; damaged-ZIP review regression added three failures. Final 33 archive assertions pass, including a Windows-safe crafted drive-name ZIP. Installed archive33, rename58, resource170 and integrity40 passed; independent Sol review verified corruption repair and portability block. Windows runtime/live GitHub unrun. |
 | P3 | Deferred by maintainer on 2026-10-02. Preserve existing manual cache refresh; retain the issue in the active guide for later decision. |
 | S3 | Verified at `a5ef7c9`: shared coercion retains and validates an explicit connection; thinning forwards it, standalone NULL remains supported, JSON excludes connection attributes. Regression failed with eight assertions before repair and passed all 16 afterward. Installed reference-connections, import-external-stanfit (50 assertions, real RStan), and bundle-write-integrity (40 assertions) passed. Independent Sol 6.1/high review found no defects and reran the 16-assertion regression against repository sources. |
@@ -113,8 +113,7 @@ changes require new checks.
 
 No writer/reviewer owns an unfinished patch. Completed issues are removed
 from the active guide; this checkpoint and Git retain their evidence.
-Next: implement P4 partial-write reporting and contribution documentation.
-The I/O policy is settled for now: retain partial writes, report success,
-document inspection/retry; leave future automatic rollback open. P6 filename
-inventory is available for the following small lookup unit.
+Next: P6 filename/empty listing repair; Luna caller inventory is available.
+P4 reporting/docs are implemented; future automatic rollback remains open
+for colleague discussion. Partial writes are intentionally retained.
 P3 stays deferred. Remaining work stays in the active guide.
