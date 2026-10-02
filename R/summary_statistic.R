@@ -39,12 +39,16 @@ assert_reference_posterior_summary_statistic <- function(x){
   sst <- summary_statistic_type(x)
   value_name <- sst
   mcse_name <- "mcse_mean"
-  checkmate::assert_names(names(x), must.include = c("names", value_name, mcse_name))
+  checkmate::assert_names(names(x), type = "unique", must.include = c("names", value_name, mcse_name))
 
-  checkmate::assert_character(x[[1]])
-  for(j in seq.int(2L, length(x))){
-    checkmate::assert_numeric(x[[j]])
+  checkmate::assert_character(x[["names"]], unique = TRUE, any.missing = FALSE)
+  count <- length(x[["names"]])
+  checkmate::assert_numeric(x[[value_name]], len = count)
+  checkmate::assert_numeric(x[[mcse_name]], len = count)
+  for (field in setdiff(names(x), c("names", value_name, mcse_name))) {
+    checkmate::assert_numeric(x[[field]])
   }
+  assert_reference_posterior_info(info(x))
 }
 
 
@@ -59,6 +63,10 @@ assert_reference_posterior_summary_statistic <- function(x){
 #' @details Stored summaries use the posterior's `reference_posterior_name`
 #'   link for both payload and metadata; that name may differ from the
 #'   posterior's own name.
+#'   Field order is ignored. Variable names must be unique and nonmissing;
+#'   summary values and MCSE must each have one numeric entry per variable.
+#'   Numeric missing and infinite values retain their existing permissive
+#'   validation behavior.
 #' @export
 reference_posterior_summary_statistic <- function(x, ...){
   UseMethod("reference_posterior_summary_statistic")

@@ -343,6 +343,13 @@ carry the same reference-posterior metadata as the draws, with the
 summary-specific acceptance flags and summary-computation version added
 by the existing summary-statistic constructor.
 
+Stored summaries are validated by field name, so JSON field order does
+not matter. Variable names must be unique and nonmissing, with one
+numeric summary value and MCSE per name. Attached reference metadata is
+validated too. Numeric `NA` and infinite entries retain the existing
+permissive validation behavior; this cleanup does not impose a new
+numerical policy.
+
 The acceptance checks require exactly 10,000 retained draws, at least
 four chains, absolute lag-1 autocorrelation at most 0.05 for every
 retained variable, R-hat at most 1.01 for every variable, E-FMI at least

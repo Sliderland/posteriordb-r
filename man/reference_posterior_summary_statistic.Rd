@@ -54,4 +54,8 @@ Reference posterior summary statistics
 Stored summaries use the posterior's `reference_posterior_name`
   link for both payload and metadata; that name may differ from the
   posterior's own name.
+  Field order is ignored. Variable names must be unique and nonmissing;
+  summary values and MCSE must each have one numeric entry per variable.
+  Numeric missing and infinite values retain their existing permissive
+  validation behavior.
 }
