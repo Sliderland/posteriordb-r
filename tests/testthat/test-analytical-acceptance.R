@@ -105,3 +105,34 @@ test_that("duplicate draw variables fail before checking or persistence", {
   expect_error(write_pdb(malformed, connection), "unique")
   expect_identical(list.files(root, recursive = TRUE), before)
 })
+
+
+test_that("mutated draw shapes fail before checking or persistence", {
+  values <- list(list(theta = seq_len(5000), other = seq_len(5000)),
+    list(theta = seq_len(5000), other = seq_len(5000)))
+  checked <- check_reference_posterior_draws(as.reference_posterior_draws(
+    posterior::as_draws_list(values), info(analytical_acceptance_draws())))
+  for (failure in c("variable_length", "chain_length")) {
+    malformed <- checked
+    if (failure == "variable_length") malformed[[1]]$other <- 1
+    if (failure == "chain_length") {
+      malformed[[2]]$theta <- c(malformed[[2]]$theta, 1)
+      malformed[[2]]$other <- c(malformed[[2]]$other, 1)
+    }
+    expect_error(as.reference_posterior_draws(posterior::as_draws_list(malformed),
+      info(checked)), "length", info = failure)
+    expect_error(check_reference_posterior_draws(malformed), "length", info = failure)
+
+    root <- withr::local_tempdir("malformed-draws-")
+    dir.create(file.path(root, "posteriors"))
+    dir.create(file.path(root, "cache"))
+    connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+      class = c("pdb_local", "pdb"))
+    jsonlite::write_json(list(reference_posterior_name = info(checked)$name),
+      file.path(root, "posteriors/linked.json"), auto_unbox = TRUE)
+    before <- list.files(root, recursive = TRUE)
+    expect_error(write_pdb(malformed, connection, write_summary_statistics = FALSE),
+      "length", info = failure)
+    expect_identical(list.files(root, recursive = TRUE), before, info = failure)
+  }
+})

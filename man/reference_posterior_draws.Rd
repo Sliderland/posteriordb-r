@@ -58,6 +58,8 @@ Read or wrap reference posterior draws
   `info`; it does not infer parameter counts, calculate acceptance checks,
   or write files. Its draws-list conversion omits `lp__`. Variable names
   must be unique, nonmissing and nonempty, and identical across chains.
+  Retained variable vectors must have the same length across variables and
+  chains; zero iterations are allowed when wrapping an unchecked object.
   Use [as_reference_posterior_draws()] (underscores) to import a completed
   fit for an existing posterior, validate its parameter counts and run
   reference checks. Use [import_reference_posterior_draws()] for that
