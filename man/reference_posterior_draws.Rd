@@ -31,7 +31,7 @@ as.pdb_reference_posterior_draws(x, ...)
 
 \method{reference_posterior_draws}{pdb_reference_posterior_info}(x, pdb = pdb_default(), ...)
 
-\method{as.reference_posterior_draws}{draws_list}(x, info, ...)
+\method{as.reference_posterior_draws}{draws_list}(x, info, pdb = NULL, ...)
 
 assert_reference_posterior_draws(x)
 }
@@ -40,7 +40,8 @@ assert_reference_posterior_draws(x)
 
 \item{info}{a [pdb_reference_posterior_info] object}
 
-\item{pdb}{a [pdb] object (if [x] is a posterior name)}
+\item{pdb}{a [pdb] connection for name lookup or to attach during coercion.
+Draws-list coercion defaults to \code{NULL}, creating a standalone object.}
 
 \item{...}{further arguments supplied to specific methods.}
 }

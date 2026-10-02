@@ -145,7 +145,8 @@ reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(x, 
 
 #' Reference Posterior draws and summary statistics
 #' @param x a [posterior] object or a posterior name.
-#' @param pdb a [pdb] object (if [x] is a posterior name)
+#' @param pdb a [pdb] connection for name lookup or to attach during coercion.
+#'   Draws-list coercion defaults to \code{NULL}, creating a standalone object.
 #' @param info a [pdb_reference_posterior_info] object
 #' @param ... further arguments supplied to specific methods.
 #' @return a [pdb_reference_posterior] object.
@@ -189,7 +190,7 @@ reference_posterior_draws.pdb_reference_posterior_info <- function(x, pdb = pdb_
 
 #' @rdname reference_posterior_draws
 #' @export
-as.reference_posterior_draws.draws_list <- function(x, info, ...){
+as.reference_posterior_draws.draws_list <- function(x, info, pdb = NULL, ...){
   checkmate::assert_class(info, "pdb_reference_posterior_info")
   x <- posterior::as_draws_list(posterior::as_draws(x))
   names(x) <- NULL
@@ -198,6 +199,7 @@ as.reference_posterior_draws.draws_list <- function(x, info, ...){
   }
 
   attr(x, "info") <- info
+  pdb(x) <- pdb
   class(x) <- c("pdb_reference_posterior_draws", class(x))
   assert_reference_posterior_draws(x)
   x
@@ -317,9 +319,10 @@ supported_reference_posterior_types <- function() c("draws", supported_summary_s
 #' @export
 thin_draws.pdb_reference_posterior_draws <- function(x, thin, ...){
   rpdi <- info(x)
+  connection <- pdb(x)
   class(x) <- class(x)[-1]
   x <- posterior::thin_draws(x, thin, ...)
-  x <- as.pdb_reference_posterior_draws(x, rpdi)
+  x <- as.pdb_reference_posterior_draws(x, rpdi, pdb = connection)
   checkmate::assert_class(x, "pdb_reference_posterior_draws")
   x
 }
