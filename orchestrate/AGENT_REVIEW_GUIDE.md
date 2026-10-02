@@ -324,16 +324,8 @@ transaction framework solely to reduce line count. Preserve the intentional
 partial success when reference checks fail, which is distinct from an I/O
 failure midway through an accepted write.
 
-Source-level recovery concern: rename rollback does not check restoration
-`file.rename()` results, and its cleanup deletes the backup directory.
-Bibliography cleanup similarly removes a backup even after an unsuccessful
-restore attempt. The import writer has a more cautious failure path: its
-backups are created beside destination files, outside its staging directory,
-and a failed restore emits a warning. Use that existing recovery approach
-as a reference, while making retained backup paths explicit. If restoration
-fails, retain recoverable backups and report their paths. Test failure during
-installation AND failure during rollback using temporary files and injected
-filesystem failures.
+Rename/bibliography rollback backup preservation and shared ZIP extraction failure handling are verified; see the handoff for commits and checks. The remaining scope is broader component/bundle failure behavior and operation-result checks.
+
 Check success results from zip/file.copy/write/rename operations.
 
 ### P5. Posterior link lookups parse names instead of metadata — reproduced
@@ -394,27 +386,6 @@ retrieving an existing model. Audit writer support separately: declaring a
 framework supported does not mean `write_to_path()` implements it. Clearly
 support or reject each operation instead of failing after metadata is saved.
 Test read/write/remove behavior per supported operation and custom code paths.
-
-### P9. Resource-name/path validation differs across writers — source-confirmed
-
-Locations: `pdb_write_output_path()`, data/model info validators,
-`assert_link_resource_name()`, and `rename_pdb_validate_name()`.
-
-Renaming and linking reject path separators and special path components,
-while ordinary metadata constructors generally only assert a string name.
-The shared output-path builder interpolates that name into a filesystem path.
-Consequently, a name containing relative directory components can produce
-a destination outside the intended component directory. Do not test this
-against any real database or user file.
-
-Share a resource-name validator at constructor/write boundaries, and keep
-relative implementation paths distinct from resource identifiers. Validate
-path containment before committing files. Preserve ordinary hyphens and dots
-unless the maintainer chooses a documented stricter naming rule. Verify
-rejection before any directory/file mutation using a temporary fixture with
-sentinels; test separators, parent components, empty names, and control
-characters. Review archive member validation at the common cache-unzip
-boundary as well, rather than only in the linking/rename workflows.
 
 ### P10. Reader sometimes conflates reference names with posterior names
 
