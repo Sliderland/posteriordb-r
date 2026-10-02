@@ -4,7 +4,7 @@ Updated 2026-10-02. Implementation branch: `main`.
 
 The initial sections explain cleanup through `472f867` and checkpoint
 `811b425`. The resumed sections below record subsequent verified units through
-`c1c3631`, including dependency/documentation, summary errors and archived-fit recovery. It
+`ff65fa3`, including dependency/docs, summary errors, archived-fit recovery and draw labels. It
 describes what each change solves;
 [conversation-handoff.md](conversation-handoff.md) holds the detailed
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
@@ -289,8 +289,8 @@ restarting already-completed P11/P2/P12 work.
 | Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 
-Next priority is duplicate reference-draw variable names (V6). D6 recovery
-and V6 optional-summary reads are verified; their policy choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
+Next is the bounded output-axis audit simplification. D6 recovery and V6
+optional-summary/draw-label repairs are verified; policy choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -636,3 +636,20 @@ Installed constrained25/deferred22/integrity57 passed. A genuine fresh-process
 serialized public bundle check preserved both chain values/counts; independent
 review reproduced the stale lookup and verified the bypass. Help/guide updated.
 Commit `c1c3631`; stronger identity verification remains a pending choice.
+
+
+### Resumed work: reject ambiguous draw labels — V6 slice
+
+Analytical draws with duplicate theta labels passed count checks and could be
+written with ambiguous data. A single existing-library assertion in the shared
+chain validator now rejects duplicate, missing and empty labels before wrapping,
+checking or writing. Numerical NA/Inf behavior was left for a maintainer choice.
+
+Files were clean before editing. Four regressions failed before; analytical37,
+transformation28, connection16, diagnostics53 and integrity57 passed development
+and installed checks. Independent review reran37 and confirmed empty/lp-only
+wrapping remains supported. Help regenerated; commit `ff65fa3`.
+
+V6's supposed missing structured summary return was source/runtime checked:
+`summary()` already returns an invisible `draws_summary` while printing it.
+No implementation or summary-return policy change is needed.

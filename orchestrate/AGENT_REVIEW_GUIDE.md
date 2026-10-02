@@ -248,13 +248,15 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
 - `remove_pdb.character()` deletes the literal path supplied even if outside
   the connection's endpoint. Clarify whether it is a public arbitrary-path
   API or an internal worker; do not change its semantics without review.
-- Validators frequently check class and a few fields but not full payload
-  alignment. Review empty draws, nonfinite draws, unequal chain lengths,
-  duplicate variable names, diagnostic name/length mismatches, dates, and
-  serialized attributes using realistic malformed fixtures.
-- `summary.pdb_reference_posterior_draws()` prints a summary rather than
-  returning a useful structured summary object. Review the intended public
-  contract rather than treating printing as automatically an S3 violation.
+- Payload coverage already includes summary field/length/date validation (V3),
+  diagnostic labels/counts (D2), and transformation attributes (P1/S2). Draw
+  variable labels are now validated as unique/nonmissing/nonempty at
+  `ff65fa3`. Remaining: analytical NA/Inf values can pass count checks;
+  the maintainer question about finiteness is pending. Revalidate any further
+  malformed-input candidates against these checks before expanding validation.
+- The summary-return concern needs no implementation: a namespace-only probe
+  confirmed `summary()` already prints and invisibly returns a structured
+  `draws_summary`. Preserve it; evidence is in the handoff.
 - `pdb_endpoint.pdb_local()` returns a path when an endpoint is already set,
   but a modified connection object when resolving an unset endpoint. Several
   callers rely on one of those forms. Clarify the contract and, if useful,

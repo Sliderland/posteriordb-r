@@ -166,7 +166,9 @@ partial, or deferred.** The authoritative remaining list is the
 S5, D6, P3/P4/P8 and V4/V6. These are tracking groups, not
 7 equally sized bugs. Several require a behavior decision or an audit.
 
-Next unit: V6 duplicate saved-variable names in reference-draw payloads.
+Next unit: verify the small Ponytail output-axis simplification, retaining
+integer-range validation. Then review remaining API choices with the maintainer.
+V6 duplicate-variable handling is verified at `ff65fa3`.
 D6 recovery is verified at `c1c3631`; stronger identity remains pending.
 V6 optional-summary handling is verified at `e93a71f`.
 T3 and V4 usage examples are complete. Each unit receives its own tests,
@@ -500,6 +502,26 @@ installed versions11 passed. Generated bundle help/guide explain the boundary.
 No full suite/platform/corpus rerun for this unit. Stronger source/data identity
 verification remains awaiting maintainer input and D6 stays partial.
 
+### Resumed run — V6 draw-label slice verified at `ff65fa3`
+
+Duplicate variable names passed analytical count checks and were written as
+ambiguous payloads. One `checkmate::assert_names(type="unique")` in the shared
+all-chain validator now rejects duplicate/missing/empty labels at construction,
+checking and writing, before files change. Numerical values and empty-variable
+chains retain their existing behavior; NA/Inf finiteness is a pending policy
+question, not part of this structural repair.
+
+Files were clean. Four failing-before assertions became analytical37; final
+transformation28/connection16/diagnostics53/integrity57 passed development and
+installed namespace-only. Independent Sol review reran37 and verified empty/
+lp-only coercion still works. Generated draw help describes the label contract.
+No full-suite/backend rerun for this small shared assertion.
+
+The old V6 summary-return concern was also revalidated without changing code:
+`withVisible(summary(x))` for a public analytical draw object returns a structured
+`draws_summary` invisibly (including the expected theta row) while printing.
+There is no missing return-value bug to fix. Other V6 API choices remain open.
+
 ### Maintainer decisions and questions for later
 
 - **V4 deferred:** preserve batch-list classification. Document the supported
@@ -527,7 +549,7 @@ verification remains awaiting maintainer input and D6 stays partial.
   D6 stronger source/data verification is an optional policy enhancement,
   not an undisclosed guarantee of the current importer.
 - **API choices:** S4 is documented without breaking aliases. V6 needs decisions before changing configuration
-  fallback, arbitrary-path removal, summary return values or endpoint return
+  fallback, arbitrary-path removal or endpoint return
   contracts. The active guide contains the specific examples.
 
 The maintainer confirmed P3/S5/non-Stan writing deferrals and additionally
