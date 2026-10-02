@@ -98,4 +98,11 @@ Writing reference draws requires all recorded reference acceptance
   are rejected. Individual multi-file writers check their payload paths
   before saving metadata. These checks do not lock the filesystem or make
   ordinary writes transactional.
+  Bundle and component writes are sequential. An I/O or serialization
+  error stops the operation and retains earlier writes and replacements.
+  The failure message identifies the destination; bundle failures also
+  list completed components. The failing component may contain partial
+  files, and no success report is returned. Inspect the local Git changes,
+  fix the cause, and retry; use `overwrite = TRUE` only after reviewing the
+  files that will be replaced. ZIP failures retain the uncompressed JSON.
 }

@@ -161,3 +161,65 @@ test_that("failed bundle writes omit missing reference links and preserve stored
   after <- bundle_integrity_snapshot(database)
   expect_identical(after[names(reference_before)], reference_before)
 })
+
+test_that("I/O failures retain completed bundle components and report partial writes", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(structure(list(), class = "stanfit"), data = list(n = 1L),
+    data_info = list(name = "partial-data", title = "Inputs"),
+    model_info = list(name = "partial-model", title = "Model"), pdb = database)
+  original_write <- writeLines
+  testthat::local_mocked_bindings(writeLines = function(text, con, ...) {
+    if (grepl("partial-model[.]stan$", con)) stop("injected payload I/O failure")
+    original_write(text, con, ...)
+  }, .package = "base")
+  messages <- character()
+  error <- tryCatch(withCallingHandlers(
+    write_pdb(bundle, database, write_summary_statistics = FALSE),
+    message = function(message) {
+      messages <<- c(messages, conditionMessage(message))
+      invokeRestart("muffleMessage")
+    }
+  ), error = identity)
+  expect_match(conditionMessage(error), "injected payload I/O failure")
+  expect_true(any(grepl("Completed components: data", messages, fixed = TRUE)))
+  expect_true(any(grepl("partial-model", messages, fixed = TRUE)))
+  expect_true(any(grepl("retained", messages, fixed = TRUE)))
+  expect_identical(get_data("partial-data", database)$n, 1L)
+  expect_true(file.exists(pdb_file_path(database, "models/info/partial-model.info.json")))
+  expect_false(file.exists(pdb_file_path(database, "models/stan/partial-model.stan")))
+  expect_false(file.exists(pdb_file_path(database, "posteriors", paste0(bundle$posterior$name, ".json"))))
+})
+
+test_that("failed ZIP creation retains the JSON payload and is reported as failure", {
+  database <- bundle_integrity_pdb()
+  object <- as.pdb_data(list(n = 1L), info = as.pdb_data_info(list(
+    name = "zip-failure", title = "Inputs", added_by = "test", added_date = Sys.Date()
+  )))
+  testthat::local_mocked_bindings(zip = function(...) 1L, .package = "utils")
+  messages <- character()
+  error <- tryCatch(withCallingHandlers(write_pdb(object, database),
+    message = function(message) {
+      messages <<- c(messages, conditionMessage(message))
+      invokeRestart("muffleMessage")
+    }), error = identity)
+  expect_s3_class(error, "error")
+  expect_true(any(grepl("zip-failure", messages, fixed = TRUE)))
+  expect_true(file.exists(pdb_file_path(database, "data/info/zip-failure.info.json")))
+  expect_true(file.exists(pdb_file_path(database, "data/data/zip-failure.json")))
+  expect_false(file.exists(pdb_file_path(database, "data/data/zip-failure.json.zip")))
+})
+
+test_that("failed JSON cleanup reports the saved archive and retains both files", {
+  database <- bundle_integrity_pdb()
+  object <- as.pdb_data(list(n = 1L), info = as.pdb_data_info(list(
+    name = "cleanup-failure", title = "Inputs", added_by = "test", added_date = Sys.Date()
+  )))
+  testthat::local_mocked_bindings(file.remove = function(...) FALSE, .package = "base")
+  expect_error(write_pdb(object, database), "Archive written, but JSON cleanup failed")
+  expect_true(file.exists(pdb_file_path(database, "data/data/cleanup-failure.json")))
+  archive <- pdb_file_path(database, "data/data/cleanup-failure.json.zip")
+  expect_true(file.exists(archive))
+  expect_identical(utils::unzip(archive, list = TRUE)$Name, "cleanup-failure.json")
+})

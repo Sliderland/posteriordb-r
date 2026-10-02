@@ -36,6 +36,13 @@
 #'   are rejected. Individual multi-file writers check their payload paths
 #'   before saving metadata. These checks do not lock the filesystem or make
 #'   ordinary writes transactional.
+#'   Bundle and component writes are sequential. An I/O or serialization
+#'   error stops the operation and retains earlier writes and replacements.
+#'   The failure message identifies the destination; bundle failures also
+#'   list completed components. The failing component may contain partial
+#'   files, and no success report is returned. Inspect the local Git changes,
+#'   fix the cause, and retry; use `overwrite = TRUE` only after reviewing the
+#'   files that will be replaced. ZIP failures retain the uncompressed JSON.
 #'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
@@ -118,6 +125,15 @@ write_pdb.pdb_reference_bundle <- function(
   }
 
   written <- character()
+  write_complete <- FALSE
+  on.exit({
+    if (!write_complete) message(
+      "Bundle write did not complete. Completed components: ",
+      if (length(written)) paste(written, collapse = ", ") else "none",
+      ". Files already written are retained; the failing component may have partial files. ",
+      "Inspect local changes before retrying."
+    )
+  }, add = TRUE)
   for (component in c("data", "model_code", "posterior")) {
     if (component %in% write_plan$write) {
       object <- bundle[[component]]
@@ -167,6 +183,7 @@ write_pdb.pdb_reference_bundle <- function(
     ))
   }
 
+  write_complete <- TRUE
   result <- list(
     bundle = bundle,
     written = written,

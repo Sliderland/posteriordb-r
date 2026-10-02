@@ -734,6 +734,13 @@ write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = T
   fp <- if (zip) sub("[.]zip$", "", output_path) else output_path
   dp <- dirname(fp)
   if(!checkmate::test_directory_exists(dp)) dir.create(dp, recursive = TRUE)
+  write_complete <- FALSE
+  on.exit({
+    if (!write_complete) message(
+      "Write did not complete for '", output_path,
+      "'. Files already written are retained. Inspect local changes before retrying."
+    )
+  }, add = TRUE)
   checkmate::assert_path_for_output(output_path, overwrite = overwrite)
 
   if(type == "json"){
@@ -750,9 +757,15 @@ write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = T
   writeLines(text = out, con = fp, useBytes = TRUE)
 
   if(zip){
-    zip(files = fp, zipfile = output_path, flags = "-jq")
-    file.remove(fp)
+    status <- utils::zip(files = fp, zipfile = output_path, flags = "-jq")
+    if (status != 0L || !file.exists(output_path)) {
+      stop("ZIP creation failed; the JSON payload is retained at: ", fp, call. = FALSE)
+    }
+    if (!file.remove(fp)) {
+      stop("Archive written, but JSON cleanup failed at: ", fp, call. = FALSE)
+    }
   }
+  write_complete <- TRUE
   return(invisible(TRUE))
 }
 

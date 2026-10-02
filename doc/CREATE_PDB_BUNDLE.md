@@ -615,6 +615,28 @@ causes an error if a destination file already exists. Each write happens
 separately, so successful earlier writes remain if a later write fails.
 Set `overwrite = TRUE` only when replacing existing files is intended.
 
+If an I/O or serialization error interrupts a bundle or individual
+component write, the operation stops and keeps files already written or
+replaced. The failure message identifies the destination, and a bundle
+failure lists completed components. The failing component may have only
+its info file or some payloads saved; a failed ZIP command keeps the
+uncompressed JSON for inspection. A failed call does not return a
+successful write report.
+
+Inspect `git status` and `git diff` in your local database checkout,
+including new untracked files, before retrying. Fix the cause of the
+error (for example, permissions, disk space, or the ZIP command), review
+any incomplete files, and rerun the workflow. Existing new-component
+files require an intentional `overwrite = TRUE`; reused components are
+never overwritten, and incomplete reused components must be resolved
+before rerunning. Refresh the connection or clear its cache before
+checking changed files. Review the resulting metadata, links, and
+payloads before committing them and opening the contribution pull
+request. The pull request supplies a further review step; a partial
+write does not establish that the contribution is complete or
+acceptable. Automatic rollback for these writes remains an open policy
+question in the implementation issue guide.
+
 Use `reference_posterior_names(pdbl, type = "draws")` to list stored
 draw references. Use `type = "mean_value"` or
 `type = "mean_squared_value"` to list the corresponding stored
