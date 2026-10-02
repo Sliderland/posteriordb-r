@@ -118,14 +118,14 @@ documentation or add deliberate forwarding, with a public-call test.
 
 Location: `R/model_code.R`, `as.model_code.character()`.
 
-It always executes `framework(x) <- "stan"`. Requesting `framework = "pymc"`
-still creates a Stan-labelled object. Honor the argument and verify that the
-metadata describes an available implementation. Preserve the fixed Stan
-choice in the stanmodel-specific coercion, where it is appropriate.
+Constructor slice verified at `d01d58b`: requested framework retained,
+omitted framework preserves Stan, and matching metadata is required.
+The stanmodel-specific coercion retains its fixed Stan choice.
 
-Test supported frameworks and invalid/mismatched framework metadata. Review
-the replacement accessor too: relabelling code should have an explicit
-contract rather than silently making metadata inconsistent.
+Remaining: replacement accessor relabelling needs an explicit contract.
+Maintainer choice between matching-metadata enforcement, new-object-only
+conversion, or preserving the existing setter is pending. Do not change
+the setter until that choice arrives.
 
 ## Diagnostics, fit extraction, and acceptance
 
@@ -342,6 +342,9 @@ Check success results from zip/file.copy/write/rename operations.
 
 Locations: `model_code_file_path.character()`, model removal,
 `supported_frameworks_file_extension()`, `write_to_path()`.
+
+Maintainer decision, 2026-10-02: defer non-Stan writing; fix framework/custom
+path reading and removal now. Keep writer support/custom-path behavior open.
 
 The character path method assigns an extension for Stan and PyMC only;
 `framework = "pyro"` reproduces `object 'ft' not found`. Model removal uses
