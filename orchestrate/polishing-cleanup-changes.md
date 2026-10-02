@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**18 of the original 33 finding IDs are closed. Fifteen remain open,
+**19 of the original 33 finding IDs are closed. Fourteen remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -290,9 +290,11 @@ restarting already-completed P11/P2/P12 work.
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
 
-The next suggested small unit is **D3 analytical acceptance applicability**. V4 batch classification is deferred. V5 is verified at `3d519bb`. D7
-version metadata is verified at `e3e59e6`; the resumed-run checkpoint below
-records its reproduction, implementation and verification.
+Current priorities are diagnostic acceptance/alignment (D2), shared diagnostic
+workers/extraction (D1/D4), parameter coverage (D5), operation-result checks
+(P4), and offline test isolation (T1). D3, D7, V5 and S4 are verified; V4
+classification remains deferred. The handoff records current evidence and
+commit boundaries for interruption/restart.
 
 ### Resumed work: version metadata — D7
 
@@ -347,6 +349,23 @@ automatic rollback remains open for colleague discussion. Later decisions
 also include E-FMI normalization, partial parameter-selection semantics,
 stronger fit identity verification and the V6 API/fallback questions. These
 must not be silently decided during mechanical cleanup.
+
+### Resumed work: analytical acceptance — D3
+
+Analytical draws could not pass the final checker because it demanded Stan
+chain, lag, R-hat, E-FMI and divergence flags that analytical checking correctly
+never generated. Required flags now depend on inference method and gate,
+using one small helper shared with summary metadata transfer. No fake HMC
+success flags are added. Reference draws still need exactly 10,000 actual
+draws, summaries at least 10,000, and recorded counts must agree.
+
+The public analytical writer now saves the draw archive and both summaries;
+the metadata schema already supported analytical draws and needed no change.
+The guide explains this ordinary-draw route without extending Stan bundles.
+Initial regressions reproduced the defect. Analytical33 and five affected
+suites passed in development and an installed namespace-only package;
+independent review approved. Explicit cache refresh after a summary overwrite
+respects the deferred cache policy. Commit: `9eaf04f`.
 
 ## Verification and agent workflow
 

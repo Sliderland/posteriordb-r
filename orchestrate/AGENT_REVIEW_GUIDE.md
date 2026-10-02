@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**15 of the original 33 finding IDs remain open, partial, or deferred; 18
+**14 of the original 33 finding IDs remain open, partial, or deferred; 19
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -34,7 +34,7 @@ active queue; dated audit/review reports are historical inputs.
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
 | Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |
-| Diagnostics, extraction and counts | D1–D6 | Revalidate current source; preserve numerical/provenance contracts. D7 versions are verified. |
+| Diagnostics, extraction and counts | D1/D2/D4–D6 | Revalidate current source; preserve numerical/provenance contracts. D3 analytical acceptance and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
 | Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
@@ -180,19 +180,6 @@ object. Test missing/undefined/nonfinite metrics, exact boundaries, failed
 checks, and count metadata inconsistent with the actual draws. Investigate
 stale values after transformations without making ordinary writes recompute
 all expensive diagnostics by default.
-
-### D3. Analytical reference draws cannot pass the existing gate — reproduced
-
-Locations: `R/utils_reference_posterior.R` and `R/assert_checked_draws.R`.
-
-The checking functions skip Stan-specific checks for
-`inference$method == "analytical"`, but the final assertion unconditionally
-requires the Stan chain, autocorrelation, R-hat, E-FMI, and divergence flags.
-A 10,000-draw analytical object therefore fails for a missing chain flag.
-
-Define method-specific applicable checks. Do not invent HMC diagnostics or
-stamp them TRUE for analytical draws. Cover both reference-draw and summary
-gates, their writer assertions, and the method-specific metadata schema.
 
 ### D4. Fit extraction is a useful boundary; route workflows consistently
 
