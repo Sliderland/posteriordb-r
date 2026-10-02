@@ -49,4 +49,8 @@ targets. Data values, draws, summaries, and model-code contents are
 preserved; JSON ZIP archives are rebuilt only to change their single member
 filename to match the new database name. All validation and staging happen
 before source files are moved.
+If reserving or installing a file fails, the migration restores the
+original files and removes installed targets. If rollback is incomplete,
+the error identifies unrestored originals and retained backup paths.
+Backups are deleted only after a successful migration or rollback.
 }

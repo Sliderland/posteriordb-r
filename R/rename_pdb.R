@@ -7,6 +7,10 @@
 #' preserved; JSON ZIP archives are rebuilt only to change their single member
 #' filename to match the new database name. All validation and staging happen
 #' before source files are moved.
+#' If reserving or installing a file fails, the migration restores the
+#' original files and removes installed targets. If rollback is incomplete,
+#' the error identifies unrestored originals and retained backup paths.
+#' Backups are deleted only after a successful migration or rollback.
 #'
 #' @param x an object to rename, or a character name.
 #' @param new_name the new name.
@@ -314,9 +318,10 @@ rename_pdb_commit <- function(actions, pdb) {
   backup <- tempfile(".pdb-rename-backup-", tmpdir = dirname(endpoint))
   dir.create(stage, recursive = TRUE, showWarnings = FALSE)
   dir.create(backup, recursive = TRUE, showWarnings = FALSE)
+  keep_backup <- FALSE
   cleanup <- function() {
     unlink(stage, recursive = TRUE, force = TRUE)
-    unlink(backup, recursive = TRUE, force = TRUE)
+    if (!keep_backup) unlink(backup, recursive = TRUE, force = TRUE)
   }
   on.exit(cleanup(), add = TRUE)
 
@@ -337,33 +342,54 @@ rename_pdb_commit <- function(actions, pdb) {
   backed_up <- 0L
   committed <- 0L
   rollback <- function() {
+    keep_backup <<- TRUE
+    failures <- character()
     if (committed > 0L) {
       for (i in seq.int(committed, 1L)) unlink(target_abs[[i]], force = TRUE)
     }
     if (backed_up > 0L) {
       for (i in seq.int(backed_up, 1L)) {
-        if (file.exists(backups[[i]])) {
+        restored <- tryCatch({
           dir.create(dirname(source_abs[[i]]), recursive = TRUE, showWarnings = FALSE)
           file.rename(backups[[i]], source_abs[[i]])
+        }, error = function(error) FALSE)
+        if (!restored) {
+          failures <- c(failures, paste0("Could not restore '", source_abs[[i]],
+            "' from '", backups[[i]], "'."))
         }
       }
     }
-  }
-  for (i in seq_along(action_list)) {
-    if (!file.rename(source_abs[[i]], backups[[i]])) {
-      rollback()
-      stop("Could not reserve source file '", sources[[i]], "'; no changes were kept.", call. = FALSE)
+    remaining_targets <- setdiff(target_abs[seq_len(committed)], source_abs)
+    remaining_targets <- remaining_targets[file.exists(remaining_targets)]
+    if (length(remaining_targets)) {
+      failures <- c(failures, paste0("Could not remove installed target '", remaining_targets, "'."))
     }
-    backed_up <- i
-  }
-  for (i in seq_along(action_list)) {
-    dir.create(dirname(target_abs[[i]]), recursive = TRUE, showWarnings = FALSE)
-    if (!file.rename(staged[[i]], target_abs[[i]])) {
-      rollback()
-      stop("Could not install target file '", targets[[i]], "'; the migration was rolled back.", call. = FALSE)
+    if (length(failures)) {
+      return(paste("Rollback incomplete.", paste(failures, collapse = " "),
+        "Remaining backups retained at", backup))
     }
-    committed <- i
+    keep_backup <<- FALSE
+    "The migration was rolled back."
   }
+  keep_backup <- TRUE
+  tryCatch({
+    for (i in seq_along(action_list)) {
+      if (!file.rename(source_abs[[i]], backups[[i]])) {
+        stop("Could not reserve source file '", sources[[i]], "'.", call. = FALSE)
+      }
+      backed_up <- i
+    }
+    for (i in seq_along(action_list)) {
+      dir.create(dirname(target_abs[[i]]), recursive = TRUE, showWarnings = FALSE)
+      if (!file.rename(staged[[i]], target_abs[[i]])) {
+        stop("Could not install target file '", targets[[i]], "'.", call. = FALSE)
+      }
+      committed <- i
+    }
+  }, error = function(error) {
+    stop(conditionMessage(error), " ", rollback(), call. = FALSE)
+  })
+  keep_backup <- FALSE
   invisible(TRUE)
 }
 

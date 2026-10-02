@@ -3,6 +3,7 @@ context("test-bibliography")
 local_bibliography_fixture <- function(contents = character()) {
   root <- tempfile("pdb-bibliography-")
   cache <- tempfile("pdb-cache-")
+  withr::defer(unlink(c(root, cache), recursive = TRUE), envir = parent.frame())
   dir.create(file.path(root, "bibliography"), recursive = TRUE)
   dir.create(cache)
   reference_path <- file.path(root, "bibliography", "references.bib")
@@ -40,6 +41,7 @@ test_that("append_reference accepts strings and bibentry objects", {
   )
   expect_true(append_reference(c(second, third), pdb))
   expect_equal(length(bibtex::read.bib(fixture$path)), 3L)
+  expect_identical(list.files(dirname(fixture$path)), "references.bib")
 })
 
 test_that("append_reference rejects duplicate keys and entries without writing", {
@@ -134,4 +136,48 @@ test_that("append_reference refuses an invalid existing bibliography", {
   expect_error(append_reference("@misc{new, title={New}}", fixture$pdb),
                "existing bibliography contains an invalid or unsupported")
   expect_identical(readLines(fixture$path), original)
+})
+
+test_that("bibliography replacement failures restore or retain the original bytes", {
+  actual_rename <- base::file.rename
+  for (restore_fails in c(FALSE, TRUE)) {
+    fixture <- local_bibliography_fixture("@misc{original, title={Original}}")
+    before <- readBin(fixture$path, "raw", n = file.info(fixture$path)$size)
+    bibliography(fixture$pdb)
+    testthat::local_mocked_bindings(file.rename = function(from, to) {
+      if (identical(to, fixture$path)) {
+        is_backup <- startsWith(basename(from), "references-bib-backup-")
+        if (!is_backup || restore_fails) return(FALSE)
+      }
+      actual_rename(from, to)
+    }, .package = "base")
+    warnings <- character()
+    error <- withCallingHandlers(tryCatch(
+      append_reference("@misc{new, title={New}}", fixture$pdb), error = identity
+    ), warning = function(warning) {
+      warnings <<- c(warnings, conditionMessage(warning))
+      invokeRestart("muffleWarning")
+    })
+    expect_s3_class(error, "error")
+    expect_match(conditionMessage(error), "Could not commit the updated bibliography")
+    backup <- list.files(dirname(fixture$path), full.names = TRUE,
+      pattern = "^references-bib-backup-")
+    if (restore_fails) {
+      expect_length(warnings, 1L)
+      expect_length(backup, 1L)
+      expect_match(warnings, fixture$path, fixed = TRUE)
+      expect_match(warnings, backup, fixed = TRUE)
+      expect_false(file.exists(fixture$path))
+      expect_identical(readBin(backup, "raw", n = file.info(backup)$size), before)
+      expect_identical(list.files(dirname(fixture$path)), basename(backup))
+      expect_true(actual_rename(backup, fixture$path))
+    } else {
+      expect_length(warnings, 0L)
+      expect_length(backup, 0L)
+      expect_identical(list.files(dirname(fixture$path)), "references.bib")
+    }
+    expect_identical(readBin(fixture$path, "raw", n = file.info(fixture$path)$size), before)
+    cached <- file.path(fixture$cache, "bibliography/references.bib")
+    expect_identical(readBin(cached, "raw", n = file.info(cached)$size), before)
+  }
 })

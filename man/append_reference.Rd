@@ -31,4 +31,7 @@ multiple entries. Before writing, the complete bibliography is checked for
 duplicate citation keys (ignoring case) and duplicate entries. If validation
 fails, the bibliography is left unchanged. Only local posterior database
 connections can be modified.
+If replacement fails, the original bibliography is restored. If restoration
+also fails, the backup is retained and a warning reports its path and the
+original destination. No reference is reported as successfully appended.
 }

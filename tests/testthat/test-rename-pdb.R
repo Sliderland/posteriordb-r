@@ -1,7 +1,9 @@
 context("test-rename-pdb")
 
 make_rename_fixture <- function() {
-  root <- tempfile("posteriordb-rename-")
+  parent <- tempfile("posteriordb-rename-")
+  root <- file.path(parent, "database")
+  withr::defer(unlink(parent, recursive = TRUE), envir = parent.frame())
   dirs <- c(
     "data/info", "data/data", "models/info", "models/stan", "posteriors",
     "reference_posteriors/draws/info", "reference_posteriors/draws/draws",
@@ -9,6 +11,7 @@ make_rename_fixture <- function() {
     "reference_posteriors/summary_statistics/mean_value/mean_value", "alias"
   )
   for (directory in dirs) dir.create(file.path(root, directory), recursive = TRUE)
+  root <- normalizePath(root)
   write_json <- function(object, path) {
     jsonlite::write_json(object, path, pretty = TRUE, auto_unbox = TRUE)
   }
@@ -74,6 +77,12 @@ make_rename_fixture <- function() {
   list(root = root, pdb = pdb_local(root))
 }
 
+rename_fixture_bytes <- function(root) {
+  files <- list.files(root, recursive = TRUE)
+  stats::setNames(lapply(file.path(root, files), function(path)
+    readBin(path, "raw", n = file.info(path)$size)), files)
+}
+
 test_that("data and model renames update the complete local PDB graph", {
   fixture <- make_rename_fixture()
   on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
@@ -134,6 +143,8 @@ test_that("data and model renames update the complete local PDB graph", {
   expect_identical(final_posterior$reference_posterior_name, "data_new-model_new")
   expect_equal(as.character(model_code(final_posterior, "stan")), "parameters {}")
   expect_equal(get_data(final_posterior)$y, c(1, 2))
+  expect_length(list.files(dirname(fixture$root), all.files = TRUE,
+    pattern = "^\\.pdb-rename-(stage|backup)-"), 0L)
 })
 
 test_that("rename rejects unsafe names and collisions without mutation", {
@@ -177,4 +188,73 @@ test_that("posterior-only renames move its reference files and aliases", {
     jsonlite::read_json(file.path(fixture$root, "alias/posteriors.json"), simplifyVector = FALSE)$alias,
     "posterior_new"
   )
+})
+
+test_that("failed reservations and installations restore every original file", {
+  actual_rename <- base::file.rename
+  for (failure in c("reserve", "install", "error")) {
+    fixture <- make_rename_fixture()
+    before <- rename_fixture_bytes(fixture$root)
+    reservations <- installations <- 0L
+    testthat::local_mocked_bindings(file.rename = function(from, to) {
+      if (startsWith(from, paste0(fixture$root, "/")) &&
+          startsWith(basename(dirname(to)), ".pdb-rename-backup-")) {
+        reservations <<- reservations + 1L
+        if (failure == "reserve" && reservations == 2L) return(FALSE)
+      }
+      if (startsWith(basename(dirname(from)), ".pdb-rename-stage-") &&
+          startsWith(to, paste0(fixture$root, "/"))) {
+        installations <<- installations + 1L
+        if (failure != "reserve" && installations == 2L) {
+          if (failure == "error") stop("Injected installation error")
+          return(FALSE)
+        }
+      }
+      actual_rename(from, to)
+    }, .package = "base")
+    expect_error(rename_pdb("data_old", "data_new", type = "data", pdb = fixture$pdb),
+                 "The migration was rolled back")
+    expect_identical(rename_fixture_bytes(fixture$root), before)
+    expect_length(list.files(dirname(fixture$root), all.files = TRUE,
+      pattern = "^\\.pdb-rename-(stage|backup)-"), 0L)
+  }
+})
+
+test_that("incomplete rename rollback retains original bytes and recovery paths", {
+  fixture <- make_rename_fixture()
+  before <- rename_fixture_bytes(fixture$root)
+  original <- file.path(fixture$root, "data/info/data_old.info.json")
+  actual_rename <- base::file.rename
+  installations <- 0L
+  testthat::local_mocked_bindings(file.rename = function(from, to) {
+    if (startsWith(basename(dirname(from)), ".pdb-rename-stage-") &&
+        startsWith(to, paste0(fixture$root, "/"))) {
+      installations <<- installations + 1L
+      if (installations == 2L) return(FALSE)
+    }
+    if (startsWith(basename(dirname(from)), ".pdb-rename-backup-") &&
+        identical(to, original)) return(FALSE)
+    actual_rename(from, to)
+  }, .package = "base")
+  error <- tryCatch(
+    rename_pdb("data_old", "data_new", type = "data", pdb = fixture$pdb), error = identity
+  )
+  expect_s3_class(error, "error")
+  expect_match(conditionMessage(error), "Rollback incomplete")
+  backup <- list.files(dirname(fixture$root), all.files = TRUE, full.names = TRUE,
+    pattern = "^\\.pdb-rename-backup-")
+  expect_length(backup, 1L)
+  retained <- list.files(backup, full.names = TRUE)
+  expect_length(retained, 1L)
+  expect_match(conditionMessage(error), original, fixed = TRUE)
+  expect_match(conditionMessage(error), retained, fixed = TRUE)
+  expect_false(file.exists(original))
+  expect_identical(readBin(retained, "raw", n = file.info(retained)$size),
+                   before[["data/info/data_old.info.json"]])
+  expect_identical(rename_fixture_bytes(fixture$root),
+                   before[names(before) != "data/info/data_old.info.json"])
+  expect_length(list.files(dirname(fixture$root), all.files = TRUE,
+    pattern = "^\\.pdb-rename-stage-"), 0L)
+  expect_true(actual_rename(retained, original))
+  expect_identical(rename_fixture_bytes(fixture$root), before)
 })

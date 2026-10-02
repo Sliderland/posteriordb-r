@@ -607,6 +607,35 @@ Automatic recovery of sampling data from a fit is not supported. The
 importer's `policy = NULL` argument is retained for compatibility: it uses
 the fixed package acceptance checks, and custom policies are rejected.
 
+### Rename and bibliography recovery
+
+`rename_pdb()` stages a migration before moving original data, model,
+posterior, reference, and alias files. `append_reference()` validates and
+stages the updated bibliography before replacing it:
+
+```{r, eval=FALSE}
+rename_pdb("existing_data", "renamed_data", type = "data", pdb = pdbl)
+append_reference("new-reference.bib", pdb = pdbl)
+```
+
+If reserving or installing a rename file fails, the migration attempts to
+restore every moved original and remove installed targets. A successful
+rollback restores the original file bytes and removes temporary backups.
+If rollback is incomplete, the error identifies the original and backup
+paths; the remaining backups are kept for recovery. Other originals are
+still restored where possible.
+
+If bibliography replacement fails, its original file is restored. If that
+restoration also fails, a warning reports the retained backup and its
+intended destination. The append operation raises an error and does not
+report success or invalidate the previously cached bibliography.
+
+After an incomplete rollback, resolve the filesystem problem and restore
+the reported backups to their original paths before continuing database
+writes. These recovery guarantees apply to rename and bibliography
+operations; the whole-bundle writer still performs sequential writes as
+described above.
+
 ## Reconstruct outputs from stored parameter draws
 
 `reconstruct_stan_output()` evaluates a model at existing constrained

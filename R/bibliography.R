@@ -20,6 +20,9 @@ bibliography <- function(pdb, ...) {
 #' duplicate citation keys (ignoring case) and duplicate entries. If validation
 #' fails, the bibliography is left unchanged. Only local posterior database
 #' connections can be modified.
+#' If replacement fails, the original bibliography is restored. If restoration
+#' also fails, the backup is retained and a warning reports its path and the
+#' original destination. No reference is reported as successfully appended.
 #'
 #' @param ref a character string containing one BibTeX entry, a path to a
 #'   `.bib` file, or a `bibentry` object containing one or more entries
@@ -110,10 +113,16 @@ append_bibliography_atomically <- function(path, suffix) {
   committed <- FALSE
   on.exit({
     if (file.exists(replacement)) unlink(replacement)
-    if (!committed && file.exists(backup) && !file.exists(path)) {
-      file.rename(backup, path)
+    if (!committed && file.exists(backup)) {
+      restored <- !file.exists(path) && tryCatch(
+        file.rename(backup, path), error = function(error) FALSE
+      )
+      if (!restored) {
+        warning("Could not restore the original bibliography to '", path,
+          "'; backup retained at '", backup, "'.", call. = FALSE)
+      }
     }
-    if (file.exists(backup)) unlink(backup)
+    if (committed && file.exists(backup)) unlink(backup)
   }, add = TRUE)
 
   con <- file(replacement, open = "wb")
@@ -126,7 +135,6 @@ append_bibliography_atomically <- function(path, suffix) {
     stop("Could not stage the existing bibliography for replacement.", call. = FALSE)
   }
   if (!file.rename(replacement, path)) {
-    file.rename(backup, path)
     stop("Could not commit the updated bibliography.", call. = FALSE)
   }
   committed <- TRUE
