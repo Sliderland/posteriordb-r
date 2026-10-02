@@ -4,7 +4,7 @@ Updated 2026-10-02. Implementation branch: `main`.
 
 The initial sections explain cleanup through `472f867` and checkpoint
 `811b425`. The resumed sections below record subsequent verified units through
-`888b098`, including the interrupted dependency/documentation cleanup. It
+`e93a71f`, including dependency/documentation cleanup and optional-summary errors. It
 describes what each change solves;
 [conversation-handoff.md](conversation-handoff.md) holds the detailed
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
@@ -289,8 +289,8 @@ restarting already-completed P11/P2/P12 work.
 | Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 
-Next priorities are optional-summary read errors (V6) and narrow stale-fit
-compilation fallback (D6). T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
+Next priority is narrow stale-fit compilation fallback (D6). V6 optional-summary
+read errors are verified; its other API choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -599,3 +599,19 @@ Fresh Ponytail audit found one residual output-axis check to verify for a
 roughly3-line cut. Earlier model rename duplication is already gone; GitHub
 helper sharing stays deferred because behavior differs. The final T3 diff was
 reviewed as lean. Read-only agents owe no edits or commits.
+
+
+### Resumed work: optional summaries report read failures — V6 slice
+
+The plural getter previously swallowed every failure, making a corrupt summary
+look absent. It now uses the existing metadata listing to skip unadvertised
+types and reads advertised types normally. Malformed JSON, missing advertised
+payloads and transport errors surface; an unlinked posterior still returns an
+empty list. Metadata remains the availability authority, so orphan payloads are
+not advertised. Remote listing404 is an error, not automatic absence.
+
+Files were clean before editing. Six regressions failed before the repair;
+final summary19, validation39, reference27 and listing24 passed development and
+installed checks, with installed integrity57. Independent review accepted the
+final fixture portability repair and reran19. Help and bundle-guide sources/
+outputs describe this contract. Commit `e93a71f`; V6 retains its other questions.

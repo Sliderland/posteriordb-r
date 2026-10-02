@@ -166,8 +166,9 @@ partial, or deferred.** The authoritative remaining list is the
 S5, D6, P3/P4/P8 and V4/V6. These are tracking groups, not
 7 equally sized bugs. Several require a behavior decision or an audit.
 
-Next unit: V6 optional-summary reads must distinguish absent resources from
-corruption/read failures. Then narrow D6 stale-instance compilation fallback.
+Next unit: narrow D6 stale-instance compilation fallback after confirming
+actual RStan resource state; stronger identity remains a pending choice.
+V6 optional-summary read handling is verified at `e93a71f`.
 T3 and V4 usage examples are complete. Each unit receives its own tests,
 independent frozen review, implementation commit and checkpoint commit. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
@@ -452,6 +453,23 @@ guard (about3 lines) worth checking after this unit. Earlier rename duplication
 and repeated validations are already removed; GitHub downloader sharing remains
 unsafe without reconciling overwrite/return semantics. Sol Ponytail review:
 lean already. Both agents have no edits or commits owed.
+
+### Resumed run — V6 optional-summary slice verified at `e93a71f`
+
+Plural summary access previously caught every read failure and quietly dropped
+that type. The repair uses existing metadata name listings to establish which
+types are advertised, then lets malformed JSON, missing payloads and transport
+errors propagate. Types without metadata remain unadvertised; no reference
+link yields an empty list. Remote directory-listing errors, including404, are
+errors rather than proof of absence. Manual cache policy is unchanged.
+
+Assigned files were clean. Six failing-before regressions became summary19;
+validation39/reference27/listing24 passed development and installed namespace-
+only, and installed integrity57 passed. A fixture-only unexported setter was
+replaced with attribute assignment after independent review. Final independent
+summary19 passed with helpers/export-all disabled; Sol accepted the code/help/
+guide contract and found no complexity cuts. No live GitHub/corpus or broad
+suite rerun was needed. V6 remains open for its other independent choices.
 
 ### Maintainer decisions and questions for later
 

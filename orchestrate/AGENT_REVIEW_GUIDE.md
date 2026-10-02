@@ -241,9 +241,9 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
 - Some public methods accept `...` and ignore unsupported or misspelled
   arguments. Establish where forwarding is intentional and where rejection
   helps; do not blanket-reject legitimate downstream arguments.
-- `reference_posterior_summary_statistics()` catches every read error and
-  treats it as absence. Distinguish missing optional summaries from corrupt
-  metadata, malformed payloads, or transport failure.
+- Optional-summary reads are verified at `e93a71f`: plural access skips
+  types not advertised by metadata and propagates advertised read failures
+  and remote listing errors. No reference link returns an empty list.
 - `remove_pdb.character()` deletes the literal path supplied even if outside
   the connection's endpoint. Clarify whether it is a public arbitrary-path
   API or an internal worker; do not change its semantics without review.
