@@ -166,8 +166,9 @@ partial, or deferred.** The authoritative remaining list is the
 S5, D6, P3/P4/P8 and V4/V6. These are tracking groups, not
 7 equally sized bugs. Several require a behavior decision or an audit.
 
-Next unit: verify the small Ponytail output-axis simplification, retaining
-integer-range validation. Then review remaining API choices with the maintainer.
+Next unit: bounded V6 payload-structure probe (empty/unequal chain/variable
+lengths), then any reproduced structural repair. The audit output-axis cut is
+verified at `fda18a4`. API and finiteness choices remain pending.
 V6 duplicate-variable handling is verified at `ff65fa3`.
 D6 recovery is verified at `c1c3631`; stronger identity remains pending.
 V6 optional-summary handling is verified at `e93a71f`.
@@ -521,6 +522,41 @@ The old V6 summary-return concern was also revalidated without changing code:
 `withVisible(summary(x))` for a public analytical draw object returns a structured
 `draws_summary` invisibly (including the expected theta row) while printing.
 There is no missing return-value bug to fix. Other V6 API choices remain open.
+
+### Resumed run — minimal audit cut verified at `fda18a4`
+
+The final Ponytail audit identified a repeated <=0 output-axis check after
+negative/fractional/nonfinite and zero-size validation. Removing it alone would
+miss integer-conversion overflow. The existing invalid-axis check now also
+rejects axes beyond `.Machine$integer.max`; the duplicate check is deleted.
+No helper/dependency was added and source is2 lines shorter.
+
+Files were clean. The oversized-axis regression failed before with a generic
+missing-value error; final extraction41 passed development and independent
+review. The final installed offline suite passed1,283 assertions with0 failures/
+errors and42 skipped records, with all three integration flags false and a
+nonexistent corpus sentinel. Real backend evidence belongs to the preceding
+D6/T2 units and was not repeated for this boundary simplification.
+
+### Current unanswered implementation choices
+
+Do not infer a choice from elapsed time. These questions are pending:
+
+- D6 stronger source/data identity evidence, beyond the current name/free-count
+  guarantee; bounded schema recovery is complete.
+- V6 whether an existing malformed config should stop `pdb_default()` rather
+  than falling back to another database.
+- V6 whether analytical reference-draw values must be finite. Summary-statistic
+  NA/Inf behavior is separately permissive and documented.
+- P8 custom Stan paths: reject before saving metadata, honor the declared path,
+  or defer. Non-Stan writing stays explicitly deferred.
+- V6 unused lookup arguments: reject extras in `posterior()` or preserve its
+  current compatibility. Intentional argument forwarding stays separate.
+
+Arbitrary-path removal and mixed internal endpoint return forms still need
+contract/caller review before proposing a compatibility change. `summary()`
+already returns a structured result and requires no repair. Keep those facts
+in the existing active queue, not a second backlog.
 
 ### Maintainer decisions and questions for later
 

@@ -207,6 +207,8 @@ support or reject each operation instead of failing after metadata is saved.
 Custom-path writing also remains open. Current writers use conventional Stan
 destinations; the bundle guide documents this limit. Resume with a deliberate
 writer contract and tests before changing support or pre-write rejection.
+The current maintainer question is pending: reject custom-path Stan writes
+before metadata, honor the declared path, or defer that choice.
 
 ## Validation and workflow behavior
 
@@ -239,9 +241,10 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
   are verified at `888b098`. Remaining: `pdb_default()` swallows configuration
   errors and can silently fall back to another database. The maintainer question
   is pending: stop on an existing invalid config, or preserve fallback?
-- Some public methods accept `...` and ignore unsupported or misspelled
-  arguments. Establish where forwarding is intentional and where rejection
-  helps; do not blanket-reject legitimate downstream arguments.
+- Unused-argument choice is pending: `posterior(name, pdb, typo=TRUE)`
+  silently ignores the extra argument. Ask whether to reject extras in this
+  lookup API or preserve compatibility. Do not blanket-reject arguments
+  intentionally forwarded by other methods.
 - Optional-summary reads are verified at `e93a71f`: plural access skips
   types not advertised by metadata and propagates advertised read failures
   and remote listing errors. No reference link returns an empty list.
@@ -254,9 +257,6 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
   `ff65fa3`. Remaining: analytical NA/Inf values can pass count checks;
   the maintainer question about finiteness is pending. Revalidate any further
   malformed-input candidates against these checks before expanding validation.
-- The summary-return concern needs no implementation: a namespace-only probe
-  confirmed `summary()` already prints and invisibly returns a structured
-  `draws_summary`. Preserve it; evidence is in the handoff.
 - `pdb_endpoint.pdb_local()` returns a path when an endpoint is already set,
   but a modified connection object when resolving an unset endpoint. Several
   callers rely on one of those forms. Clarify the contract and, if useful,

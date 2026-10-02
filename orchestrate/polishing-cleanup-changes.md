@@ -4,7 +4,7 @@ Updated 2026-10-02. Implementation branch: `main`.
 
 The initial sections explain cleanup through `472f867` and checkpoint
 `811b425`. The resumed sections below record subsequent verified units through
-`ff65fa3`, including dependency/docs, summary errors, archived-fit recovery and draw labels. It
+`fda18a4`, including dependency/docs, summary errors, archived-fit recovery and draw labels. It
 describes what each change solves;
 [conversation-handoff.md](conversation-handoff.md) holds the detailed
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
@@ -289,8 +289,9 @@ restarting already-completed P11/P2/P12 work.
 | Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 
-Next is the bounded output-axis audit simplification. D6 recovery and V6
-optional-summary/draw-label repairs are verified; policy choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
+Next is a bounded V6 payload-structure probe before any further structural fix.
+D6 recovery, V6 summary/draw-label repairs and the audit cut are verified;
+policy choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -653,3 +654,19 @@ wrapping remains supported. Help regenerated; commit `ff65fa3`.
 V6's supposed missing structured summary return was source/runtime checked:
 `summary()` already returns an invisible `draws_summary` while printing it.
 No implementation or summary-return policy change is needed.
+
+
+### Resumed work: remove the final repeated output-axis guard — Ponytail audit
+
+The audit suggested removing a redundant positivity check after shape validation.
+A bounded source check found that integer conversion also needs a representable
+range. The existing validation now rejects axes above `.Machine$integer.max`,
+then the duplicate guard is removed. This reduces source by2 lines and makes
+an oversized malformed shape fail with the correct validation error.
+
+Files were clean. Oversized regression failed before; final extraction41 passed
+development and independent review. Commit `fda18a4`. The final installed offline
+suite passed1,283 assertions with0 failures/errors and42 skipped records. No
+backend or platform matrix was rerun for this small boundary change. Broader
+identity/API/numerical choices remain in the handoff's unanswered-choice list;
+explicitly deferred cache/setter/non-Stan/batch/rollback work stays deferred.
