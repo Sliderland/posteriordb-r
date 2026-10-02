@@ -16,10 +16,10 @@ create_pdb_bundle(
 \method{create_pdb_bundle}{stanfit}(
   fit,
   data = NULL,
-  model_code = NULL,
-  posterior = NULL,
   added_by = unname(Sys.info()[["user"]]),
   added_date = Sys.Date(),
+  model_code = NULL,
+  posterior = NULL,
   data_info = list(),
   model_info = list(),
   posterior_info = list(),
@@ -141,6 +141,8 @@ from `include`. Excluding them is an error. Derived outputs do not change
 the inferred posterior dimensions.
 
 
+The first four positional arguments are `fit`, `data`, `added_by`, and
+`added_date`. Supply all other options by name through the generic.
 The default workflow uses a Stan input list and data/model metadata.
 Alternatively, `data` can be a `pdb_data` object or saved data name, and
 `model_code` and `posterior` can each be supplied as existing objects or

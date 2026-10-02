@@ -144,7 +144,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
     list(data_info = list(name = "d", title = "D"), data_info = list(name = "d", title = "D")))),
     "Duplicate argument")
   expect_error(do.call(create_pdb_bundle, list(fit = fit, data = list(),
-    list(name = "d", title = "D"))), "Must inherit from class 'pdb_model_code'")
+    list(name = "d", title = "D"))), "added_by.*string")
 })
 
 test_that("unchecked bundles skip diagnostic calculation", {
@@ -179,13 +179,30 @@ test_that("unchecked bundles skip diagnostic calculation", {
     .package = "posteriordb"
   )
 
-  bundle <- create_pdb_bundle(
-    structure(list(), class = "stanfit"),
-    data = list(),
+  fit <- structure(list(), class = "stanfit")
+  options <- list(
     data_info = list(name = "unchecked-data", title = "Unchecked data"),
     model_info = list(name = "unchecked-model", title = "Unchecked model"),
     check = FALSE
   )
+  bundle <- do.call(create_pdb_bundle, c(list(fit = fit, data = list()), options))
+
+  date <- as.Date("2026-10-01")
+  for (arguments in list(
+    list(fit, list(), "Reviewer", date),
+    list(fit = fit, data = list(), added_by = "Reviewer", added_date = date)
+  )) {
+    annotated <- do.call(create_pdb_bundle, c(arguments, options))
+    for (metadata in list(info(annotated$data), info(annotated$model_code),
+                          annotated$posterior, info(annotated$reference_draws))) {
+      expect_identical(metadata$added_by, "Reviewer")
+      expect_identical(metadata$added_date, date)
+    }
+  }
+  expect_identical(info(bundle$data)$added_by, unname(Sys.info()[["user"]]))
+  expect_identical(info(bundle$data)$added_date, Sys.Date())
+  expect_error(create_pdb_bundle(fit, list(), NULL, date), "added_by.*string")
+  expect_error(create_pdb_bundle(fit, list(), "Reviewer", NULL), "added_date.*Date")
 
   expect_false(diagnostic_called)
   expect_null(bundle$diagnostics)

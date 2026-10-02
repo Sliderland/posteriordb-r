@@ -204,11 +204,13 @@ Pass the same input list used for sampling, along with the required
 names and titles for the data and model. `added_by` and `added_date` are
 shared defaults for the objects in the bundle. `added_date` defaults to
 `Sys.Date()`; supply a Date such as `as.Date("2026-09-30")` to override
-it. A value in an individual metadata list takes precedence.
-`posterior_info` also accepts the optional character fields `urls`,
-`references`, and `keywords`; supplied values are written to the
-posterior JSON. If posterior keywords are omitted, the posterior JSON
-writes `"keywords": null`.
+it. A value in an individual metadata list takes precedence. The first
+four positional arguments are `fit`, `data`, `added_by`, and
+`added_date`. Supply other options, including `model_code` and
+`posterior`, by name. `posterior_info` also accepts the optional
+character fields `urls`, `references`, and `keywords`; supplied values
+are written to the posterior JSON. If posterior keywords are omitted,
+the posterior JSON writes `"keywords": null`.
 
 For model metadata, `framework = "stan"` is a convenience form: the
 bundle constructor creates `model_implementations$stan` for you, using
