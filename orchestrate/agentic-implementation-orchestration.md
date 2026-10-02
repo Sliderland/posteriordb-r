@@ -146,7 +146,7 @@ Suggested order for confirmed defects:
 | Review remaining remove/API boundaries | Relevant V6 | Write/cache containment and archive checks are verified (P9). Clarify arbitrary-path removal semantics before changing compatibility. |
 | Repair public object/S3 contracts | S2, S4, S5 | Align signatures/registration, preserve connection/framework inputs, and support documented subclass behavior. Do not make every helper generic. |
 | Repair database/object checking | V2 | In-memory checking actually checks the supplied object. |
-| Repair lookup/path/reader contracts | P5–P8, P10 | Follow explicit metadata links and correct type/framework paths; handle dots, empty databases, and distinct reference names. |
+| Repair lookup/path/reader contracts | P5, P6, P8, P10 | Follow explicit metadata links and correct framework paths; handle dots, empty databases, and distinct reference names. |
 | Normalize other validation | V3, V4, remaining V6 | Validate summary fields/lengths and batch options; distinguish missing optional resources from malformed ones. |
 | Consolidate applicable diagnostics | D1–D3 | Shared numerical workers and required-check evaluation, preserving fixed thresholds, selective/deferred behavior, and analytical applicability. |
 | Align backend behavior and evidence | D4, D5, D7, V5 | Reuse extraction where contracts match; correct counts, metadata schema, and option translation. Verify changed real backend interfaces. |

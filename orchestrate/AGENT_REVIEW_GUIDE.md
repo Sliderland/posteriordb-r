@@ -361,19 +361,6 @@ for empty directories. Filter actual JSON/info filenames before stripping
 suffixes; unrelated files or subdirectories must not become object names.
 Test `.DS_Store`, multi-dot names, `.info.json`, ordinary `.json`, and no files.
 
-### P7. Summary reference-name listing uses the wrong path — confirmed
-
-Locations: `reference_posterior_names.pdb_local()` and its GitHub method.
-
-For `type = "mean_value"`, the local method looks under
-`reference_posteriors/mean_value/info` rather than
-`reference_posteriors/summary_statistics/mean_value/info`. The GitHub method
-does not consume `type` and always lists draws/info.
-
-Share a type-to-path mapping across listing, reading, writing, and removal.
-Test draws and both summary types using a local fixture and mocked transport
-responses; no live GitHub account is needed to verify path selection.
-
 ### P8. Framework extension logic is already available but bypassed
 
 Locations: `model_code_file_path.character()`, model removal,
