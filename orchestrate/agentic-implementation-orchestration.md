@@ -141,7 +141,6 @@ Suggested order for confirmed defects:
 | Work area | Finding IDs | Scope and required result |
 | --- | --- | --- |
 | Test isolation for the selected work | T1 | Use disposable databases before any write/remove test. Refactor unsafe legacy harness/tests before a broad suite run. This need not delay isolated bug probes. |
-| Invalidate obsolete acceptance evidence | P1 | Supported transformations invalidate draw-dependent checks/counts; writers cannot accept stale evidence for changed draws. |
 | Preserve recoverable files | P4 | Failed restoration keeps backups and reports their locations; required write failures have a defined recovery contract. Handle existing rollback defects before adding transaction machinery. |
 | Deferred: cache contract | P3 | Maintainer deferred this on 2026-10-02; preserve current manual refresh until resumed. Original proposal: Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
 | Validate write/remove boundaries | P9, relevant V6 | Reject unsafe resource/path inputs before mutation using shared existing validation. Keep resource names distinct from implementation paths. |

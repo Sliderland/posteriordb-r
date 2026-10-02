@@ -84,17 +84,7 @@ not silently change numerical policy to match a sentence in a document.
 Locations: `NAMESPACE`, `R/reference_posterior.R`,
 `R/compute_reference_posterior_draws_stan_sampling.R`, `R/pdb.R`.
 
-`thin_draws.pdb_reference_posterior_draws` is exported but lacks an S3method
-entry for the external `posterior::thin_draws` generic. In a fresh installed
-package loaded with `requireNamespace()`, the posterior namespace's S3 method
-registry had no entry for it. Attaching the package can make an exported
-method discoverable, concealing this difference. Development loading can
-also conceal registration defects.
-
-Register external methods using appropriate roxygen directives and regenerate
-NAMESPACE. Verify in a clean subprocess using namespace-qualified public
-calls, without attaching posteriordb first. The current thinning test calls
-the method directly, which cannot establish external-generic registration.
+External thinning registration and stale transformation evidence were verified in the P1 unit; see the handoff checkpoint. Remaining S2 work follows.
 
 Also inspect internal calls such as `run_stan.pdb_posterior()` and
 `posterior.character()`: call a generic where subclass dispatch is intended;
@@ -294,32 +284,6 @@ it. Test helper/validator agreement and backend-only dependency environments.
 Preserve unknown original versions honestly rather than manufacturing them.
 
 ## Persistence, transformations, names, and cache
-
-### P1. Thinning/subsetting retain stale evidence — reproduced, priority open
-
-Location: `R/reference_posterior.R`, thinning and subset methods.
-
-Thinning retains the old count and acceptance flags. Variable subsetting
-retains diagnostics for removed variables. These are object-consistency
-problems even when the transformed object is used only for analysis.
-
-The maintainer reasonably questioned the likelihood of writing thinned
-reference draws. Collision protection prevents an ordinary replacement when
-files already exist, but the individual writer trusts stored flags rather
-than rerunning the checks. In a disposable fixture, the exported thinning
-method reduced a checked 10,000-draw object to 5,000, its acceptance assertion
-still passed, and `write_pdb(..., write_summary_statistics = FALSE)` wrote the
-5,000 draws when the associated posterior existed but reference files did not.
-The persisted metadata still reported 10,000. This does not establish that
-every write route/default invocation accepts that object.
-
-Decide whether transformations return analysis objects or retain database
-candidate status. If retaining that status, invalidate affected checks and
-update counts, per-variable diagnostics, and retained sampler inputs.
-Subsetting variables need not invalidate diagnostics for unchanged variables;
-thinning changes the draws themselves. Test public generic calls as well as
-the direct method. Leave priority to the maintainer; do not make blanket
-recomputation of all diagnostics the default fix.
 
 ### P3. Ordinary writes/removals leave stale cache entries — deferred by maintainer
 

@@ -95,9 +95,11 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | P9 | Partial at `587bb86`, simplified at `8e5de0c`: names and local destination containment guarded; focused development and installed checks passed. Common cache archive-member validation remains open. |
 | P3 | Deferred by maintainer on 2026-10-02. Preserve existing manual cache refresh; retain the issue in the active guide for later decision. |
 | S3 | Verified at `a5ef7c9`: shared coercion retains and validates an explicit connection; thinning forwards it, standalone NULL remains supported, JSON excludes connection attributes. Regression failed with eight assertions before repair and passed all 16 afterward. Installed reference-connections, import-external-stanfit (50 assertions, real RStan), and bundle-write-integrity (40 assertions) passed. Independent Sol 6.1/high review found no defects and reran the 16-assertion regression against repository sources. |
-| S2, S4, S5 | Open; revalidate against current source. |
+| S2 | Partial at `5f93031`: external thinning registration verified without attaching the package. Direct-method calls and subclass contracts remain open. |
+| S4, S5 | Open; revalidate against current source. |
 | D1–D7 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
-| P1, P5–P8, P10 | Open; P1 is the next integrity unit. |
+| P1 | Verified at `5f93031`: transformations clear obsolete evidence, retain correct counts/connections, align variable diagnostics and raw sampler inputs; actual-count guards reject forged flags. Initial regression had 14 failures; final 28 assertions pass. Independent Sol review found and then verified repairs for reordered unnamed metrics and adaptive thinning; only fixed positive integer periods are supported. Namespace-only installed transformation and path tests passed (28 and 170 assertions); connections, generic acceptance, deferred checks, integrity, real-RStan imports, diagnostics and lag checks also passed, with one configured-corpus ESS test skipped. `tools::checkS3methods(dir = ".")` passed. Guide/help regenerated. |
+| P5–P8, P10 | Open; revalidate against current source. |
 | V2–V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
 | T1–T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Legacy harness isolation, complementary backend coverage, and broader public documentation remain open. |
 
@@ -106,6 +108,9 @@ legacy tests mutate it. Do not run that harness until isolated. Focused tests
 must use inspected disposable fixtures. Existing passing runs are evidence
 for their listed commits only; new changes require new checks.
 
-Active unit: P1 inventory completed (read-only Luna/medium); coordinator owns all edits.
-Next: reproduce stale transformation evidence, settle the narrow retention
-contract, repair the shared cause, test, freeze for independent review, commit.
+No writer/reviewer owns an unfinished patch. Completed issues are removed
+from the active guide; this checkpoint and Git retain their evidence.
+Next: finish P9's common cache archive validation, then remaining small
+object/lookup contracts. T1 harness inventory completed: configured corpus
+must be copied to a disposable tree; set both option and environment path.
+Never run the current broad harness against a user database.
