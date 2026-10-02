@@ -385,6 +385,69 @@ test_that("a failed linked import restores the posterior record", {
   expect_null(jsonlite::read_json(post_file)$reference_posterior_name)
 })
 
+test_that("incomplete import rollback reports installed and backup paths", {
+  actual_rename <- base::file.rename
+  actual_unlink <- base::unlink
+  run_case <- function(warn) {
+    withr::local_options(warn = warn)
+    pdb <- linked_local_pdb()
+    withr::defer(unlink(pdb$pdb_local_endpoint, recursive = TRUE))
+    source_draws <- checked_import_fixture(123)
+    posteriordb:::write_imported_reference_posterior_draws(
+      source_draws, pdb, overwrite = FALSE,
+      linked_posterior = posterior("external-data-external-model", pdb),
+      write_summary_statistics = FALSE
+    )
+    original <- file.path(pdb$pdb_local_endpoint, "reference_posteriors/draws/info",
+      "external-import-round-trip.info.json")
+    original_bytes <- readBin(original, "raw", n = file.info(original)$size)
+    draw_file <- file.path(pdb$pdb_local_endpoint, "reference_posteriors/draws/draws",
+      "external-import-round-trip.json.zip")
+    original_draws <- readBin(draw_file, "raw", n = file.info(draw_file)$size)
+    testthat::local_mocked_bindings(
+      file.rename = function(from, to) {
+        if (grepl(".import-backup-", from, fixed = TRUE) && identical(to, original))
+          return(FALSE)
+        actual_rename(from, to)
+      },
+      unlink = function(x, ...) {
+        if (identical(x, original)) return(1L)
+        actual_unlink(x, ...)
+      }, .package = "base"
+    )
+    original_verifier <- posteriordb:::verify_imported_reference_posterior
+    testthat::local_mocked_bindings(
+      verify_imported_reference_posterior = function(pdb, expected, fresh_cache = FALSE) {
+        if (fresh_cache) stop("injected verification failure")
+        original_verifier(pdb, expected, fresh_cache)
+      }, .package = "posteriordb"
+    )
+    warnings <- character()
+    operation <- function() tryCatch(
+      posteriordb:::write_imported_reference_posterior_draws(
+        checked_import_fixture(456), pdb, overwrite = TRUE,
+        linked_posterior = posterior("external-data-external-model", pdb),
+        write_summary_statistics = FALSE
+      ), error = identity)
+    error <- if (warn == 2) operation() else withCallingHandlers(operation(), warning = function(warning) {
+        warnings <<- c(warnings, conditionMessage(warning))
+        invokeRestart("muffleWarning")
+      })
+    if (warn == 2) warnings <- conditionMessage(error)
+    expect_match(conditionMessage(error), if (warn == 2) "Could not remove installed" else "injected verification failure")
+    backup <- list.files(dirname(original), full.names = TRUE,
+      pattern = "[.]import-backup-")
+    expect_length(backup, 1L)
+    expect_true(any(grepl("Could not remove installed", warnings, fixed = TRUE)))
+    expect_true(any(grepl(original, warnings, fixed = TRUE)))
+    expect_true(any(grepl(backup, warnings, fixed = TRUE)))
+    expect_identical(readBin(backup, "raw", n = file.info(backup)$size), original_bytes)
+    expect_true(file.exists(original))
+    expect_identical(readBin(draw_file, "raw", n = file.info(draw_file)$size), original_draws)
+  }
+  for (warn in c(0, 2)) run_case(warn)
+})
+
 cmdstanr_fit_fixture <- function(iterations = 40L, chains = 2L) {
   set.seed(2026)
   draws <- array(

@@ -270,6 +270,9 @@ as_reference_posterior_draws_from_cmdstanr <- function(
 #' posterior link are staged and round-trip verified together. The target
 #' posterior must already exist in the local database. Existing data and model
 #' files are not rewritten.
+#' On failure the importer attempts to remove installed files and restore
+#' originals. If rollback is incomplete, warnings identify remaining installed
+#' files and retained backups with their intended destinations for recovery.
 #'
 #' The importer selects all scalar output columns for each base variable in the
 #' posterior dimensions plus additional outputs named in `include`. `exclude`
@@ -1065,18 +1068,22 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
   committed <- FALSE
   on.exit({
     if (!committed) {
+      failures <- character()
       for (path in installed) {
-        if (file.exists(path)) unlink(path)
+        if (file.exists(path) && tryCatch(unlink(path), error = function(error) 1L) != 0L) {
+          failures <- c(failures, paste0("Could not remove installed reference-posterior file: ", path))
+        }
       }
       for (original in names(backups)) {
         backup <- backups[[original]]
         if (file.exists(backup)) {
-          if (!file.rename(backup, original)) {
-            warning("Could not restore original reference-posterior file: ", original,
-                    call. = FALSE)
+          if (!tryCatch(file.rename(backup, original), error = function(error) FALSE)) {
+            failures <- c(failures, paste0("Could not restore original reference-posterior file: ",
+              original, "; backup retained at: ", backup))
           }
         }
       }
+      if (length(failures)) warning(paste(failures, collapse = "\n"), call. = FALSE)
     }
   }, add = TRUE)
   for (path in final_files[file.exists(final_files)]) {

@@ -66,6 +66,9 @@ reference-draw files, summary-statistic files (by default), and any new
 posterior link are staged and round-trip verified together. The target
 posterior must already exist in the local database. Existing data and model
 files are not rewritten.
+On failure the importer attempts to remove installed files and restore
+originals. If rollback is incomplete, warnings identify remaining installed
+files and retained backups with their intended destinations for recovery.
 }
 \details{
 The importer selects all scalar output columns for each base variable in the

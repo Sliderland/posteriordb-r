@@ -172,11 +172,15 @@ generated quantities cannot generally be recovered exactly.
 
 The importer stages the reference-draw files, summaries, and any
 required posterior-link update, checks their round trip, and restores
-originals if the operation fails. This is its transactional import path;
-it differs from the sequential whole-bundle writer below. Updating a
-previously empty posterior link is allowed with `overwrite = FALSE`;
-that flag controls replacement of existing draw and summary files.
-Conversion-only helpers `as_reference_posterior_draws()`,
+originals if the operation fails. If rollback cannot remove an installed
+file or restore an original, warnings identify the remaining installed
+files and retained backups with their intended destinations. Resolve the
+filesystem problem and restore the reported backups before continuing
+writes. This is its transactional import path; it differs from the
+sequential whole-bundle writer below. Updating a previously empty
+posterior link is allowed with `overwrite = FALSE`; that flag controls
+replacement of existing draw and summary files. Conversion-only helpers
+`as_reference_posterior_draws()`,
 `as_reference_posterior_draws_from_stanfit()`, and
 `as_reference_posterior_draws_from_cmdstanr()` accept the same selection
 arguments and return checked draws without writing.
@@ -794,12 +798,14 @@ rename_pdb("existing_data", "renamed_data", type = "data", pdb = pdbl)
 append_reference("new-reference.bib", pdb = pdbl)
 ```
 
-If reserving or installing a rename file fails, the migration attempts
-to restore every moved original and remove installed targets. A
-successful rollback restores the original file bytes and removes
-temporary backups. If rollback is incomplete, the error identifies the
-original and backup paths; the remaining backups are kept for recovery.
-Other originals are still restored where possible.
+Rename checks the ZIP command result, member name and extracted payload
+bytes before moving any original files. A staging failure leaves
+originals intact. If reserving or installing a rename file fails, the
+migration attempts to restore every moved original and remove installed
+targets. A successful rollback restores the original file bytes and
+removes temporary backups. If rollback is incomplete, the error
+identifies the original and backup paths; the remaining backups are kept
+for recovery. Other originals are still restored where possible.
 
 If bibliography replacement fails, its original file is restored. If
 that restoration also fails, a warning reports the retained backup and

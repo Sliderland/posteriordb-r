@@ -81,3 +81,26 @@ test_that("cache paths reject traversal and escaping symlinks before mutation", 
   expect_length(pdb_cache_path(fixture$pdb, character()), 0L)
   expect_length(pdb_cache_path(fixture$pdb, c("data/a.json", "data/b.json")), 2L)
 })
+
+test_that("a failed plain-file copy reports the failed destination", {
+  for (failure in c("status", "error")) {
+    fixture <- cache_archive_fixture("value.json")
+    copies <- 0L
+    testthat::local_mocked_bindings(pdb_file_copy = function(pdb, from, to, ...) {
+      copies <<- copies + 1L
+      writeLines(if (copies == 1L) "partial" else "complete", to)
+      if (copies == 1L) {
+        if (failure == "error") stop("injected copy failure")
+        return(FALSE)
+      }
+      TRUE
+    }, .package = "posteriordb")
+    destination <- file.path(fixture$cache, "data/data/value.json")
+    expect_error(pdb_cached_local_file_path(fixture$pdb, "data/data/value.json"),
+      if (failure == "status") destination else "injected copy failure", fixed = TRUE)
+    expect_false(file.exists(destination))
+    path <- pdb_cached_local_file_path(fixture$pdb, "data/data/value.json")
+    expect_identical(readLines(path), "complete")
+    expect_identical(copies, 2L)
+  }
+})

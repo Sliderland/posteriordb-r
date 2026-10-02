@@ -83,6 +83,34 @@ rename_fixture_bytes <- function(root) {
     readBin(path, "raw", n = file.info(path)$size)), files)
 }
 
+test_that("failed ZIP staging leaves every original file intact", {
+  actual_zip <- utils::zip
+  for (failure in c("status", "member", "payload")) {
+    fixture <- make_rename_fixture()
+    before <- rename_fixture_bytes(fixture$root)
+    oldwd <- getwd()
+    testthat::local_mocked_bindings(zip = function(zipfile, files, ...) {
+      if (failure == "member") files <- "wrong.json"
+      if (failure == "member") writeLines("{}", files)
+      actual_zip(zipfile, files, ...)
+      if (failure == "payload") {
+        bytes <- readBin(zipfile, "raw", n = file.info(zipfile)$size)
+        name_length <- sum(as.integer(bytes[27:28]) * c(1, 256))
+        extra_length <- sum(as.integer(bytes[29:30]) * c(1, 256))
+        payload <- 31L + name_length + extra_length
+        bytes[payload] <- as.raw(bitwXor(as.integer(bytes[payload]), 255L))
+        writeBin(bytes, zipfile)
+      }
+      if (failure == "status") 1L else 0L
+    }, .package = "utils")
+    expect_error(rename_pdb("data_old", "data_new", type = "data", pdb = fixture$pdb))
+    expect_identical(rename_fixture_bytes(fixture$root), before)
+    expect_identical(getwd(), oldwd)
+    expect_length(list.files(dirname(fixture$root), all.files = TRUE,
+      pattern = "^\\.pdb-rename-(stage|backup)-"), 0L)
+  }
+})
+
 test_that("data and model renames update the complete local PDB graph", {
   fixture <- make_rename_fixture()
   on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)

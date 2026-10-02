@@ -245,10 +245,21 @@ rename_pdb_stage_zip <- function(source, destination, member_name) {
   if (!file.rename(old_member, new_member)) {
     stop("Could not rename ZIP member '", member, "'.", call. = FALSE)
   }
+  checksum <- unname(tools::md5sum(new_member))
   oldwd <- setwd(extraction)
   on.exit(setwd(oldwd), add = TRUE)
   zip_destination <- paste0(destination, ".zip")
-  utils::zip(zip_destination, files = member_name, flags = "-jq")
+  status <- utils::zip(zip_destination, files = member_name, flags = "-jq")
+  if (status != 0L || !file.exists(zip_destination)) {
+    stop("Could not create staged ZIP archive.", call. = FALSE)
+  }
+  if (!identical(pdb_json_archive_member(zip_destination), member_name)) {
+    stop("Staged ZIP archive contains the wrong JSON member.", call. = FALSE)
+  }
+  pdb_extract_json_archive(zip_destination, member_name, extraction)
+  if (!identical(unname(tools::md5sum(new_member)), checksum)) {
+    stop("Staged ZIP archive changed the JSON payload.", call. = FALSE)
+  }
   if (!file.rename(zip_destination, destination)) {
     stop("Could not finalize staged ZIP archive.", call. = FALSE)
   }

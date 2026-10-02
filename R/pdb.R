@@ -481,7 +481,14 @@ pdb_cached_local_file_path <- function(pdb, path, unzip = FALSE){
     cp <- pdb_cache_path(pdb, path)
     checkmate::assert_file_exists(cp)
   } else {
-    pdb_file_copy(pdb, from = path, to = cp, overwrite = TRUE)
+    tryCatch({
+      if (!pdb_file_copy(pdb, from = path, to = cp, overwrite = TRUE)) {
+        stop("Could not copy file to cache: ", cp, call. = FALSE)
+      }
+    }, error = function(error) {
+      unlink(cp)
+      stop(error)
+    })
   }
 
   return(cp)

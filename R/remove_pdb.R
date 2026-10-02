@@ -7,6 +7,8 @@
 #'   `remove_info = TRUE` also removes the model's info JSON; use `FALSE` to
 #'   retain metadata for other implementations. Refresh the connection or
 #'   clear its cache before reading after removal.
+#'   A failed removal raises an error identifying the file. Metadata is removed
+#'   only after its payload has been removed successfully.
 #'
 #' @param x an object to remove to the pdb.
 #' @param pdb the pdb to remove from. Currently only a local pdb.
@@ -24,7 +26,8 @@ remove_pdb <- function(x, pdb, ...){
 #' @export
 remove_pdb.character <- function(x, pdb, ...){
   checkmate::assert_file_exists(x)
-  file.remove(x)
+  if (!file.remove(x)) stop("Could not remove file: ", x, call. = FALSE)
+  TRUE
 }
 
 #' @rdname remove_pdb

@@ -52,6 +52,29 @@ test_that("legacy PyMC metadata without a code path uses its conventional Python
   expect_false(file.exists(source))
 })
 
+test_that("failed code removal preserves its metadata and reports the path", {
+  root <- normalizePath(withr::local_tempdir(), winslash = "/")
+  dir.create(file.path(root, "cache"))
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb"))
+  metadata <- as.pdb_model_info(list(name = "model", title = "Model", framework = "stan",
+    added_by = "test", added_date = Sys.Date()))
+  write_pdb(metadata, connection)
+  source <- file.path(root, "models/stan/model.stan")
+  dir.create(dirname(source), recursive = TRUE)
+  writeLines("parameters {}", source)
+  code <- model_code(metadata, "stan", connection)
+  removed <- character()
+  testthat::local_mocked_bindings(file.remove = function(...) {
+    removed <<- c(removed, ...)
+    FALSE
+  }, .package = "base")
+  expect_error(remove_pdb(code, connection), source, fixed = TRUE)
+  expect_identical(removed, source)
+  expect_true(file.exists(source))
+  expect_true(file.exists(file.path(root, "models/info/model.info.json")))
+})
+
 test_that("posterior code and file-path getters use the same supplied metadata", {
   root <- tempfile("posterior-model-path-")
   for (path in c("data", "models/stan", "posteriors", "cache"))
