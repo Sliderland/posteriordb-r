@@ -10,6 +10,10 @@
 #' named outer list must use the workflow names. A single unnamed nested
 #' sampling list is shared by all workflows. These arguments replace the method arguments in
 #' each reference-posterior info object for this run.
+#' To avoid ambiguity with nested shared arguments, use an unnamed outer list
+#' for per-workflow settings, in workflow order. A named nested list whose keys
+#' do not match workflow names is currently treated as shared sampler arguments;
+#' it is not necessarily rejected as a misspelled workflow map.
 #'
 #' @param reference_posteriors a non-empty list of
 #'   [pdb_reference_posterior_info] objects.

@@ -140,7 +140,7 @@ pdb_default <- function(cache_path = tempdir()){
 #' @export
 pdb_config <- function(directory = getwd()){
   if (!requireNamespace("yaml", quietly = TRUE)) stop("The `yaml` package is required for pdb_config().", call. = FALSE)
-  obj <- yaml::read_yaml(file.path(directory, ".pdb_config.yml"))
+  obj <- yaml::read_yaml(file.path(directory, ".pdb_config.yml"), eval.expr = FALSE)
   checkmate::assert_list(obj)
   checkmate::assert_choice(obj[["type"]], supported_pdb_types())
   pdb_fun <- switch(obj[["type"]], local = pdb_local, github = pdb_github)
@@ -329,6 +329,9 @@ reference_posterior_names.pdb_local <- function(pdb = pdb_default(), type, ...) 
 
 #' @export
 print.pdb <- function(x, ...) {
+  if (!is.null(x$.pdb_config.yml) && !requireNamespace("yaml", quietly = TRUE)) {
+    stop("The `yaml` package is required to print a configured connection.", call. = FALSE)
+  }
   cat0("Posterior Database (", pdb_type(x), ")\n")
   cat0("Path: ", x$pdb_id, "\n")
   cat0("Version:\n")
@@ -336,7 +339,6 @@ print.pdb <- function(x, ...) {
     cat0("  ", vn, ": ", x$version[[vn]], "\n")
   }
   if(!is.null(x$.pdb_config.yml)){
-    if (!requireNamespace("yaml", quietly = TRUE)) stop("The `yaml` package is required to print a configured connection.", call. = FALSE)
     cat0("\n.pdb_config.yml:\n")
     prt <- paste0("  ", yaml::as.yaml(x$.pdb_config.yml))
     cat0(gsub(prt, pattern = "\n", replacement = "\\\n  "))

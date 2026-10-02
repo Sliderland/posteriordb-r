@@ -80,6 +80,9 @@ Create a Posterior Database (pdb) connection
 }
 \details{
 Connect to a posterior database locally or in a github repo.
+YAML configuration requires the optional `yaml` package. GitHub connections
+require `remotes`; downloading file content also requires `httr`. Local
+database access does not require these packages or a Stan backend.
 
 [pdb_config()] read  [.pdb_config.yml] in [directory] and use that to setup a
 pdb connection.

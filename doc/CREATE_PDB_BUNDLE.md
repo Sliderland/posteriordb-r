@@ -12,6 +12,8 @@
   - [Choose when to compute
     diagnostics](#choose-when-to-compute-diagnostics)
   - [Choose variables](#choose-variables)
+  - [Run existing reference workflows
+    sequentially](#run-existing-reference-workflows-sequentially)
   - [Write the objects](#write-the-objects)
     - [Rename and bibliography
       recovery](#rename-and-bibliography-recovery)
@@ -584,6 +586,51 @@ parameter-block variables and also allows saved derived variables in
 existing dimensions. Existing scalar counts that describe constrained
 rather than unconstrained dimensions can still fail import, and bundle
 reuse remains stricter about the complete inferred map.
+
+## Run existing reference workflows sequentially
+
+`sequential_batch_workflow()` takes a list of reference-info objects
+declaring `stan_sampling`. Each object’s `name` identifies the posterior
+to sample; names on the outer list label workflows and match
+per-workflow settings. Supply an explicit connection and inspect each
+result. For two prepared objects:
+
+``` r
+workflows <- list(a = reference_info_a, b = reference_info_b)
+
+# One shared argument list, including ordinary nested control/init values.
+shared <- list(iter = 5000, warmup = 2500, chains = 4,
+               control = list(adapt_delta = 0.95))
+results <- sequential_batch_workflow(workflows, sampling = shared, pdb = pdbl,
+                                    write = FALSE, on_error = "continue")
+
+# An explicit single-list wrapper also means shared settings.
+results <- sequential_batch_workflow(workflows, sampling = list(shared), pdb = pdbl)
+
+# Per-workflow settings: unnamed entries follow the workflow order.
+per_workflow <- list(list(iter = 5000, warmup = 2500, chains = 4),
+                     list(iter = 6000, warmup = 3500, chains = 4))
+results <- sequential_batch_workflow(workflows, sampling = per_workflow, pdb = pdbl)
+
+# Matching workflow names allow reordering when unambiguous.
+named_settings <- list(b = per_workflow[[2]], a = per_workflow[[1]])
+results <- sequential_batch_workflow(workflows, sampling = named_settings, pdb = pdbl)
+```
+
+Prefer the unnamed per-workflow form when workflow names overlap sampler
+option names. A named nested list such as
+`list(wrong = list(iter = 20))` is currently treated as shared sampler
+arguments, rather than a rejected workflow map. Check the names
+yourself; automatic rejection of ambiguous maps is deferred. Use
+`list(shared)` to state a shared configuration explicitly.
+
+With `on_error = "continue"`, later workflows still run after a failure.
+With `"stop"`, remaining records have status `"not_run"`. Results retain
+the supplied sampling arguments, last stage, error message, returned
+draws where available, and write/link flags. `write = TRUE` requires
+checking; inspect each result rather than assuming all workflows
+succeeded. The shared and per-workflow forms replace each reference-info
+object’s stored method arguments for this run.
 
 ## Write the objects
 

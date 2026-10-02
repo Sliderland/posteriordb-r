@@ -44,8 +44,8 @@ test_that("optional workflows report missing dependencies before network work", 
   expect_error(print(configured), "yaml")
   expect_error(pdb_github("stan-dev/posteriordb"), "remotes")
   github <- structure(list(), class = c("pdb_github", "pdb"))
-  expect_error(posteriordb:::pdb_file_copy(github, "file.json", tempfile()), "httr")
-  expect_error(posteriordb:::pdb_cache_dir(github, "posteriors"), "httr")
+  expect_error(posteriordb:::pdb_file_copy.pdb_github(github, "file.json", tempfile()), "httr")
+  expect_error(posteriordb:::pdb_cache_dir.pdb_github(github, "posteriors"), "httr")
   expect_error(posteriordb:::github_download("https://example.com/file.json", tempfile(),
     pat = NULL, overwrite = FALSE), "httr")
   expect_error(filter_posteriors(connection, name == "inputs-model"), "dplyr")
@@ -59,6 +59,11 @@ test_that("configuration selects only supported constructors without evaluating 
   yaml::write_yaml(list(type = "local", path = directory), config)
   expect_identical(pdb_config(directory)$pdb_local_endpoint, directory)
   sentinel <- file.path(directory, "injected")
+  withr::local_options(list(yaml.eval.expr = TRUE))
+  writeLines(c("type: !expr |", paste0("  {writeLines('executed', ",
+    encodeString(sentinel, quote = '"'), "); 'unknown'}")), config)
+  expect_error(pdb_config(directory))
+  expect_false(file.exists(sentinel))
   for (type in list("unknown", c("local", "github"), NULL,
     paste0("local; writeLines('injected', ", encodeString(sentinel, quote = '"'), "); pdb_local"))) {
     yaml::write_yaml(list(type = type, path = directory), config)

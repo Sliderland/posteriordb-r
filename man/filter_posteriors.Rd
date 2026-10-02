@@ -19,8 +19,9 @@ Filter posteriors in the database and return list of
 posteriors/models/data to work with as a list.
 
 The function is built upon the dplyr filter function and
-follows the exact same syntax. All elements in the
-`posteriors/[posterior_name].json`, `models/info/[model_name].json`
+follows the exact same syntax. Filtering requires the optional `dplyr`
+package; listing a metadata table with [posteriors_tbl_df()] does not.
+All elements in the `posteriors/[posterior_name].json`, `models/info/[model_name].json`
 and `data/info/[data_name].json` can be used to filter the
 posterior database. See examples below.
 }

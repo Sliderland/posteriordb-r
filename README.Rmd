@@ -69,7 +69,7 @@ When you have a connection to the posterior database of choice, you can access t
 | Task | Entry point |
 | --- | --- |
 | Read an existing posterior | `posterior(name, my_pdb)`, then data/model/reference getters |
-| Build a posterior from in-memory components | `as.posterior(list(pdb_model_code = code, pdb_data = data, dimensions = counts))` |
+| Build a posterior from in-memory components | `as.posterior(list(pdb_model_code = code, pdb_data = data, dimensions = counts), pdb = my_pdb)` |
 | Prepare a contribution from a completed RStan fit | `create_pdb_bundle(fit, data = inputs, ...)`, then inspect and explicitly write the bundle |
 | Import a completed RStan or CmdStanR fit for an existing posterior | `import_reference_posterior_draws(fit, posterior = name, pdb = my_pdb, write = FALSE)` |
 | Run several existing reference workflows sequentially | `sequential_batch_workflow(reference_posteriors, sampling, pdb = my_pdb)` |
@@ -84,8 +84,8 @@ currently supports RStan.
 `create_pdb_bundle()` builds in memory. With `check = FALSE` it defers diagnostic
 calculation; structural validation still applies. The existing-posterior importer
 always checks draws and returns failed candidates for inspection when
-`write = FALSE`. Accepted reference draws require exactly 10,000 retained draws,
-at least four chains and the documented diagnostic gates. ESS is informational.
+`write = FALSE`. Accepted reference draws require exactly 10,000 retained draws. Stan reference
+draws also require at least four chains and the documented diagnostic gates. ESS is informational.
 
 Explicit bundle/component writes are sequential: an I/O error can leave earlier
 components on disk, and the error identifies the failed destination and completed
