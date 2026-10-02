@@ -119,6 +119,12 @@ acceptance checks described below.
 
 ### Import a fit for an existing posterior
 
+For CmdStanR fits, retain supporting model/data files and sample with
+`sig_figs = 18`. Count inference uses CmdStanR’s compiled unconstraining
+methods; rounded CSV values can violate constraints such as unit
+Cholesky rows and cause those methods to reject the fit. No approximate
+counts are substituted.
+
 For example, to import into an existing posterior in a local database:
 
 ``` r

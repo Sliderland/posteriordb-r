@@ -56,7 +56,7 @@ infer_posterior_dimensions <- function(
     model <- cmdstanr::cmdstan_model(cmdstanr::write_stan_file(model_code), compile = TRUE, quiet = TRUE)
     fit <- suppressWarnings(model$sample(
       data = data, chains = 1L, iter_warmup = as.integer(floor(iter / 2)),
-      iter_sampling = as.integer(iter - floor(iter / 2)), refresh = 0L
+      iter_sampling = as.integer(iter - floor(iter / 2)), refresh = 0L, sig_figs = 18
     ))
   }
   infer_unconstrained_parameter_counts_from_fit(fit, include, exclude)
@@ -79,8 +79,12 @@ infer_posterior_dimensions <- function(
 #' RStan requires a usable compiled model instance. If serialization has
 #' invalidated it, use [infer_posterior_dimensions()] with model source and
 #' matching data. CmdStanR uses its unconstrain-draws method and may need
-#' compiled model methods and the fit's supporting files. Only parameter-block
-#' variables with nonzero unconstrained counts are returned, not transformed
+#' compiled model methods and the fit's supporting files. CSV values must retain
+#' enough precision for constrained parameters; request
+#' `sig_figs = 18` when sampling with CmdStanR. Rounded values can fail its
+#' unconstraining checks. The source/data inference helper uses full precision.
+#' Only parameter-block variables with nonzero unconstrained counts are returned,
+#' not transformed
 #' parameters or generated quantities. Parameters with zero free coordinates
 #' (such as `simplex[1]`) have no count entry; fit import and bundles retain
 #' their saved values using the parameter-block schema. Unknown names and empty

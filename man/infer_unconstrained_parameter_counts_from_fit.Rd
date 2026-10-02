@@ -32,8 +32,12 @@ Counts describe independent coordinates rather than constrained output shapes.
 RStan requires a usable compiled model instance. If serialization has
 invalidated it, use \code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}} with model source and
 matching data. CmdStanR uses its unconstrain-draws method and may need
-compiled model methods and the fit's supporting files. Only parameter-block
-variables with nonzero unconstrained counts are returned, not transformed
+compiled model methods and the fit's supporting files. CSV values must retain
+enough precision for constrained parameters; request
+\code{sig_figs = 18} when sampling with CmdStanR. Rounded values can fail its
+unconstraining checks. The source/data inference helper uses full precision.
+Only parameter-block variables with nonzero unconstrained counts are returned,
+not transformed
 parameters or generated quantities. Parameters with zero free coordinates
 (such as \code{simplex[1]}) have no count entry; fit import and bundles retain
 their saved values using the parameter-block schema. Unknown names and empty
