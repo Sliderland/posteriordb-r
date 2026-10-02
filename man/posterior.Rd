@@ -22,8 +22,8 @@ pdb_posterior(x, pdb = pdb_default(), ...)
 as.pdb_posterior(x, pdb = pdb_default(), ...)
 }
 \arguments{
-\item{x}{a posterior name that exist in the posterior database or a
-list used to construct a posterior object.}
+\item{x}{For `posterior()`, a saved posterior name. For `as.posterior()`,
+a named list used to construct a posterior object.}
 
 \item{pdb}{a \code{pdb} posterior database object.}
 
@@ -33,9 +33,13 @@ list used to construct a posterior object.}
 Access a posterior in the posterior database
 }
 \details{
-To setup a posterior object from a list, a minimum och a `pdb_model`,
-`pdb_data`, and a `dimension` element need to be included. See
-`posterior("eight_schools")$dimensions` for an example.
+Use `posterior(name, pdb)` to look up a saved record. Use `as.posterior()`
+for list construction: provide `pdb_model_code`, `pdb_data`, and
+`dimensions` (named unconstrained parameter counts), or the complete
+posterior metadata fields. If dimensions are omitted, supplied Stan code
+and data are used to infer them, which can require compilation.
+Construction does not write files. `pdb_posterior()` is the lookup alias;
+`as.pdb_posterior()` is the construction alias.
 
 Posteriors returned by [create_pdb_bundle()] embed their data, model
 code, and reference draws. Their normal getters work without a database.

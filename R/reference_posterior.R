@@ -142,13 +142,23 @@ reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(x, 
 }
 
 
-#' Reference Posterior draws and summary statistics
-#' @param x a [posterior] object or a posterior name.
+#' Read or wrap reference posterior draws
+#' @param x A posterior name, posterior object or reference-info object for
+#'   reading; a `draws_list` or completed `stanfit` for coercion.
 #' @param pdb a [pdb] connection for name lookup or to attach during coercion.
 #'   Draws-list coercion defaults to \code{NULL}, creating a standalone object.
 #' @param info a [pdb_reference_posterior_info] object
 #' @param ... further arguments supplied to specific methods.
-#' @return a [pdb_reference_posterior] object.
+#' @details `reference_posterior_draws()` reads saved or embedded draws.
+#'   The dotted `as.reference_posterior_draws()` wraps draws with caller-supplied
+#'   `info`; it does not infer parameter counts, calculate acceptance checks,
+#'   or write files. Its draws-list conversion omits `lp__`.
+#'   Use [as_reference_posterior_draws()] (underscores) to import a completed
+#'   fit for an existing posterior, validate its parameter counts and run
+#'   reference checks. Use [import_reference_posterior_draws()] for that
+#'   workflow with optional persistence. The dotted compatibility alias
+#'   `as.pdb_reference_posterior_draws()` has the same wrapping behavior.
+#' @return A `pdb_reference_posterior_draws` object.
 #' @export
 reference_posterior_draws <- function(x, ...){
   UseMethod("reference_posterior_draws")

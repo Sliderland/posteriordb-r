@@ -34,6 +34,23 @@ name from a database). It currently accepts RStan `stanfit` objects;
 
 ## Choose a workflow
 
+The similar conversion names have different responsibilities:
+
+| Task | Entry point | Behavior |
+|----|----|----|
+| Look up a saved posterior | `posterior(name, pdb)` | Reads the existing record. |
+| Construct posterior metadata from a list | `as.posterior(list(...), pdb)` | Uses prepared `pdb_data`, `pdb_model_code` and `dimensions`, or complete metadata. Writes nothing. |
+| Wrap prepared draws and metadata | `as.reference_posterior_draws(draws, info)` | Attaches supplied metadata; does not calculate acceptance checks. Omits `lp__`. |
+| Import a completed fit for a posterior | `as_reference_posterior_draws(fit, posterior, pdb)` | Validates counts and runs reference checks; writes nothing. |
+
+The dotted `as.pdb_reference_posterior_draws()` alias also wraps draws.
+The backend-named `as_reference_posterior_draws_from_stanfit()` and
+`as_reference_posterior_draws_from_cmdstanr()` wrappers dispatch through
+the generic using the actual fit class; prefer the generic for fit
+import. Wrapping a draw object does not establish that it passes
+contribution checks. Use `check_reference_posterior_draws()` or fit
+import before writing it.
+
 Choose the workflow based on whether the data, model, and posterior
 records already exist:
 

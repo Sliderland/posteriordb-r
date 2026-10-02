@@ -13,7 +13,7 @@
 \alias{reference_posterior_draws.pdb_reference_posterior_info}
 \alias{as.reference_posterior_draws.draws_list}
 \alias{assert_reference_posterior_draws}
-\title{Reference Posterior draws and summary statistics}
+\title{Read or wrap reference posterior draws}
 \usage{
 \method{as.reference_posterior_draws}{stanfit}(x, info, pdb = pdb_default(), ...)
 
@@ -36,7 +36,8 @@ as.pdb_reference_posterior_draws(x, ...)
 assert_reference_posterior_draws(x)
 }
 \arguments{
-\item{x}{a [posterior] object or a posterior name.}
+\item{x}{A posterior name, posterior object or reference-info object for
+reading; a `draws_list` or completed `stanfit` for coercion.}
 
 \item{info}{a [pdb_reference_posterior_info] object}
 
@@ -46,8 +47,19 @@ Draws-list coercion defaults to \code{NULL}, creating a standalone object.}
 \item{...}{further arguments supplied to specific methods.}
 }
 \value{
-a [pdb_reference_posterior] object.
+A `pdb_reference_posterior_draws` object.
 }
 \description{
-Reference Posterior draws and summary statistics
+Read or wrap reference posterior draws
+}
+\details{
+`reference_posterior_draws()` reads saved or embedded draws.
+  The dotted `as.reference_posterior_draws()` wraps draws with caller-supplied
+  `info`; it does not infer parameter counts, calculate acceptance checks,
+  or write files. Its draws-list conversion omits `lp__`.
+  Use [as_reference_posterior_draws()] (underscores) to import a completed
+  fit for an existing posterior, validate its parameter counts and run
+  reference checks. Use [import_reference_posterior_draws()] for that
+  workflow with optional persistence. The dotted compatibility alias
+  `as.pdb_reference_posterior_draws()` has the same wrapping behavior.
 }

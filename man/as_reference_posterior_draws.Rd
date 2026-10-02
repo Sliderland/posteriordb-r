@@ -116,4 +116,9 @@ RStan's recorded Stan version also comes from its installed library.
 A Stan version reported by CmdStan CSV metadata describes the fitted
 executable and is retained when available. Environment versions do not
 establish an archived fit's original sampling environment.
+Unlike the dotted [as.reference_posterior_draws()] wrapper, this function
+performs fit import, parameter-count validation and reference checks.
+The historical `as_reference_posterior_draws_from_stanfit()` and
+`as_reference_posterior_draws_from_cmdstanr()` convenience wrappers forward
+to this generic; dispatch follows the actual fit class, not the wrapper name.
 }
