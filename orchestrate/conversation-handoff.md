@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation is complete. V4 is deferred. The historical review
+Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation and the scoped I/O-result audit are complete. V4 is deferred. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -96,7 +96,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S1 | Verified at `688c7d8`: common positional arguments aligned; focused installed tests and S3 signature checker passed. |
 | P2, P11, P12 | Verified at `56cb0dd`: persisted candidate links guarded, reused origins retained, accepted reused posterior requires a matching stored link. Empty-link updates use the existing importer. Forty isolated integrity assertions passed, including namespace-only installed loading. |
 | V1 | Verified at `b9515c1`: bibliography result captured; eight status assertions and 48 bibliography assertions passed in an installed package. |
-| P4 | Partial: rename/bibliography recovery at `ebb5d9e`; partial-write reporting at `ed51544`. Maintainer chose on 2026-10-02 to keep partial bundle/component writes on I/O failure, report completed components/destination, and document inspection/retry/cache refresh/PR review. ZIP/JSON-cleanup errors retain recoverable files. Vignette pre-edit preservation `d83998e`. Six regression failures before repair; final integrity57 passed development and installed namespace-only, with independent Sol review. Installed reference24, rename58, resource170, acceptance28 passed; guides/help rendered (contribution examples disabled). Future automatic rollback remains open for colleague discussion, as does the remaining operation-result audit. |
+| P4 | Partial: rename/bibliography recovery at `ebb5d9e`; partial-write reporting at `ed51544`. Maintainer chose on 2026-10-02 to keep partial bundle/component writes on I/O failure, report completed components/destination, and document inspection/retry/cache refresh/PR review. ZIP/JSON-cleanup errors retain recoverable files. Vignette pre-edit preservation `d83998e`. Six regression failures before repair; final integrity57 passed development and installed namespace-only, with independent Sol review. Installed reference24, rename58, resource170, acceptance28 passed; guides/help rendered (contribution examples disabled). Scoped operation-result audit verified at `b74d113`; future automatic rollback remains open for colleague discussion. |
 | P9 | Verified: names/write containment at `587bb86`/`8e5de0c`; common archive/cache boundaries at `fe74ebc`. One safe root JSON member, requested filename matching, cache containment, and partial extraction cleanup shared with rename/link. Initial archive regression had ten failures; damaged-ZIP review regression added three failures. Final 33 archive assertions pass, including a Windows-safe crafted drive-name ZIP. Installed archive33, rename58, resource170 and integrity40 passed; independent Sol review verified corruption repair and portability block. Windows runtime/live GitHub unrun. |
 | P3 | Deferred by maintainer on 2026-10-02. Preserve existing manual cache refresh; retain the issue in the active guide for later decision. |
 | S3 | Verified at `a5ef7c9`: shared coercion retains and validates an explicit connection; thinning forwards it, standalone NULL remains supported, JSON excludes connection attributes. Regression failed with eight assertions before repair and passed all 16 afterward. Installed reference-connections, import-external-stanfit (50 assertions, real RStan), and bundle-write-integrity (40 assertions) passed. Independent Sol 6.1/high review found no defects and reran the 16-assertion regression against repository sources. |
@@ -165,8 +165,8 @@ partial, or deferred.** The authoritative remaining list is the
 S5, D6, P3/P4/P8, V4/V6 and T2–T3. These are tracking groups, not
 9 equally sized bugs. Several require a behavior decision or an audit.
 
-Next priorities within the current usage window: operation-result checks (P4), and
-complementary genuine CmdStan coverage/dependency guards (T2/T3). Each stays a bounded reviewed unit with
+Next priorities within the current usage window: complementary genuine CmdStan
+coverage/dependency guards (T2/T3), then bounded V6 defects and V4 usage examples. Each stays a bounded reviewed unit with
 its own implementation and checkpoint commits. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
 
@@ -364,6 +364,33 @@ error was corrected before both full final runs. Real corpus/manual CI, live
 GitHub and Windows runtime were not run for this unit. README's new section was
 kept in sync with its Rmd; full README Rmd execution still depends on a live
 configured corpus and is part of the broader T3 documentation work.
+
+### Resumed run — P4 operation-result audit verified at `b74d113`
+
+Rename used to accept a failed ZIP command when it still created a file.
+Staging now checks status/existence, the expected root JSON member, and the
+extracted payload checksum before reserving any originals. Wrong-member and
+altered-payload cases also abort with original bytes and working directory
+intact. Plain cache copies now reject failure and remove incomplete cache
+files on either a false result or thrown error, so a retry cannot reuse partial
+bytes. The shared removal primitive raises a path-specific error on failure;
+component methods therefore stop before deleting their metadata. Successful
+removal still returns TRUE; arbitrary-path semantics and P3 manual refresh
+remain unchanged.
+
+Import rollback reports incomplete installed-file deletion and the original /
+retained backup paths. It attempts every recovery before emitting a combined
+warning, including when warnings are errors (`warn = 2`). Review reproduced
+partial cache reuse and early warning abort, and both were fixed in this unit.
+No new transaction framework or automatic bundle rollback was added.
+
+Development and installed namespace-only checks passed rename81, cache41,
+model101, import48 (five real-Stan opt-in skips), integrity57, resource170 and
+reference27. Cache/import were reinstalled and rerun after their review repairs;
+other files were unchanged. Generated help and bundle guide rendered; independent
+Sol review approved. Initial injected ZIP/cache/removal/rollback failures were
+reproduced before repair. Windows runtime/live GitHub remain unrun. P4 stays
+open for the maintainer's future sequential-write rollback discussion.
 
 ### Maintainer decisions and questions for later
 

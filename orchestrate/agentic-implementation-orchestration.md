@@ -151,20 +151,19 @@ tests, dependencies, and evidence needed to finish. Statuses should distinguish
 `blocked by <specific resource>`, and `deferred by scope`.
 Source-confirmed findings still need a reproduction where practical.
 
-Suggested order for confirmed defects:
+T1 test isolation is verified at `1e80aea`; use its opt-in flags and per-test
+disposable copies for any corpus checks. D1–D5/D7, V5 and S4 are also verified.
+The active queue and handoff hold their evidence. Suggested remaining units:
 
 | Work area | Finding IDs | Scope and required result |
 | --- | --- | --- |
-| Test isolation for the selected work | T1 | Use disposable databases before any write/remove test. Refactor unsafe legacy harness/tests before a broad suite run. This need not delay isolated bug probes. |
-| Review remaining I/O results; future rollback open | P4 | Partial-write reporting and contribution docs are implemented. Preserve retained partial writes, audit remaining operation results, and keep automatic rollback open for colleague discussion. Existing rename/bibliography recovery fixes remain in place. |
+| Deferred: future write rollback | P4 | Reporting and the scoped operation-result audit are implemented. Preserve retained partial bundle/component writes and keep automatic rollback open for colleague discussion. |
 | Deferred: cache contract | P3 | Maintainer deferred this on 2026-10-02; preserve current manual refresh until resumed. Original proposal: Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
 | Review remaining remove/API boundaries | Relevant V6 | Write/cache containment and archive checks are verified (P9). Clarify arbitrary-path removal semantics before changing compatibility. |
 | Deferred framework setter | S5 | Constructor and S4 conversion documentation are verified; preserve current setter until the maintainer resumes it. |
 | Partial: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan writing deferred, custom-path writer contract open. |
 | Normalize remaining validation | V6; V4 deferred | Distinguish missing optional resources from malformed ones. Preserve batch classification; V5 sampler translation is verified. |
-| Consolidate applicable diagnostics | D1–D3 | Shared numerical workers and required-check evaluation, preserving fixed thresholds, selective/deferred behavior, and analytical applicability. |
-| Align backend behavior and evidence | D4, D5 | Reuse extraction where contracts match and correct counts. Versions and option translation are verified at `e3e59e6`/`3d519bb`. Verify changed real backend interfaces. |
-| Resolve documented policy choices | D6, NULL policy follow-up | State supported identity/conversion guarantees and compatibility decisions. Do not silently add configurable acceptance or claim unknown historical provenance. |
+| Resolve documented fit-identity choice | D6 | Stronger identity verification is awaiting maintainer input; compilation fallback needs a narrow missing-instance audit. Fixed NULL policy is implemented; preserve honest provenance. |
 | Complete complementary tests/docs/dependencies | T2, T3 | Add installed-package/public-contract/backend coverage and accurate source documentation alongside affected fixes. |
 
 This is a starting priority order, not permission for one giant patch.

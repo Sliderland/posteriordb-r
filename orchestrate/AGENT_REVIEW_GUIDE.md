@@ -35,7 +35,7 @@ active queue; dated audit/review reports are historical inputs.
 | --- | --- | --- |
 | Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |
 | Diagnostics, extraction and counts | D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D5 diagnostics/extraction/schema coverage and D7 versions are verified. |
-| Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
+| Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting/operation-result audit fixed, future rollback open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
 | Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
 | Tests, dependencies and documentation | T2–T3 | T1 offline/per-test isolation is verified; complementary integration, dependencies and broader docs remain. |
 
@@ -182,9 +182,17 @@ on failure. Contribution/bundle guides explain inspection, retry, cache
 refresh, and pull-request review. This closes the reporting slice, not the
 future rollback policy or the remaining operation-result audit below.
 
-Rename/bibliography rollback backup preservation and shared ZIP extraction failure handling are verified; see the handoff for commits and checks. The remaining scope is broader component/bundle failure behavior and operation-result checks.
+Rename/bibliography rollback backup preservation and shared ZIP extraction failure handling are verified; see the handoff for commits and checks. The remaining scope is the deferred automatic rollback policy for sequential
+bundle/component writes; reporting and the scoped result audit are verified.
 
-Check success results from zip/file.copy/write/rename operations.
+Scoped operation-result audit implemented at `b74d113`: rename staging checks
+ZIP status, expected member and payload checksum before moving originals;
+failed plain cache copies remove partial cache files and report the destination;
+failed payload removal stops before deleting metadata. Import rollback completes
+all recovery attempts before warning, reporting retained backups and installed
+files even with `options(warn = 2)`. No arbitrary-path removal or manual-cache
+policy changed. P4 remains open solely for future bundle/component rollback
+discussion; do not rerun the completed audit as an unfinished unit.
 
 ### P8. Model writing support and custom paths — partial
 

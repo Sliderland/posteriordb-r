@@ -286,11 +286,12 @@ restarting already-completed P11/P2/P12 work.
 | --- | --- | --- |
 | Public API | S5 | Framework setter remains deferred; construction and conversion documentation is verified. |
 | Diagnostics and fits | D6 | Identity policy and compilation-fallback audit. |
-| Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
+| Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T2–T3 | Complementary real backend/constrained coverage, dependencies and broader public docs. T1 isolation is verified. |
 
-Current priorities are operation-result checks (P4), and genuine CmdStan coverage/dependency guards (T2/T3). D1–D5, D7, V5 and S4 are verified; V4
+Current priorities are genuine CmdStan coverage/dependency guards (T2/T3),
+bounded V6 defects and V4 usage documentation. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -521,3 +522,27 @@ Commit `1e80aea`; development and installed namespace-only runs each passed
 Harness33 and independent review passed. Manual corpus CI/live GitHub/Windows
 remain unrun. This closes T1's test isolation contract; complementary real-fit
 coverage and dependency/documentation work remain under T2/T3.
+
+### Resumed work: checked filesystem results — P4 audit slice
+
+A rename could commit even after ZIP creation failed if a partial archive
+remained. It now verifies ZIP status, member name and preserved payload before
+moving originals. A failed cache copy could return a nonexistent path or leave
+partial bytes for the next read; it now raises an error and removes incomplete
+cache output so retry reads complete content. Failed payload removal used to
+continue to metadata removal; one guard in the shared removal method now stops
+that loss and identifies the failed path.
+
+The transactional importer keeps original backups when recovery fails and now
+reports their paths. It completes every deletion/restoration attempt before
+warning, so `options(warn = 2)` cannot abort later recovery. These repairs use
+the existing operations and staging; no transaction framework was added.
+The chosen partial bundle/component write behavior remains intact and future
+automatic rollback stays open under P4.
+
+Commit `b74d113`. Final development/installed checks: rename81/cache41/model101,
+import48 (five opted-out Stan tests), integrity57/resource170/reference27.
+Independent review reproduced two additional failures (partial cache reuse and
+warning-induced recovery abort), both repaired and rechecked. Help and bundle
+guide regenerated; Windows/live GitHub unrun. Arbitrary-path removal and manual
+cache refresh policies were preserved.
