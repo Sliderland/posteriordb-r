@@ -339,24 +339,19 @@ Rename/bibliography rollback backup preservation and shared ZIP extraction failu
 
 Check success results from zip/file.copy/write/rename operations.
 
-### P8. Framework extension logic is already available but bypassed
+### P8. Model writing support and custom paths — deferred
 
-Locations: `model_code_file_path.character()`, model removal,
-`supported_frameworks_file_extension()`, `write_to_path()`.
+Locations: model writers and `write_to_path()`.
 
-Maintainer decision, 2026-10-02: defer non-Stan writing; fix framework/custom
-path reading and removal now. Keep writer support/custom-path behavior open.
+Maintainer decision, 2026-10-02: defer non-Stan writing. Framework/custom-path
+reads and removal are verified at `bca0fd3`; see the handoff for evidence.
 
-The character path method assigns an extension for Stan and PyMC only;
-`framework = "pyro"` reproduces `object 'ft' not found`. Model removal uses
-the framework name as the extension, so it targets `.pymc` instead of `.py`.
-The package already has the correct framework-to-extension helper.
-
-Reuse that helper. Prefer implementation metadata's declared code path when
-retrieving an existing model. Audit writer support separately: declaring a
+Audit writer support separately: declaring a
 framework supported does not mean `write_to_path()` implements it. Clearly
 support or reject each operation instead of failing after metadata is saved.
-Test read/write/remove behavior per supported operation and custom code paths.
+Custom-path writing also remains open. Current writers use conventional Stan
+destinations; the bundle guide documents this limit. Resume with a deliberate
+writer contract and tests before changing support or pre-write rejection.
 
 ## Validation and workflow behavior
 
