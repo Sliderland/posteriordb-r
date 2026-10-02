@@ -5,6 +5,8 @@
 #' Requires the count flag for the chosen gate and, for Stan sampling,
 #' the chain, autocorrelation, R-hat, E-FMI and divergence flags. Analytical
 #' draws require count evidence only; HMC checks do not apply.
+#' Draw-object assertions also validate variable labels and equal retained
+#' lengths before acceptance flags are used, including for summary computation.
 #'
 #' See \url{https://github.com/stan-dev/posteriordb/blob/master/doc/REFERENCE_POSTERIOR_DEFINITION.md} for details.
 #'
@@ -18,6 +20,7 @@ assert_checked_reference_posterior_draws <- function(x){
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
 assert_checked_reference_posterior_draws.pdb_reference_posterior_draws <- function(x){
+  assert_reference_posterior_draws(x)
   rpi <- info(x)
   assert_checked_reference_posterior_draws(rpi)
   assert_diagnostic_draw_counts(x, rpi)
@@ -44,6 +47,7 @@ assert_checked_summary_statistics_draws <- function(x){
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
 assert_checked_summary_statistics_draws.pdb_reference_posterior_draws <- function(x){
+  assert_reference_posterior_draws(x)
   rpi <- info(x)
   assert_checked_summary_statistics_draws(rpi)
   assert_diagnostic_draw_counts(x, rpi)

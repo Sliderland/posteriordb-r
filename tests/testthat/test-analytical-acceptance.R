@@ -93,6 +93,12 @@ test_that("duplicate draw variables fail before checking or persistence", {
   expect_error(as.reference_posterior_draws(posterior::as_draws_list(malformed),
     info(checked)), "unique")
   expect_error(check_reference_posterior_draws(malformed), "unique")
+  expect_error(assert_checked_reference_posterior_draws(malformed), "unique")
+  expect_error(summary_statistics_from_checked_reference_draws(malformed), "unique")
+  info(malformed) <- info(check_summary_statistics_draws(checked))
+  expect_error(assert_checked_summary_statistics_draws(malformed), "unique")
+  for (type in supported_summary_statistic_types())
+    expect_error(compute_reference_posterior_summary_statistic(malformed, type), "unique")
 
   root <- withr::local_tempdir("duplicate-draws-")
   dir.create(file.path(root, "posteriors"))
@@ -122,6 +128,13 @@ test_that("mutated draw shapes fail before checking or persistence", {
     expect_error(as.reference_posterior_draws(posterior::as_draws_list(malformed),
       info(checked)), "length", info = failure)
     expect_error(check_reference_posterior_draws(malformed), "length", info = failure)
+    expect_error(assert_checked_reference_posterior_draws(malformed), "length", info = failure)
+    expect_error(summary_statistics_from_checked_reference_draws(malformed), "length", info = failure)
+    info(malformed) <- info(check_summary_statistics_draws(checked))
+    expect_error(assert_checked_summary_statistics_draws(malformed), "length", info = failure)
+    for (type in supported_summary_statistic_types())
+      expect_error(compute_reference_posterior_summary_statistic(malformed, type),
+        "length", info = failure)
 
     root <- withr::local_tempdir("malformed-draws-")
     dir.create(file.path(root, "posteriors"))

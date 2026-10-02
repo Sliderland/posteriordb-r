@@ -504,7 +504,10 @@ variable labels in the same order across chains. Retained vectors must
 have equal lengths across variables and chains. Wrapping allows
 zero-iteration objects, but those cannot satisfy the count requirements
 for an accepted reference write. Mutating an object’s class or retaining
-old acceptance flags does not bypass these checks.
+old acceptance flags does not bypass these checks. The acceptance
+assertions repeat structural validation before using saved flags;
+summary computation also rejects modified draws with invalid labels or
+lengths.
 
 For an existing reference-draw object, `subset(draws, variable = ...)`
 keeps diagnostics for the selected variables and clears acceptance flags
