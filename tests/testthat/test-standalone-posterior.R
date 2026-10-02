@@ -98,3 +98,87 @@ test_that("standalone content survives serialization in a fresh R process", {
     c("--vanilla", shQuote(script), shQuote(config_path)), stdout = TRUE, stderr = TRUE)
   expect_equal(attr(output, "status") %||% 0L, 0L, info = paste(output, collapse = "\n"))
 })
+
+test_that("posterior checking uses supplied standalone and connected content", {
+  object <- standalone_posterior_fixture()
+  expect_identical(check_pdb_posterior(object, run_stan_code_checks = FALSE, verbose = FALSE), TRUE)
+  expect_null(pdb(object))
+  malformed <- object
+  invalid_info <- info(malformed$embedded_reference_draws)
+  invalid_info$added_by <- NULL
+  info(malformed$embedded_reference_draws) <- invalid_info
+  expect_error(check_pdb_posterior(malformed, run_stan_code_checks = FALSE, verbose = FALSE), "added_by|names")
+
+  root <- tempfile("posterior-checking-")
+  for (path in c("data", "models", "posteriors", "alias", "cache", "bibliography"))
+    dir.create(file.path(root, path), recursive = TRUE)
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  writeLines(paste0('{"fixture-alias": "', object$name, '"}'), file.path(root, "alias/posteriors.json"))
+  writeLines("@misc{known, title={Known}}", file.path(root, "bibliography/references.bib"))
+  connection <- pdb_local(root, cache_path = file.path(root, "cache"))
+  pdb(object) <- connection
+  object$references <- "known"
+  stored <- object
+  stored$embedded_data <- stored$embedded_model_code <- stored$embedded_reference_draws <- NULL
+  stored["reference_posterior_name"] <- list(NULL)
+  for (component in list(object$embedded_data, object$embedded_model_code, stored)) write_pdb(component, connection)
+  expect_identical(check_pdb_posterior(posterior(stored$name, connection),
+    run_stan_code_checks = FALSE, verbose = FALSE), TRUE)
+  expect_identical(check_pdb(connection, run_stan_code_checks = FALSE, verbose = FALSE), 0L)
+  expect_identical(check_pdb_posterior(object, run_stan_code_checks = FALSE, verbose = FALSE), TRUE)
+
+  modified <- object
+  modified$dimensions <- list(theta = -1L)
+  expect_error(check_pdb_posterior(modified, run_stan_code_checks = FALSE, verbose = FALSE))
+  modified <- object
+  modified$data_name <- "wrong"
+  expect_error(check_pdb_posterior(modified, run_stan_code_checks = FALSE, verbose = FALSE), "data link")
+  # Supplied-object checks leave the saved record alone.
+  expect_equal(posterior(stored$name, connection)$dimensions, list(theta = 1L))
+})
+
+test_that("posterior checking validates the model getter result", {
+  registerS3method("model_code", "invalid_code_posterior", function(...) NULL,
+    envir = asNamespace("posteriordb"))
+  on.exit(rm("model_code.invalid_code_posterior", envir = get(".__S3MethodsTable__.",
+    asNamespace("posteriordb"))), add = TRUE)
+  object <- standalone_posterior_fixture()
+  class(object) <- c("invalid_code_posterior", class(object))
+  expect_error(check_pdb_posterior(object, run_stan_code_checks = FALSE, verbose = FALSE), "pdb_model_code")
+})
+
+test_that("standalone bibliography checks require a connection when citations exist", {
+  object <- standalone_posterior_fixture()
+  root <- tempfile("posterior-citations-")
+  dir.create(file.path(root, "bibliography"), recursive = TRUE)
+  dir.create(file.path(root, "cache"))
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  writeLines("@misc{known, title={Known}}", file.path(root, "bibliography/references.bib"))
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb"))
+  for (component in c("posterior", "model", "data")) {
+    cited <- object
+    if (component == "posterior") cited$references <- "known"
+    if (component == "model") {
+      cited$model_info$references <- "known"
+      info(cited$embedded_model_code) <- cited$model_info
+    }
+    if (component == "data") {
+      cited$data_info$references <- "known"
+      info(cited$embedded_data) <- cited$data_info
+    }
+    expect_error(check_pdb_posterior(cited, run_stan_code_checks = FALSE, verbose = FALSE), "attach.*database|bibliography")
+    pdb(cited) <- connection
+    expect_identical(check_pdb_posterior(cited, run_stan_code_checks = FALSE, verbose = FALSE), TRUE)
+    if (component == "posterior") cited$references <- "missing"
+    if (component == "model") {
+      cited$model_info$references <- "missing"
+      info(cited$embedded_model_code) <- cited$model_info
+    }
+    if (component == "data") {
+      cited$data_info$references <- "missing"
+      info(cited$embedded_data) <- cited$data_info
+    }
+    expect_error(check_pdb_posterior(cited, run_stan_code_checks = FALSE, verbose = FALSE), "does not exist.*bibliography")
+  }
+})

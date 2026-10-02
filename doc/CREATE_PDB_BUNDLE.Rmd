@@ -41,6 +41,20 @@ records already exist:
   and summaries while linking them to the existing posterior. It does
   not rewrite the existing data, model, or posterior payloads.
 
+To check the structure and getter-visible content of an in-memory posterior,
+including unsaved edits, use:
+
+```{r, eval=FALSE}
+check_pdb_posterior(bundle$posterior, run_stan_code_checks = FALSE)
+```
+
+This validates the supplied object without reloading its saved posterior
+record. A standalone object needs no database when it has no citations.
+If posterior, model, or data citation keys are supplied, attach a database
+so they can be checked against its bibliography. Use `check_pdb(pdbl)` for
+saved database records and database-wide consistency. Structural checking
+does not replace the reference-draw acceptance checks described below.
+
 ### Import a fit for an existing posterior
 
 For example, to import into an existing posterior in a local database:

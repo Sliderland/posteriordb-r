@@ -18,6 +18,8 @@
 #' [check_pdb_all_models_have_posterior()] check that all models belong to a posterior
 #' [check_pdb_all_data_have_posterior()] check that all datasets belong to a posterior
 #' [check_pdb_all_reference_posteriors_have_posterior()] check that all reference posteriors belong to a posterior
+#' Saved posterior records are loaded before [check_pdb_posterior()] validates
+#' them. Checking an object directly instead inspects its supplied content.
 #'
 #' @return \code{check_pdb()} invisibly returns integer status \code{0L} if all
 #'   checks succeed, or \code{1L} if any check fails.
@@ -79,11 +81,12 @@ check_pdb_read_model_code <- function(posterior_list){
   pl <- lapply(posterior_list, checkmate::assert_class, classes = "pdb_posterior")
   for (i in seq_along(pl)) {
     mi <- model_info(pl[[i]])
+    assert_model_info(mi)
     frameworks <- names(mi$model_implementations)[!vapply(
       mi$model_implementations, is.null, logical(1)
     )]
     for (framework in frameworks) {
-      model_code(pl[[i]], framework = framework)
+      assert_model_code(model_code(pl[[i]], framework = framework))
     }
   }
 }
@@ -102,9 +105,10 @@ check_pdb_aliases <- function(pdb){
 check_pdb_read_data <- function(posterior_list){
   pl <- lapply(posterior_list, checkmate::assert_class, classes = "pdb_posterior")
   for (i in seq_along(pl)) {
-    data_info(x = pl[[i]])
+    assert_data_info(data_info(x = pl[[i]]))
     sd <- stan_data(x = pl[[i]])
-    pdb_cache_rm(sd, pl$pdb[[i]])
+    assert_data(sd)
+    if (!is.null(pdb(sd))) pdb_cache_rm(sd)
   }
 }
 
@@ -114,7 +118,9 @@ check_pdb_read_reference_posterior_draws <- function(posterior_list){
   for (i in seq_along(pl)) {
     if(is.null(pl[[i]]$reference_posterior_name)) next
     rp <- reference_posterior_draws(x = pl[[i]])
-    pdb_cache_rm(rp, pl$pdb[[i]])
+    assert_reference_posterior_draws(rp)
+    assert_reference_posterior_info(info(rp))
+    if (!is.null(pdb(rp))) pdb_cache_rm(rp)
   }
 }
 
@@ -163,6 +169,12 @@ check_pdb_references <- function(pdb) {
 check_pdb_posterior_references <- function(posterior_list){
   pos <- lapply(posterior_list, checkmate::assert_class, classes = "pdb_posterior")
   for (i in seq_along(pos)) {
+    references <- c(pos[[i]]$references, model_info(pos[[i]])$references,
+      data_info(pos[[i]])$references)
+    if (!length(references)) next
+    if (is.null(pdb(pos[[i]]))) {
+      stop("Attach a database to check posterior, model, and data citations against its bibliography.", call. = FALSE)
+    }
     bib <- pdb_bibliography(pdb = pdb(pos[[i]]))
     bibnames <- names(bib)
 
