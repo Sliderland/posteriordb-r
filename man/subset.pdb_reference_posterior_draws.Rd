@@ -16,3 +16,7 @@
 \description{
 Subset a [pdb_reference_posterior_draws] object
 }
+\details{
+Variable diagnostics follow the selected variables. Changed
+  selections clear acceptance flags and reports; recheck before writing.
+}

@@ -19,6 +19,8 @@ assert_checked_reference_posterior_draws <- function(x){
 assert_checked_reference_posterior_draws.pdb_reference_posterior_draws <- function(x){
   rpi <- info(x)
   assert_checked_reference_posterior_draws(rpi)
+  assert_diagnostic_draw_counts(x, rpi)
+  checkmate::assert_true(posterior::ndraws(x) == reference_draw_policy()$ndraws_exact)
 }
 
 #' @rdname assert_checked_reference_posterior_draws
@@ -44,6 +46,8 @@ assert_checked_summary_statistics_draws <- function(x){
 assert_checked_summary_statistics_draws.pdb_reference_posterior_draws <- function(x){
   rpi <- info(x)
   assert_checked_summary_statistics_draws(rpi)
+  assert_diagnostic_draw_counts(x, rpi)
+  checkmate::assert_true(posterior::ndraws(x) >= reference_draw_policy()$ndraws_summary_min)
 }
 
 #' @rdname assert_checked_reference_posterior_draws

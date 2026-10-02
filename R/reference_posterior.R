@@ -271,12 +271,35 @@ assert_reference_posterior_info <- function(x){
 #' @param x a [pdb_reference_posterior_draws] to subest
 #' @param variable parameter names to subset.
 #' @param ... Further arguments (not used).
+#' @details Variable diagnostics follow the selected variables. Changed
+#'   selections clear acceptance flags and reports; recheck before writing.
 #' @export
 subset.pdb_reference_posterior_draws <- function(x, variable, ...){
   requireNamespace("posterior")
   attrs <- attributes(x)
+  previous_variables <- posterior::variables(x)
   class(x) <- class(x)[-1]
   x <- subset(x, variable = variable, regex = FALSE)
+  selected_variables <- posterior::variables(x)
+  if (!identical(selected_variables, previous_variables)) {
+    diagnostics <- attrs$info$diagnostics
+    if (!is.null(diagnostics)) {
+      for (key in c("effective_sample_size_bulk", "effective_sample_size_tail",
+                    "r_hat", "mean_lag1_ac")) {
+        values <- diagnostics[[key]]
+        if (!is.null(values)) {
+          indices <- if (is.null(names(values))) {
+            match(selected_variables, diagnostics$diagnostic_information$names %||% previous_variables)
+          } else selected_variables
+          diagnostics[[key]] <- stats::setNames(values[indices], selected_variables)
+        }
+      }
+      diagnostics$diagnostic_information$names <- selected_variables
+      attrs$info$diagnostics <- diagnostics
+    }
+    attrs$info["checks_made"] <- list(NULL)
+    attrs$diagnostic_report <- NULL
+  }
   attributes(x) <- attrs
   x
 }
@@ -315,14 +338,36 @@ supported_reference_posterior_types <- function() c("draws", supported_summary_s
 #'
 #' @return
 #' A thinned [pdb_reference_posterior_draws] object.
+#' @details Thinning updates retained counts and clears obsolete diagnostics,
+#'   acceptance flags, and reports. Retained sampler draws are thinned in
+#'   lockstep; E-FMI must be recalculated. Connections and descriptive metadata
+#'   are preserved. A thinning period of one leaves the object unchanged.
 #'
-#' @export
+#' @export thin_draws.pdb_reference_posterior_draws
+#' @exportS3Method posterior::thin_draws
 thin_draws.pdb_reference_posterior_draws <- function(x, thin, ...){
+  checkmate::assert_int(thin, lower = 1L)
+  original <- x
   rpdi <- info(x)
   connection <- pdb(x)
   class(x) <- class(x)[-1]
   x <- posterior::thin_draws(x, thin, ...)
+  if (posterior::ndraws(x) == posterior::ndraws(original)) return(original)
+  rpdi$diagnostics <- bundle_reference_diagnostic_info(
+    list(), posterior::ndraws(x), posterior::nchains(x), posterior::variables(x)
+  )
+  rpdi["checks_made"] <- list(NULL)
   x <- as.pdb_reference_posterior_draws(x, rpdi, pdb = connection)
+  attr(x, "diagnostic_report") <- NULL
+  sampler <- attr(original, "sampler_diagnostics")
+  if (!is.null(sampler)) attr(x, "sampler_diagnostics") <- posterior::thin_draws(sampler, thin, ...)
+  metadata <- attr(original, "sampling_metadata")
+  if (!is.null(metadata)) {
+    metadata$expected_fraction_of_missing_information <- NULL
+    metadata$ndraws <- posterior::ndraws(x)
+    metadata$nchains <- posterior::nchains(x)
+    attr(x, "sampling_metadata") <- metadata
+  }
   checkmate::assert_class(x, "pdb_reference_posterior_draws")
   x
 }

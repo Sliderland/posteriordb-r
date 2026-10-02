@@ -392,6 +392,16 @@ passes_reference_draw_checks(fit, checks = "mean_lag1_ac")
 
 ## Choose variables
 
+For an existing reference-draw object, `subset(draws, variable = ...)`
+keeps diagnostics for the selected variables and clears acceptance flags
+when the selection changes. Recheck that object before writing it.
+`posterior::thin_draws(draws, thin = ...)` updates retained counts and
+clears obsolete diagnostics and acceptance evidence. Saved sampler draws
+are thinned in lockstep; the old E-FMI is discarded. These transformations
+preserve the attached connection and do not write files. Thinned draws
+still need to meet the unchanged acceptance requirements, including
+exactly 10,000 retained draws for a reference-draw write.
+
 By default, the bundle includes saved parameters, transformed
 parameters, and generated quantities, excluding `lp__`: this is the
 `include = NULL` default. `include = "all"` is an equivalent bundle

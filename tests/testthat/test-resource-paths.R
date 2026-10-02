@@ -21,13 +21,13 @@ resource_path_objects <- function(pdb) {
   # Supplied acceptance metadata exercises the writer contract, not diagnostics.
   ri <- as.pdb_reference_posterior_info(list(name = "data.v1-a-model.v1-a",
     inference = list(method = "analytical", method_arguments = list()),
-    diagnostics = NULL, checks_made = stats::setNames(rep(list(TRUE), 6), c(
+    diagnostics = list(ndraws = 10000L, nchains = 4L), checks_made = stats::setNames(rep(list(TRUE), 6), c(
       "ndraws_is_10k", "nchains_is_gte_4", "abs_mean_lag1_ac_below_0_05",
       "r_hat_below_1_01", "efmi_above_0_2", "no_divergent_transitions")),
     comments = "Fixture", added_by = "test", added_date = Sys.Date(), versions = NULL))
   set.seed(741)
   draws <- as.pdb_reference_posterior_draws(posterior::as_draws_list(
-    array(rnorm(400), c(100, 4, 1), dimnames = list(NULL, NULL, "theta"))), info = ri)
+    array(rnorm(10000), c(2500, 4, 1), dimnames = list(NULL, NULL, "theta"))), info = ri)
   po <- as.pdb_posterior(list(pdb_data = dat, pdb_model_code = code,
     dimensions = list(theta = 1L), reference_posterior_name = ri$name,
     added_by = "test", added_date = Sys.Date()), pdb = pdb)

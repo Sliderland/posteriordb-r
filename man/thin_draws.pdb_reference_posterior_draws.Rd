@@ -4,7 +4,7 @@
 \alias{thin_draws.pdb_reference_posterior_draws}
 \title{Thin draws to reduce their size and autocorrelation of the chains.}
 \usage{
-thin_draws.pdb_reference_posterior_draws(x, thin, ...)
+\method{thin_draws}{pdb_reference_posterior_draws}(x, thin, ...)
 }
 \arguments{
 \item{x}{An R object for which the methods are defined.}
@@ -18,4 +18,10 @@ A thinned [pdb_reference_posterior_draws] object.
 }
 \description{
 Thin [pdb_reference_posterior_draws] objects to reduce their size and autocorrelation of the chains.
+}
+\details{
+Thinning updates retained counts and clears obsolete diagnostics,
+  acceptance flags, and reports. Retained sampler draws are thinned in
+  lockstep; E-FMI must be recalculated. Connections and descriptive metadata
+  are preserved. A thinning period of one leaves the object unchanged.
 }
