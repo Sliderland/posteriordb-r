@@ -26,20 +26,20 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**16 of the original 33 finding IDs remain open, partial, or deferred; 17
+**15 of the original 33 finding IDs remain open, partial, or deferred; 18
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
 
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
-| Conversion/API contracts | S4, S5 | S4 clarification remains; S5 constructor fixed, setter deferred. |
+| Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |
 | Diagnostics, extraction and counts | D1–D6 | Revalidate current source; preserve numerical/provenance contracts. D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
-| Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is next. |
+| Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
 | Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
 
-Keep P3, the S5 setter, and non-Stan writing deferred until the maintainer
+Keep P3, the S5 setter, non-Stan writing, and V4 batch classification deferred until the maintainer
 explicitly resumes those choices. Do not reopen completed fixes to fill an
 old review checklist.
 
@@ -97,23 +97,6 @@ including an E-FMI direction inconsistent with the implemented policy. Do
 not silently change numerical policy to match a sentence in a document.
 
 ## S3 dispatch and object contracts
-
-### S4. Similar conversion APIs have different semantics — design review
-
-Locations: `as.reference_posterior_draws()` versus
-`as_reference_posterior_draws()`, aliases in their respective source files.
-
-The dotted API wraps draws with supplied metadata; the underscore API imports
-a fit for a posterior, infers/checks parameter counts, calculates diagnostics,
-and records acceptance. This distinction can be intentional. Explain it in
-the public docs and share lower-level workers where contracts overlap.
-Retain compatibility wrappers unless deprecation is agreed. Backend-named
-wrappers currently forward to the generic; decide whether their names imply
-backend enforcement or merely convenience.
-
-The `posterior()` documentation also describes list construction although
-the list method is on `as.posterior()`, not `posterior()`. Either correct the
-documentation or add deliberate forwarding, with a public-call test.
 
 ### S5. Framework replacement setter — deferred
 
@@ -338,9 +321,14 @@ writer contract and tests before changing support or pre-write rejection.
 
 ## Validation and workflow behavior
 
-### V4. Batch sampling-list detection can misclassify malformed input — reproduced
+### V4. Batch sampling-list classification — deferred by maintainer
 
 Location: `normalize_sequential_sampling_lists()`.
+
+Maintainer decision, 2026-10-02: defer changing classification or rejecting
+ambiguous forms. Preserve current behavior and give users clear usage examples.
+When revisiting the choice, explain the concrete input and its consequence
+alongside the issue ID. The ambiguity and proposed coverage below remain open.
 
 For workflow names `a` and `b`, supplying
 `list(wrong = list(iter = 20))` is treated as a common sampler argument named

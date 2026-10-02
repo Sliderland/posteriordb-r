@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D7/V5 are complete and V4 is next. The historical review
+Implementation resumed at the maintainer's request; D7/V5/S4 are complete and D3 is next; V4 is deferred. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -101,7 +101,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | P3 | Deferred by maintainer on 2026-10-02. Preserve existing manual cache refresh; retain the issue in the active guide for later decision. |
 | S3 | Verified at `a5ef7c9`: shared coercion retains and validates an explicit connection; thinning forwards it, standalone NULL remains supported, JSON excludes connection attributes. Regression failed with eight assertions before repair and passed all 16 afterward. Installed reference-connections, import-external-stanfit (50 assertions, real RStan), and bundle-write-integrity (40 assertions) passed. Independent Sol 6.1/high review found no defects and reran the 16-assertion regression against repository sources. |
 | S2 | Verified: external thinning registration at `5f93031`, subclass/type/serialization repairs at `e6b2b89`. Initial seven failures/errors; independent review found repeated subclass dispatch and sampler mismatch, reproduced before repair. Delegation now skips already-visited subclass methods and restores the original class chain, preserving direct exported method calls. Final subclass27, transformation28 and connection16 passed development, installed namespace-only and independent Sol review. Installed summary11, integrity57 and resource170 passed; S3 checker clean; help/bundle guide regenerated. Concrete internal backend/name-method bypasses retained after caller audit; no new generics/workers. |
-| S4 | Open; revalidate conversion/compatibility contracts. |
+| S4 | Verified at `a5880da`: documentation distinguishes saved-name lookup/list construction and dotted draw wrapping/underscore fit import, corrects component/dimensions names and return type, and explains actual-class dispatch through historical wrappers. Existing aliases and runtime behavior preserved. Public construction/alias probe, development and installed connections16/standalone36 passed; independent documentation review approved. No new tests for this documentation-only unit. |
 | S5 | Partial at `d01d58b`: character constructor preserves all five frameworks, keeps Stan default, and requires matching non-NULL implementation metadata through shared assertion. Initial6 failures; final19 passed development, installed namespace-only and independent Sol review. Installed standalone17, lookup9, resource170 and integrity57 passed; help regenerated. Replacement setter deferred by maintainer on 2026-10-02; preserve existing relabelling behavior for now. |
 | D1–D6 | Open; fixed NULL-policy compatibility/internal forwarding cleanup already implemented at `56cb0dd`. Preserve numerical conventions and honest historical evidence. |
 | D7 | Verified at `e3e59e6`: shared version construction satisfies the reference schema and avoids RStan probing for CmdStanR. Initial schema/probe regressions failed; final versions11/extraction36 passed development, installed namespace-only and independent review. Genuine CmdStan CSV extraction/version validation also passed in a clean subprocess with RStan unavailable. See the resumed-run details below; no historical-version or acceptance guarantee is added. |
@@ -113,7 +113,8 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | P8 | Partial at `bca0fd3`: reads/path getters/removal share declared implementation paths and conventional extension fallback for all five frameworks. Supplied posterior metadata is authoritative when it contains the requested implementation; additional frameworks retain attached-database fallback. Original custom-Stan/PyMC removal errors reproduced; independent review added a supplied-vs-stored path regression, then installed standalone checks exposed the additional-framework compatibility case. Final model-path97 and standalone17 passed development, installed namespace-only and independent Sol review. Installed framework19, resource170 and real-RStan import50 passed; help/bundle guide regenerated. Non-Stan writing deferred; custom-path writer contract open. Existing writer behavior preserved and documented. Live GitHub unrun. |
 | V3 | Verified at `10cf216`: summary fields checked by name, required values/MCSE aligned to unique nonmissing variable labels, attached metadata validated; reference-info keys order-independent with the same required-key schema. Original16 failures/errors; final39 passed development, installed namespace-only and independent Sol review. Installed identity11, subclass27, transform28, integrity57, acceptance28 and rename58 passed; help/bundle guide regenerated. Numeric NA/Inf and extra numeric-field length behavior preserved and documented. |
 | V2 | Verified at `472f867`: supplied posterior validated without reloading; getter-returned model/data/draw content and metadata checked; detached results skip cache eviction. No citations need no bibliography; supplied citations require a connection and are checked for all three component types. `check_pdb()` still loads saved records and checks database-wide consistency. Original reload errors reproduced; independent review added two failing metadata/getter-result regressions. Final standalone36 passed development, installed namespace-only and independent Sol review; installed status8, model-path97, bibliography48 and integrity57 passed. Help/bundle guide regenerated. Stan execution enabled during posterior checking and the broad corpus suite were not run for this unit. |
-| V4, V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
+| V4 | Deferred by maintainer on 2026-10-02 after discussion of nested-list ambiguity. Preserve current batch behavior; clarify workflow usage in the guide. |
+| V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
 | V5 | Verified at `3d519bb`: supported controls translated, aliases/conflicts/NULL options handled and native iteration names matched exactly. Final arguments55/versions11 passed development and installed namespace-only; independent review approved and reran arguments55. Genuine CmdStan CSV40-draw smoke confirmed step_size0.5 and disabled adaptation for both chains. Help and bundle guide regenerated; no broad suite run. |
 | T1 | Partial at `31ca4e9`: package harness copies the selected configured corpus or clones into a fresh disposable tree; both path settings are scoped and restored, and failures clean staged files. Initial isolation regression failed before repair; final 37 assertions passed development, installed namespace-only, and independent Sol review. Review repaired Windows/root overlap guards and optional git2r test behavior. Windows runtime/real clone/broad suite unrun. Direct test/coverage runs bypassing the entry point, config-file isolation, offline fixtures and integration separation remain open. |
 | T2–T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Complementary backend coverage and broader public documentation remain open. |
@@ -154,19 +155,18 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**17 of the original 33 finding IDs are fully verified; 16 remain open,
+**18 of the original 33 finding IDs are fully verified; 15 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S4–S5, D1–D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
-16 equally sized bugs. Several require a behavior decision or an audit.
+S5, D1–D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
+15 equally sized bugs. Several require a behavior decision or an audit.
 
-Suggested next unit: **V4 batch sampling-list forms**. A Luna inventory
-found no existing batch tests. Exact workflow-name maps must remain distinct
-from shared nested control/init settings; the existing unnamed outer wrapper
-can express ambiguous common lists. A maintainer question is pending about
-rejecting unmatched nested maps. Do not implement that dependent choice until
-answered. Add direct continue/stop and stage-report regressions with sampling,
-checking and writes stubbed; no option registry is needed.
+Suggested next unit: **D3 analytical acceptance applicability**. Analytical
+checkers already skip Stan metrics, but both final assertions still demand
+Stan flags. Share the required flag names by method/gate and preserve exactly
+10,000 reference draws versus at least 10,000 summary draws. Test analytical
+checks and both writers without inventing HMC success flags; keep Stan gates
+unchanged. Luna's bounded inventory is complete and assigned files are clean.
 
 ### Resumed run — D7 verified at `e3e59e6`
 
@@ -223,8 +223,29 @@ no pre-edit commit was needed. Code/tests and regenerated help/bundle guide
 are in `3d519bb`; this checkpoint is separate. Live GitHub, Windows and broad
 package tests were not run.
 
+### Resumed run — S4 verified at `a5880da`
+
+This was a documentation correction, not an API redesign. `posterior()` looks
+up a saved name, while `as.posterior()` constructs from a list. The component
+fields are `pdb_model_code`, `pdb_data`, and `dimensions`; omitted counts can
+require Stan compilation. Dotted draw coercion wraps supplied metadata and
+omits lp__, whereas underscore fit import validates counts and runs checks.
+Historical backend-named wrappers dispatch on the actual fit class. Aliases
+are preserved and the documented draw return class is corrected.
+
+A public probe reproduced the unsupported `posterior(list)` call and verified
+`as.posterior()` plus its alias with typed components and explicit counts.
+Development and installed connections16/standalone36 passed; independent
+review approved the documentation and regenerated help/guide. No runtime code
+or new tests were added. Assigned files were clean before editing, so no
+preservation commit was required. Implementation/docs commit: `a5880da`.
+
 ### Maintainer decisions and questions for later
 
+- **V4 deferred:** preserve batch-list classification. Document the supported
+  shared/per-workflow forms; revisit ambiguous-map rejection only after a new
+  maintainer decision. Future questions must explain the concrete behavior,
+  not only refer to an issue abbreviation.
 - **P3 deferred:** keep manual cache refresh. Before changing it, decide
   whether writes/removals should immediately update reads on the same
   connection or retain the original refresh requirement.
@@ -245,13 +266,12 @@ package tests were not run.
   parameter selections represent a marginal or complete model in D5.
   D6 stronger source/data verification is an optional policy enhancement,
   not an undisclosed guarantee of the current importer.
-- **API choices:** S4 should explain wrapping versus importing without
-  silently breaking aliases. V6 needs decisions before changing configuration
+- **API choices:** S4 is documented without breaking aliases. V6 needs decisions before changing configuration
   fallback, arbitrary-path removal, summary return values or endpoint return
   contracts. The active guide contains the specific examples.
 
-The maintainer confirmed the three explicit deferrals again during the
-resumed run. Ask about any new choice when its unit is selected; do not
+The maintainer confirmed P3/S5/non-Stan writing deferrals and additionally
+deferred V4 during the resumed run. Ask about any new choice when its unit is selected; do not
 infer approval for a deferred change from elapsed time.
 
 ### How this implementation loop worked

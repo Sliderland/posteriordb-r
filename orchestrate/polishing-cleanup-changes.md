@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**17 of the original 33 finding IDs are closed. Sixteen remain open,
+**18 of the original 33 finding IDs are closed. Fifteen remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -284,13 +284,13 @@ restarting already-completed P11/P2/P12 work.
 
 | Area | IDs | Remaining work |
 | --- | --- | --- |
-| Public API | S4, S5 | Explain wrapping versus fit import and construction APIs; the framework setter is deferred. |
+| Public API | S5 | Framework setter remains deferred; construction and conversion documentation is verified. |
 | Diagnostics and fits | D1–D6 | Shared compatible calculations/acceptance, analytical applicability, extraction routing, constrained counts/selection coverage and identity policy. |
 | Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
 
-The next suggested small unit is **V4 batch sampling-list forms**. V5 is verified at `3d519bb`. D7
+The next suggested small unit is **D3 analytical acceptance applicability**. V4 batch classification is deferred. V5 is verified at `3d519bb`. D7
 version metadata is verified at `e3e59e6`; the resumed-run checkpoint below
 records its reproduction, implementation and verification.
 
@@ -326,8 +326,23 @@ the translated step size and disabled adaptation for both chains. Source help
 and the bundle guide document translations and conflicts. This closes V5
 without adding an option registry or changing any sampling acceptance rule.
 
-The maintainer explicitly deferred P3 cache behavior, S5 framework relabelling
-and non-Stan writing. P4 currently retains and reports partial writes; future
+### Resumed work: conversion API documentation — S4
+
+The help incorrectly suggested using `posterior()` for list construction
+and misstated component fields. It now points to `as.posterior()` and names
+`pdb_model_code`, `pdb_data`, and `dimensions` correctly. Help and the guide
+also distinguish dotted draw wrapping (supplied metadata, no calculated
+acceptance) from underscore fit import (counts and reference checks), with
+correct return types and unchanged compatibility aliases. Backend-named
+wrappers dispatch on the actual fit class; no new enforcement was added.
+
+Commit `a5880da` is documentation-only. Public construction and alias probes,
+existing connections16/standalone36 checks in development and installed usage,
+and independent documentation review passed. This closes S4. V4's batch-list
+classification was separately deferred at the maintainer's request.
+
+The maintainer explicitly deferred P3 cache behavior, S5 framework relabelling,
+non-Stan writing and V4 batch-list classification. P4 currently retains and reports partial writes; future
 automatic rollback remains open for colleague discussion. Later decisions
 also include E-FMI normalization, partial parameter-selection semantics,
 stronger fit identity verification and the V6 API/fallback questions. These
