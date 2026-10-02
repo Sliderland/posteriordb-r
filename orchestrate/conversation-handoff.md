@@ -1,7 +1,7 @@
 # Conversation handoff — updated 2026-10-02
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
-Implementation resumed at the maintainer's request; D7 is complete and V5 is next. The historical review
+Implementation resumed at the maintainer's request; D7/V5 are complete and V4 is next. The historical review
 below explains the starting point; it is not the current work queue.
 
 ## What we completed
@@ -113,7 +113,8 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | P8 | Partial at `bca0fd3`: reads/path getters/removal share declared implementation paths and conventional extension fallback for all five frameworks. Supplied posterior metadata is authoritative when it contains the requested implementation; additional frameworks retain attached-database fallback. Original custom-Stan/PyMC removal errors reproduced; independent review added a supplied-vs-stored path regression, then installed standalone checks exposed the additional-framework compatibility case. Final model-path97 and standalone17 passed development, installed namespace-only and independent Sol review. Installed framework19, resource170 and real-RStan import50 passed; help/bundle guide regenerated. Non-Stan writing deferred; custom-path writer contract open. Existing writer behavior preserved and documented. Live GitHub unrun. |
 | V3 | Verified at `10cf216`: summary fields checked by name, required values/MCSE aligned to unique nonmissing variable labels, attached metadata validated; reference-info keys order-independent with the same required-key schema. Original16 failures/errors; final39 passed development, installed namespace-only and independent Sol review. Installed identity11, subclass27, transform28, integrity57, acceptance28 and rename58 passed; help/bundle guide regenerated. Numeric NA/Inf and extra numeric-field length behavior preserved and documented. |
 | V2 | Verified at `472f867`: supplied posterior validated without reloading; getter-returned model/data/draw content and metadata checked; detached results skip cache eviction. No citations need no bibliography; supplied citations require a connection and are checked for all three component types. `check_pdb()` still loads saved records and checks database-wide consistency. Original reload errors reproduced; independent review added two failing metadata/getter-result regressions. Final standalone36 passed development, installed namespace-only and independent Sol review; installed status8, model-path97, bibliography48 and integrity57 passed. Help/bundle guide regenerated. Stan execution enabled during posterior checking and the broad corpus suite were not run for this unit. |
-| V4–V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
+| V4, V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
+| V5 | Verified at `3d519bb`: supported controls translated, aliases/conflicts/NULL options handled and native iteration names matched exactly. Final arguments55/versions11 passed development and installed namespace-only; independent review approved and reran arguments55. Genuine CmdStan CSV40-draw smoke confirmed step_size0.5 and disabled adaptation for both chains. Help and bundle guide regenerated; no broad suite run. |
 | T1 | Partial at `31ca4e9`: package harness copies the selected configured corpus or clones into a fresh disposable tree; both path settings are scoped and restored, and failures clean staged files. Initial isolation regression failed before repair; final 37 assertions passed development, installed namespace-only, and independent Sol review. Review repaired Windows/root overlap guards and optional git2r test behavior. Windows runtime/real clone/broad suite unrun. Direct test/coverage runs bypassing the entry point, config-file isolation, offline fixtures and integration separation remain open. |
 | T2–T3 | Partial: new isolated fixtures, installed checks, affected help/guides, and unused dependency/helper removal added. Complementary backend coverage and broader public documentation remain open. |
 
@@ -153,18 +154,19 @@ method. Preserve overwrite and cache semantics before attempting it.
 
 ### Remaining scope and next unit
 
-**16 of the original 33 finding IDs are fully verified; 17 remain open,
+**17 of the original 33 finding IDs are fully verified; 16 remain open,
 partial, or deferred.** The authoritative remaining list is the
 [active guide](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02):
-S4–S5, D1–D6, P3/P4/P8, V4–V6 and T1–T3. These are tracking groups, not
-17 equally sized bugs. Several require a behavior decision or an audit.
+S4–S5, D1–D6, P3/P4/P8, V4/V6 and T1–T3. These are tracking groups, not
+16 equally sized bugs. Several require a behavior decision or an audit.
 
-Suggested next unit: **V5**: preserve supported CmdStanR
-controls, map RStan `stepsize` to installed CmdStanR's `step_size`, reject
-unsupported/conflicting settings instead of silently dropping/overwriting
-them. Luna inspected CmdStanR 0.9.0's local `sample()` formals. Recheck the
-installed version and supported mappings; do not build an option registry.
-V4 must preserve legitimate common nested `control` and initialization lists.
+Suggested next unit: **V4 batch sampling-list forms**. A Luna inventory
+found no existing batch tests. Exact workflow-name maps must remain distinct
+from shared nested control/init settings; the existing unnamed outer wrapper
+can express ambiguous common lists. A maintainer question is pending about
+rejecting unmatched nested maps. Do not implement that dependent choice until
+answered. Add direct continue/stop and stage-report regressions with sampling,
+checking and writes stubbed; no option registry is needed.
 
 ### Resumed run — D7 verified at `e3e59e6`
 
@@ -196,6 +198,30 @@ subprocess only, base `.Library` and `.libPaths()` pointed to the temporary
 view. Host packages were untouched. No live GitHub, Windows, or full package
 suite was run. The code/test/generated-guide commit is `e3e59e6`; this
 Markdown checkpoint follows separately.
+
+### Resumed run — V5 verified at `3d519bb`
+
+The translator previously discarded all but two RStan controls, and native
+aliases could override explicit settings. It now maps eight supported nested
+controls to the actual CmdStanR 0.9 interface, rejects unsupported controls,
+normalizes eight native legacy aliases and detects duplicates. The special
+`validate_csv` alias cannot override explicit `diagnostics`, including NULL.
+Exact name access fixes `iter_sampling`/`iter_warmup` being mistaken for
+`iter` through R partial matching; retired NULL RStan options are removed.
+Explicit native NULL options remain intact. No backend registry was added.
+
+Original control loss/conflicts and the native-only iteration error were
+reproduced. Review supplied two more concrete counterexamples (validate_csv
+precedence and NULL leftovers), both reproduced and covered by regressions.
+Final arguments55/versions11 passed development and installed namespace-only;
+separate Sol/high review reran arguments55 and approved source/docs. A
+genuine precompiled CmdStan model sampled 40 retained draws with translated
+settings; both CSVs and metadata confirmed step_size0.5 and adaptation off.
+Adaptation is encoded as numeric0 in the metadata; the CSV header says false.
+No acceptance claim is made. All assigned files were clean before editing;
+no pre-edit commit was needed. Code/tests and regenerated help/bundle guide
+are in `3d519bb`; this checkpoint is separate. Live GitHub, Windows and broad
+package tests were not run.
 
 ### Maintainer decisions and questions for later
 

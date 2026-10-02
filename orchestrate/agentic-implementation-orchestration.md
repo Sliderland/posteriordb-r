@@ -7,10 +7,10 @@ and feature specifications.
 
 ## Current continuation state — 2026-10-02
 
-Implementation resumed at the maintainer's request; D7 is now verified. Start with the
+Implementation resumed at the maintainer's request; D7 and V5 are verified. Start with the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 and [active queue](AGENT_REVIEW_GUIDE.md#active-backlog-maintenance--2026-10-02).
-There are 17 remaining finding IDs, including partial work and three explicit
+There are 16 remaining finding IDs, including partial work and three explicit
 deferrals. Completed units and their checks are recorded in the handoff.
 The historical bootstrap order below does not require repeating P11/P2/P12
 or other verified fixes.
@@ -19,7 +19,7 @@ Continue the existing loop: one writer, one bounded Luna/medium read-only
 inventory when useful, and a separate Sol 6.1/high review of the frozen patch.
 Check assigned files, preserve relevant dirty changes before editing, test,
 review the final patch, commit the unit, then commit its guide checkpoint.
-No agent has an unfinished patch or a commit owed at the D7 checkpoint.
+No agent has an unfinished patch or a commit owed at the V5 checkpoint.
 
 For a Plus-only or Claude Code-only setup, also read the
 [alternate provider profiles](agentic_orchestration_alt.md), which replace
@@ -162,9 +162,9 @@ Suggested order for confirmed defects:
 | Review remaining remove/API boundaries | Relevant V6 | Write/cache containment and archive checks are verified (P9). Clarify arbitrary-path removal semantics before changing compatibility. |
 | Repair remaining conversion contracts | S4, S5 | Clarify wrapping/import semantics; framework setter remains deferred. Preserve existing public aliases. |
 | Partial: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan writing deferred, custom-path writer contract open. |
-| Normalize remaining validation | V4, remaining V6 | Validate batch options; distinguish missing optional resources from malformed ones. |
+| Normalize remaining validation | V4, remaining V6 | Validate batch options; distinguish missing optional resources from malformed ones. V5 sampler translation is verified. |
 | Consolidate applicable diagnostics | D1–D3 | Shared numerical workers and required-check evaluation, preserving fixed thresholds, selective/deferred behavior, and analytical applicability. |
-| Align backend behavior and evidence | D4, D5, V5 | Reuse extraction where contracts match; correct counts and option translation. Version metadata is verified at `e3e59e6`. Verify changed real backend interfaces. |
+| Align backend behavior and evidence | D4, D5 | Reuse extraction where contracts match and correct counts. Versions and option translation are verified at `e3e59e6`/`3d519bb`. Verify changed real backend interfaces. |
 | Resolve documented policy choices | D6, S4, NULL policy follow-up | State supported identity/conversion guarantees and compatibility decisions. Do not silently add configurable acceptance or claim unknown historical provenance. |
 | Complete complementary tests/docs/dependencies | T2, T3 | Add installed-package/public-contract/backend coverage and accurate source documentation alongside affected fixes. |
 

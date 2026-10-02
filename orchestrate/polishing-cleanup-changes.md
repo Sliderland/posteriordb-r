@@ -10,7 +10,7 @@ describes what each change solves;
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
 authoritative remaining queue. Earlier audit reports describe older snapshots.
 
-**16 of the original 33 finding IDs are closed. Seventeen remain open,
+**17 of the original 33 finding IDs are closed. Sixteen remain open,
 partially implemented, or deferred.** An issue ID can contain several work
 units, so this is a count of tracked findings, not a percentage of engineering
 effort completed. Partial work is credited below without closing its whole ID.
@@ -287,10 +287,10 @@ restarting already-completed P11/P2/P12 work.
 | Public API | S4, S5 | Explain wrapping versus fit import and construction APIs; the framework setter is deferred. |
 | Diagnostics and fits | D1–D6 | Shared compatible calculations/acceptance, analytical applicability, extraction routing, constrained counts/selection coverage and identity policy. |
 | Persistence | P3, P4, P8 | Cache policy deferred; remaining I/O-result audit and future rollback discussion; non-Stan writing deferred and custom-path writer contract open. |
-| Validation | V4–V6 | Batch-list ambiguity, silently dropped CmdStanR settings, configuration/optional-resource/API and payload validation questions. |
+| Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 | Tests and docs | T1–T3 | YAML/direct-run isolation, offline/integration separation, complementary real backend/constrained coverage, dependencies and broader public docs. |
 
-The next suggested small unit is **V5 CmdStanR settings translation**. D7
+The next suggested small unit is **V4 batch sampling-list forms**. V5 is verified at `3d519bb`. D7
 version metadata is verified at `e3e59e6`; the resumed-run checkpoint below
 records its reproduction, implementation and verification.
 
@@ -309,6 +309,22 @@ namespace-only checks, plus independent review. A genuine CmdStan CSV check
 passed both normally and in a clean subprocess with RStan actually unavailable
 through normal library lookup. This closes D7; it does not add a provenance
 framework, change acceptance or expand bundle backend support.
+
+### Resumed work: sampler argument translation — V5
+
+Unsupported RStan controls were discarded and aliases could silently replace
+explicit CmdStanR settings. Supported controls are now translated, unsupported
+ones rejected, and native legacy aliases normalized with conflict checks.
+Exact name lookup also prevents native iteration arguments from matching the
+shorter `iter` name. NULL RStan-only options are omitted; native NULL settings
+remain valid. The legacy `validate_csv` flag cannot override diagnostics.
+
+Commit `3d519bb` passed arguments55/versions11 in development and installed
+namespace-only checks, plus independent review. Review found and verified
+repairs for two additional boundary cases. Genuine CmdStan CSV output confirmed
+the translated step size and disabled adaptation for both chains. Source help
+and the bundle guide document translations and conflicts. This closes V5
+without adding an option registry or changing any sampling acceptance rule.
 
 The maintainer explicitly deferred P3 cache behavior, S5 framework relabelling
 and non-Stan writing. P4 currently retains and reports partial writes; future

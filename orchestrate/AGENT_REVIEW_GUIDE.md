@@ -26,7 +26,7 @@ Implementation resumed at the maintainer's request. Read the
 [resume checkpoint](conversation-handoff.md#resume-checkpoint--current-2026-10-02)
 for the last completed unit, workflow, and suggested next step.
 
-**17 of the original 33 finding IDs remain open, partial, or deferred; 16
+**16 of the original 33 finding IDs remain open, partial, or deferred; 17
 are fully verified.** These IDs differ in size, and some are policy/design
 questions rather than confirmed bugs requiring code. This document is the
 active queue; dated audit/review reports are historical inputs.
@@ -34,9 +34,9 @@ active queue; dated audit/review reports are historical inputs.
 | Remaining area | IDs | Current boundary |
 | --- | --- | --- |
 | Conversion/API contracts | S4, S5 | S4 clarification remains; S5 constructor fixed, setter deferred. |
-| Diagnostics, extraction and counts | D1–D6 | Revalidate current source; preserve numerical/provenance contracts. D7 versions are verified; V5 is next. |
+| Diagnostics, extraction and counts | D1–D6 | Revalidate current source; preserve numerical/provenance contracts. D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting fixed, future rollback/audit open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
-| Remaining validation | V4–V6 | Batch forms, CmdStanR options, and smaller API/validation questions. |
+| Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is next. |
 | Tests, dependencies and documentation | T1–T3 | Isolation and focused installed tests partially addressed; configuration, complementary integration and broader docs remain. |
 
 Keep P3, the S5 setter, and non-Stan writing deferred until the maintainer
@@ -353,19 +353,6 @@ reject legitimate nested common arguments such as `control` or list-based
 initialization. Test named/unnamed single and multiple configurations,
 workflow-name collisions with sampler-option names, and mixed/unknown keys.
 Add direct tests for continue/stop semantics and per-stage result reporting.
-
-### V5. CmdStanR argument translation silently drops options — source-confirmed
-
-Location: `translate_cmdstanr_sampling_args()` in `R/run_stan.R`.
-
-It removes the entire `control` list but only forwards `adapt_delta` and
-`max_treedepth`. Other user options disappear. `cores` also overwrites an
-explicit `parallel_chains` value without a conflict decision.
-
-Define supported translations, conflicting aliases, and unsupported options.
-Translate or reject unsupported controls; do not silently alter sampling
-configuration. Use table-driven tests for argument translation, with a small
-real-backend smoke test for an agreed configuration where available.
 
 ### V6. Other small validation/API inconsistencies to investigate
 
