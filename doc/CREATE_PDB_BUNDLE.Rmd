@@ -563,6 +563,21 @@ links. It does not infer links from posterior filenames, so identifiers
 containing hyphens or dots are supported. Standalone objects need a database
 connection before their linked posterior names can be queried.
 
+Existing model code is read from the selected implementation's declared
+`model_code` path, including custom filenames. Legacy metadata without a
+code path uses the conventional framework location and extension (`.stan`
+for Stan, `.py` for the supported Python frameworks). Model-code removal
+uses the same path; `remove_info = FALSE` retains metadata for other
+implementations. Refresh the connection or clear its cache after removal.
+For posterior or model-info inputs, the supplied object's implementation
+metadata selects the file for both code and file-path access.
+A posterior can look up additional implementations through its attached
+database when they are absent from its own metadata.
+Non-Stan writing and custom-path writer support remain open in the issue
+guide; the current model-code writer writes to conventional Stan locations.
+Non-Stan payload writing is not implemented and can fail after saving model
+metadata, so use this writer only for conventional Stan model-code writes.
+
 Before writing, local output paths are checked against the database root,
 including existing symlink targets, missing parent directories, and the
 temporary JSON files used to build ZIP archives. An escaping or dangling

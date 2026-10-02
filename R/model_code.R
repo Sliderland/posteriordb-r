@@ -12,6 +12,12 @@
 #'   Character-code construction preserves the requested framework (default
 #'   `stan`) and requires a matching non-NULL implementation in `info`.
 #'   Construction keeps the code unchanged; it does not compile or translate it.
+#'   Stored code is read from the selected implementation's `model_code`
+#'   path. Legacy implementation metadata without that path uses the
+#'   conventional `models/<framework>/<name>.<extension>` location.
+#'   For posterior or model-info inputs, the supplied object's implementation
+#'   metadata selects the file for both code and file-path access. A posterior
+#'   can look up additional implementations through its attached database.
 #'
 #' @export
 model_code <- function(x, ...) {
@@ -35,27 +41,29 @@ model_code.pdb_posterior <- function(x, framework, ...) {
     if (is.null(pdb(x))) stop("No embedded model code for framework `", framework,
                              "`; attach a database to load another implementation.", call. = FALSE)
   }
-  model_code(x$model_name, framework, pdb = pdb(x), ...)
+  if (is.null(x$model_info$model_implementations[[framework]]))
+    return(model_code(x$model_name, framework, pdb = pdb(x), ...))
+  model_code(x$model_info, framework, pdb = pdb(x), ...)
 }
 
 #' @rdname model_code
 #' @export
 model_code.character <- function(x, framework, pdb = pdb_default(), ...) {
   checkmate::assert_string(x)
-  scfp <- model_code_file_path(x, framework, pdb, ...)
-  out <- paste0(readLines(scfp), collapse = "\n")
-  class(out) <- c("pdb_model_code", "character")
-  framework(out) <- framework
-  info(out) <- model_info(x, pdb = pdb)
-  pdb(out) <- pdb
-  assert_model_code(out)
-  out
+  model_code(model_info(x, pdb = pdb), framework, pdb = pdb, ...)
 }
 
 #' @rdname model_code
 #' @export
 model_code.pdb_model_info <- function(x, framework, pdb = pdb_default(), ...) {
-  model_code(x$name, framework, pdb, ...)
+  scfp <- model_code_file_path(x, framework, pdb, ...)
+  out <- paste0(readLines(scfp), collapse = "\n")
+  class(out) <- c("pdb_model_code", "character")
+  framework(out) <- framework
+  info(out) <- x
+  pdb(out) <- pdb
+  assert_model_code(out)
+  out
 }
 
 #' @rdname model_code
@@ -95,30 +103,32 @@ model_code_file_path.pdb_posterior <- function(x, framework, ...) {
   if (!is.null(x$embedded_model_code) && identical(framework(x$embedded_model_code), framework))
     stop("This in-memory posterior is not persisted; its embedded model code has no database file path.", call. = FALSE)
   if (is.null(pdb(x))) stop("No database file path is available for this in-memory posterior.", call. = FALSE)
-  implementations <- x$model_info$model_implementations
-  available <- names(implementations)[!vapply(implementations, is.null, logical(1))]
-  checkmate::assert_choice(framework, available)
-  mcfp <- pdb_cached_local_file_path(pdb(x), implementations[[framework]]$model_code)
-  mcfp
+  if (is.null(x$model_info$model_implementations[[framework]]))
+    return(model_code_file_path(x$model_name, framework, pdb = pdb(x), ...))
+  model_code_file_path(x$model_info, framework, pdb = pdb(x), ...)
 }
 
 #' @rdname model_code
 #' @export
 model_code_file_path.pdb_model_info <- function(x, framework, pdb = pdb_default(), ...) {
-  model_code_file_path(x$name, framework, pdb, ...)
+  pdb_cached_local_file_path(pdb, model_implementation_file_path(x, framework), unzip = FALSE)
 }
 
 #' @rdname model_code
 #' @export
 model_code_file_path.character <- function(x, framework, pdb = pdb_default(), ...) {
-  if (framework %in% c("pymc", "pymc3")) { 
-    ft <- "py" }
-  else if (framework == "stan"){
-    ft <- "stan"
-  }
-  fn <- paste0(x, ".", ft)
-  mcfp <- pdb_cached_local_file_path(pdb = pdb, path = file.path("models", framework, fn), unzip = FALSE)
-  mcfp
+  model_code_file_path(model_info(x, pdb = pdb), framework, pdb = pdb, ...)
+}
+
+model_implementation_file_path <- function(x, framework) {
+  checkmate::assert_class(x, "pdb_model_info")
+  checkmate::assert_choice(framework, supported_frameworks())
+  implementation <- x$model_implementations[[framework]]
+  checkmate::assert_list(implementation)
+  path <- implementation$model_code %||% file.path("models", framework,
+    paste0(x$name, ".", supported_frameworks_file_extension(framework)))
+  checkmate::assert_string(path)
+  path
 }
 
 #' @export

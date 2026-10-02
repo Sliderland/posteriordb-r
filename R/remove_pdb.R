@@ -2,6 +2,11 @@
 #' Remove objects from local pdb
 #'
 #' @description a function to simplify removing object from a local pdb.
+#' @details Model-code removal follows the selected implementation's declared
+#'   path, with the conventional framework extension as a legacy fallback.
+#'   `remove_info = TRUE` also removes the model's info JSON; use `FALSE` to
+#'   retain metadata for other implementations. Refresh the connection or
+#'   clear its cache before reading after removal.
 #'
 #' @param x an object to remove to the pdb.
 #' @param pdb the pdb to remove from. Currently only a local pdb.
@@ -42,9 +47,7 @@ remove_pdb.pdb_data_info <- function(x, pdb, ...){
 #' @rdname remove_pdb
 #' @export
 remove_pdb.pdb_model_code <- function(x, pdb, remove_info = TRUE, ...){
-  fw <- framework(x)
-  fn <- paste0(info(x)$name, ".", fw)
-  fp <- pdb_file_path(pdb, "models", fw, fn)
+  fp <- pdb_local_resource_path(pdb, model_implementation_file_path(info(x), framework(x)))
   remove_pdb(fp, pdb)
   if(remove_info) remove_pdb(info(x), pdb)
 }
