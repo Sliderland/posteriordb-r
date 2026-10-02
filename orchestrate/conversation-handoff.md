@@ -103,7 +103,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | S2 | Verified: external thinning registration at `5f93031`, subclass/type/serialization repairs at `e6b2b89`. Initial seven failures/errors; independent review found repeated subclass dispatch and sampler mismatch, reproduced before repair. Delegation now skips already-visited subclass methods and restores the original class chain, preserving direct exported method calls. Final subclass27, transformation28 and connection16 passed development, installed namespace-only and independent Sol review. Installed summary11, integrity57 and resource170 passed; S3 checker clean; help/bundle guide regenerated. Concrete internal backend/name-method bypasses retained after caller audit; no new generics/workers. |
 | S4 | Verified at `a5880da`: documentation distinguishes saved-name lookup/list construction and dotted draw wrapping/underscore fit import, corrects component/dimensions names and return type, and explains actual-class dispatch through historical wrappers. Existing aliases and runtime behavior preserved. Public construction/alias probe, development and installed connections16/standalone36 passed; independent documentation review approved. No new tests for this documentation-only unit. |
 | S5 | Partial at `d01d58b`: character constructor preserves all five frameworks, keeps Stan default, and requires matching non-NULL implementation metadata through shared assertion. Initial6 failures; final19 passed development, installed namespace-only and independent Sol review. Installed standalone17, lookup9, resource170 and integrity57 passed; help regenerated. Replacement setter deferred by maintainer on 2026-10-02; preserve existing relabelling behavior for now. |
-| D6 | Open: stronger identity choice and narrow compilation-fallback audit. D1–D5/D7 are verified below; fixed NULL-policy compatibility remains intact. |
+| D6 | Partial at `c1c3631`: narrowed recovery and verified archived-model lookup bypass. Stronger identity choice remains open. D1–D5/D7 are verified below; fixed NULL-policy compatibility remains intact. |
 | D5 | Verified at `673281d`: parameter schema protects zero-free-coordinate saved values independently of positive counts; complete constrained coverage and numeric dimension inputs tested. Real RStan20/import54/counts18 plus affected suites passed development/installed and independent review. Complementary genuine CmdStan schema coverage is now verified at `5b3c675` (T2). |
 | D1, D4 | Verified at `2c55964`: small shared diagnostic kernels, explicit E-FMI normalization/fallback, generic extraction routing and no RStan accessor fallback for draw arrays. Focused development/installed checks, genuine RStan50 and genuine CmdStan CSV/no-RStan agreement passed; independent review approved. |
 | D2 | Verified at `12ea517`: shared evaluator/flag mapping and check worker, diagnostic variable/chain identity validation at check/write boundaries. Eight focused suites passed development and installed checks; independent review approved. |
@@ -166,9 +166,9 @@ partial, or deferred.** The authoritative remaining list is the
 S5, D6, P3/P4/P8 and V4/V6. These are tracking groups, not
 7 equally sized bugs. Several require a behavior decision or an audit.
 
-Next unit: narrow D6 stale-instance compilation fallback after confirming
-actual RStan resource state; stronger identity remains a pending choice.
-V6 optional-summary read handling is verified at `e93a71f`.
+Next unit: V6 duplicate saved-variable names in reference-draw payloads.
+D6 recovery is verified at `c1c3631`; stronger identity remains pending.
+V6 optional-summary handling is verified at `e93a71f`.
 T3 and V4 usage examples are complete. Each unit receives its own tests,
 independent frozen review, implementation commit and checkpoint commit. Lower-priority API choices
 remain explicit in the queue; do not guess a deferred policy to close an ID.
@@ -470,6 +470,35 @@ replaced with attribute assignment after independent review. Final independent
 summary19 passed with helpers/export-all disabled; Sol accepted the code/help/
 guide contract and found no complexity cuts. No live GitHub/corpus or broad
 suite rerun was needed. V6 remains open for its other independent choices.
+
+### Resumed run — D6 recovery slice verified at `c1c3631`
+
+The bundle extractor caught every count/schema error and recompiled when data
+was supplied. It now recovers only when the compiled constrained/unconstrained
+name methods are absent. Errors from available methods propagate. Counts and
+parameter names come from one recovered zero-chain fit; original saved draws,
+sampler inputs, source and metadata remain the extraction snapshot.
+
+A real fresh-process RStan archive retained a non-NULL instance but lost both
+name methods, so checking only for NULL would break recovery. The first public
+recovery probe also exposed RStan's same-source S4 lookup returning the stale
+archived model before checking validity. Public `stanc()` ->
+`stan_model(stanc_ret=...)` -> `sampling(chains=0)` bypasses that lookup without
+class-registry edits, new options or a recovery framework. Recompilation is
+explicit only for the missing-method case and never replaces saved draws.
+
+Assigned files were clean. Count/name sentinels failed4 assertions before the
+repair; final extraction40 passed development, installed and independent review.
+Genuine constrained-fit missing-instance recovery25 passed installed, with
+unchanged counts/shapes/draws/sampler arrays. In-process serialization can retain
+methods, so that persistent integration test explicitly detaches a copied MISC
+instance rather than claiming to reproduce a fresh archive. The separate
+fresh-process public bundle probe used an actual saved RStan fit and preserved
+both chain values/counts; the independent reviewer reproduced the stale lookup
+and verified the native bypass. Installed deferred22/integrity57 passed; earlier
+installed versions11 passed. Generated bundle help/guide explain the boundary.
+No full suite/platform/corpus rerun for this unit. Stronger source/data identity
+verification remains awaiting maintainer input and D6 stays partial.
 
 ### Maintainer decisions and questions for later
 

@@ -4,7 +4,7 @@ Updated 2026-10-02. Implementation branch: `main`.
 
 The initial sections explain cleanup through `472f867` and checkpoint
 `811b425`. The resumed sections below record subsequent verified units through
-`e93a71f`, including dependency/documentation cleanup and optional-summary errors. It
+`c1c3631`, including dependency/documentation, summary errors and archived-fit recovery. It
 describes what each change solves;
 [conversation-handoff.md](conversation-handoff.md) holds the detailed
 commit/test ledger and [AGENT_REVIEW_GUIDE.md](AGENT_REVIEW_GUIDE.md) is the
@@ -285,12 +285,12 @@ restarting already-completed P11/P2/P12 work.
 | Area | IDs | Remaining work |
 | --- | --- | --- |
 | Public API | S5 | Framework setter remains deferred; construction and conversion documentation is verified. |
-| Diagnostics and fits | D6 | Identity policy and compilation-fallback audit. |
+| Diagnostics and fits | D6 | Stronger identity policy pending; bounded schema recovery verified. |
 | Persistence | P3, P4, P8 | Cache policy deferred; scoped I/O-result audit complete; future rollback discussion open; non-Stan writing deferred and custom-path writer contract open. |
 | Validation | V4, V6 | Batch-list ambiguity, configuration/optional-resource/API and payload validation questions. |
 
-Next priority is narrow stale-fit compilation fallback (D6). V6 optional-summary
-read errors are verified; its other API choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
+Next priority is duplicate reference-draw variable names (V6). D6 recovery
+and V6 optional-summary reads are verified; their policy choices remain open. T3 and V4 usage documentation are verified. D1–D5, D7, V5 and S4 are verified; V4
 classification remains deferred. The handoff records current evidence and
 commit boundaries for interruption/restart.
 
@@ -615,3 +615,24 @@ final summary19, validation39, reference27 and listing24 passed development and
 installed checks, with installed integrity57. Independent review accepted the
 final fixture portability repair and reran19. Help and bundle-guide sources/
 outputs describe this contract. Commit `e93a71f`; V6 retains its other questions.
+
+
+### Resumed work: narrow schema recovery and avoid stale RStan models — D6 slice
+
+A broad error catch recompiled even after errors from usable count/name methods.
+Recovery now depends on those compiled methods being absent; other errors are
+returned directly. An actual archived fit can retain an instance object with no
+name methods, so a NULL-only test would be insufficient.
+
+Fresh-process verification found a second root cause: RStan's source lookup can
+return the same archived model before validating it. The fix uses its public
+`stanc()`/`stan_model(stanc_ret=...)` APIs and a zero-chain fit, bypassing that
+lookup. It recovers only counts/schema; saved draw and sampler values are kept.
+No class-registry manipulation, recovery options or identity fingerprinting.
+
+Files were clean before editing. Negative count/name regression4 failed before;
+final extraction40 passed development, installed and independent review.
+Installed constrained25/deferred22/integrity57 passed. A genuine fresh-process
+serialized public bundle check preserved both chain values/counts; independent
+review reproduced the stale lookup and verified the bypass. Help/guide updated.
+Commit `c1c3631`; stronger identity verification remains a pending choice.

@@ -126,9 +126,10 @@ Decide whether stronger verification is wanted and which evidence each fit
 actually preserves. Keep unavailable evidence explicit. Caller-supplied data
 must not be described as fit-recovered data. Preserve the existing explicit
 source comparison for reused model objects. Do not resample a fit to establish
-identity. Restrict compilation fallback for stale RStan instances to the
-specific missing-instance case where possible, rather than hiding unrelated
-errors behind an expensive fallback.
+identity. The narrow recovery slice is verified at `c1c3631`: missing
+compiled name methods trigger source/data recompilation through RStan's public
+compiler API; errors from available methods propagate. Same-source archived
+model lookup is bypassed. Stronger identity remains a pending policy choice.
 
 ## Persistence, transformations, names, and cache
 
