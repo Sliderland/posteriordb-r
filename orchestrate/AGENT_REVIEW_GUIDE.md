@@ -354,20 +354,6 @@ split point. Share a link-index helper if several consumers need it. Test
 hyphens in either name, multiple linked posteriors, unrelated models, and
 standalone objects without a database connection.
 
-### P6. Filename/extension helpers mishandle dots and empty databases
-
-Locations: `R/utils.R`, local/GitHub name-listing methods.
-
-`remove_file_extension("model.v2.info.json")` returns `"model"`, losing the
-actual identifier. Renaming permits dots. Removing extensions should remove
-the expected suffix for the file kind, not split at the first dot.
-
-`model_names()` on an empty fixture errors because empty extraction returns
-NULL and is passed to `basename()`. Ensure list functions return character(0)
-for empty directories. Filter actual JSON/info filenames before stripping
-suffixes; unrelated files or subdirectories must not become object names.
-Test `.DS_Store`, multi-dot names, `.info.json`, ordinary `.json`, and no files.
-
 ### P8. Framework extension logic is already available but bypassed
 
 Locations: `model_code_file_path.character()`, model removal,
