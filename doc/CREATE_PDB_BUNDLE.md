@@ -1,3 +1,22 @@
+- [Create and contribute a reference-draw
+  bundle](#create-and-contribute-a-reference-draw-bundle)
+  - [Choose a workflow](#choose-a-workflow)
+    - [Import a fit for an existing
+      posterior](#import-a-fit-for-an-existing-posterior)
+    - [Reuse existing bundle
+      components](#reuse-existing-bundle-components)
+  - [Create a new bundle: eight
+    schools](#create-a-new-bundle-eight-schools)
+    - [Supply metadata](#supply-metadata)
+    - [Inspect the in-memory objects](#inspect-the-in-memory-objects)
+  - [Choose when to compute
+    diagnostics](#choose-when-to-compute-diagnostics)
+  - [Choose variables](#choose-variables)
+  - [Write the objects](#write-the-objects)
+  - [Reconstruct outputs from stored parameter
+    draws](#reconstruct-outputs-from-stored-parameter-draws)
+  - [Fit and provenance limitations](#fit-and-provenance-limitations)
+
 <!-- CREATE_PDB_BUNDLE.md is generated from CREATE_PDB_BUNDLE.Rmd. Please edit that file. -->
 
 # Create and contribute a reference-draw bundle
