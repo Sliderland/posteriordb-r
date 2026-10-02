@@ -44,6 +44,12 @@ reference metadata and record `diagnostics$ndraws` matching the retained draws.
 `check_reference_posterior_draws()` requires exactly 10,000 draws;
 `check_summary_statistics_draws()` permits at least 10,000. Analytical draws
 receive only the applicable count flag, without invented HMC diagnostics.
+For Stan sampling, named diagnostic vectors must describe the retained
+variables or the positional chain labels `chain1`, `chain2`, etc. Reordered
+named vectors are supported; unrelated or duplicate labels are rejected.
+Unnamed legacy vectors are interpreted in the recorded variable/chain order.
+ESS remains informational, including when its labels cannot be matched.
+
 The ordinary reference-draw writer also supports them and writes the two
 supported summaries by default once the posterior link is saved. This does
 not add analytical fits to `create_pdb_bundle()`, which remains a Stan-fit workflow.

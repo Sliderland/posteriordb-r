@@ -622,14 +622,7 @@ check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
 # summaries, and use the existing summary-statistic constructors and writers.
 bundle_summary_statistics <- function(draws) {
   draw_checks <- info(draws)$checks_made
-  required_draw_checks <- c(
-    "ndraws_is_10k",
-    "nchains_is_gte_4",
-    "abs_mean_lag1_ac_below_0_05",
-    "r_hat_below_1_01",
-    "efmi_above_0_2",
-    "no_divergent_transitions"
-  )
+  required_draw_checks <- required_reference_draw_checks(info(draws)$inference$method)
   if (!all(vapply(required_draw_checks, function(key) {
     isTRUE(draw_checks[[key]])
   }, logical(1)))) {
@@ -1037,14 +1030,8 @@ bundle_reference_diagnostic_info <- function(metrics, ndraws, nchains, variables
 }
 
 bundle_acceptance_flags <- function() {
-  list(
-    ndraws_is_10k = TRUE,
-    nchains_is_gte_4 = TRUE,
-    abs_mean_lag1_ac_below_0_05 = TRUE,
-    r_hat_below_1_01 = TRUE,
-    efmi_above_0_2 = TRUE,
-    no_divergent_transitions = TRUE
-  )
+  checks <- required_reference_draw_checks("stan_sampling")
+  stats::setNames(rep(list(TRUE), length(checks)), checks)
 }
 
 normalize_stan_model_code <- function(x) {

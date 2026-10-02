@@ -70,9 +70,6 @@ assert_checked_summary_statistics_draws.pdb_reference_posterior_info <- function
 # Applicable acceptance flags, shared by assertions and summary transfer.
 required_reference_draw_checks <- function(method, summary = FALSE) {
   checkmate::assert_choice(method, c("stan_sampling", "analytical"))
-  count_check <- if (summary) "ndraws_is_gte_10k" else "ndraws_is_10k"
-  c(count_check, if (method == "stan_sampling") c(
-    "nchains_is_gte_4", "abs_mean_lag1_ac_below_0_05", "r_hat_below_1_01",
-    "efmi_above_0_2", "no_divergent_transitions"
-  ))
+  flags <- reference_diagnostic_flag_names(summary)
+  unname(if (method == "stan_sampling") flags else flags["ndraws"])
 }

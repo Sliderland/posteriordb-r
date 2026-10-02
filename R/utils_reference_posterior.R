@@ -7,7 +7,9 @@
 #'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
 #'   chain, and no divergent transitions. ESS bounds are recorded but do not
 #'   determine acceptance. Analytical draws require the stated draw count
-#'   and matching count metadata; Stan sampling checks do not apply.
+#'   and matching count metadata; Stan sampling checks do not apply. Named
+#'   Stan metrics must identify the retained variables or `chain1`, `chain2`,
+#'   etc. Unnamed legacy metrics retain positional interpretation.
 #'
 #' @param x a posterior name, posterior object or reference_posterior_draws object
 #' @param ... currently not used.
@@ -34,33 +36,7 @@ check_summary_statistics_draws.pdb_posterior <- function(x, ...){
 #' @rdname check_summary_statistics_draws
 #' @export
 check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...){
-  assert_reference_posterior_draws(x)
-  rpi <- info(x)
-  assert_reference_posterior_info(rpi)
-  assert_diagnostic_draw_counts(x, rpi)
-
-  tst <- list()
-
-  # Summary-statistic acceptance permits more than the minimum draw count.
-  policy <- reference_draw_policy()
-  checkmate::assert_true(rpi$diagnostics$ndraws >= policy$ndraws_summary_min)
-  tst$ndraws_is_gte_10k <- TRUE
-
-  if(rpi$inference$method == "stan_sampling"){
-    tst <- c(tst, check_stan_sampling_quality(x, rpi))
-  }
-
-  # Add checks made to reference posterior
-  rpi$checks_made <- tst
-
-  # Add the rp information
-  assert_reference_posterior_info(x = rpi)
-  attr(x, "info") <- rpi
-
-  # Check the reference posterior
-  assert_reference_posterior_draws(x)
-  assert_checked_summary_statistics_draws(x)
-  invisible(x)
+  check_reference_draws(x, summary = TRUE)
 }
 
 
@@ -73,7 +49,9 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
 #'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
 #'   chain, and no divergent transitions. ESS bounds are recorded but do not
 #'   determine acceptance. Analytical draws require the stated draw count
-#'   and matching count metadata; Stan sampling checks do not apply.
+#'   and matching count metadata; Stan sampling checks do not apply. Named
+#'   Stan metrics must identify the retained variables or `chain1`, `chain2`,
+#'   etc. Unnamed legacy metrics retain positional interpretation.
 #'
 #' @param x a posterior name, posterior object, reference-posterior draws, or
 #'   a `pdb_reference_bundle` returned by [create_pdb_bundle()].
@@ -104,31 +82,27 @@ check_reference_posterior_draws.pdb_posterior <- function(x, ...){
 #' @rdname check_reference_posterior_draws
 #' @export
 check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, ...){
+  check_reference_draws(x)
+}
+
+# Both gates use the same validation and policy, with distinct count rules.
+check_reference_draws <- function(x, summary = FALSE) {
   assert_reference_posterior_draws(x)
   rpi <- info(x)
   assert_reference_posterior_info(rpi)
   assert_diagnostic_draw_counts(x, rpi)
-
-  tst <- list()
-
-  policy <- reference_draw_policy()
-  checkmate::assert_true(rpi$diagnostics$ndraws == policy$ndraws_exact)
-  tst$ndraws_is_10k <- TRUE
-
-  if(rpi$inference$method == "stan_sampling"){
-    tst <- c(tst, check_stan_sampling_quality(x, rpi))
+  count <- reference_diagnostic_evaluation(
+    list(ndraws = rpi$diagnostics$ndraws), "ndraws", summary = summary
+  )
+  checkmate::assert_true(count$status$ndraws, .var.name = "diagnostics$ndraws")
+  rpi$checks_made <- stats::setNames(list(TRUE),
+    reference_diagnostic_flag_names(summary)[["ndraws"]])
+  if (rpi$inference$method == "stan_sampling") {
+    rpi$checks_made <- c(rpi$checks_made, check_stan_sampling_quality(x, rpi))
   }
-
-  # Add checks made to reference posterior
-  rpi$checks_made <- tst
-
-  # Add the rp information
-  assert_reference_posterior_info(x = rpi)
-  attr(x, "info") <- rpi
-
-  # Check the reference posterior
-  assert_reference_posterior_draws(x)
-  assert_checked_reference_posterior_draws(x)
+  info(x) <- rpi
+  if (summary) assert_checked_summary_statistics_draws(x)
+  else assert_checked_reference_posterior_draws(x)
   invisible(x)
 }
 
@@ -148,6 +122,23 @@ assert_diagnostic_draw_counts <- function(x, rpi) {
     stop("Recorded nchains does not match the reference-posterior draws.",
          call. = FALSE)
   }
+  if (rpi$inference$method == "stan_sampling") {
+    variables <- posterior::variables(x)
+    recorded_names <- diagnostics$diagnostic_information$names
+    if (!is.null(recorded_names)) {
+      checkmate::assert_names(recorded_names, permutation.of = variables,
+        .var.name = "diagnostic_information$names")
+    }
+    for (field in c("mean_lag1_ac", "r_hat",
+                    "expected_fraction_of_missing_information", "divergent_transitions")) {
+      labels <- if (field %in% c("mean_lag1_ac", "r_hat")) variables
+        else paste0("chain", seq_len(posterior::nchains(x)))
+      if (!is.null(names(diagnostics[[field]]))) {
+        checkmate::assert_names(names(diagnostics[[field]]), permutation.of = labels,
+          .var.name = field)
+      }
+    }
+  }
   invisible(NULL)
 }
 
@@ -155,38 +146,30 @@ assert_diagnostic_draw_counts <- function(x, rpi) {
 # ESS is recorded for information, while the other checks are required.
 check_stan_sampling_quality <- function(x, rpi) {
   diagnostics <- rpi$diagnostics
-  policy <- reference_draw_policy()
-  checkmate::assert_true(diagnostics$nchains >= policy$nchains_min)
-  checks <- list(nchains_is_gte_4 = TRUE)
-  checks$ess_within_bounds <- ess_within_bounds(x, rpi)
-
+  variables <- posterior::variables(x)
   lag1 <- diagnostics$mean_lag1_ac
   if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
-  assert_finite_diagnostic(
-    abs(lag1), posterior::nvariables(x), upper = policy$mean_lag1_ac_max,
-    name = "mean_lag1_ac"
-  )
-  checks$abs_mean_lag1_ac_below_0_05 <- TRUE
-
-  assert_finite_diagnostic(
-    diagnostics$r_hat, posterior::nvariables(x), upper = policy$r_hat_max,
-    name = "r_hat"
-  )
-  checks$r_hat_below_1_01 <- TRUE
-
-  assert_finite_diagnostic(
-    diagnostics$expected_fraction_of_missing_information,
-    diagnostics$nchains, lower = policy$efmi_min,
-    name = "expected_fraction_of_missing_information"
-  )
-  checks$efmi_above_0_2 <- TRUE
-
-  assert_finite_diagnostic(
-    diagnostics$divergent_transitions, diagnostics$nchains,
-    lower = policy$divergences_max, upper = policy$divergences_max,
-    name = "divergent_transitions"
-  )
-  checks$no_divergent_transitions <- TRUE
+  observed <- list(nchains = diagnostics$nchains, mean_lag1_ac = lag1,
+    r_hat = diagnostics$r_hat,
+    efmi = diagnostics$expected_fraction_of_missing_information,
+    divergent_transitions = diagnostics$divergent_transitions)
+  fields <- c(mean_lag1_ac = "mean_lag1_ac", r_hat = "r_hat",
+    efmi = "expected_fraction_of_missing_information",
+    divergent_transitions = "divergent_transitions")
+  for (key in names(fields)) {
+    labels <- if (key %in% c("mean_lag1_ac", "r_hat")) variables
+      else paste0("chain", seq_len(diagnostics$nchains))
+    assert_finite_diagnostic(observed[[key]], length(labels), name = fields[[key]])
+  }
+  evaluated <- reference_diagnostic_evaluation(observed, names(observed))
+  for (key in names(observed)) {
+    checkmate::assert_true(evaluated$status[[key]],
+      .var.name = if (key %in% names(fields)) fields[[key]] else key)
+  }
+  checks <- stats::setNames(evaluated$status,
+    unname(reference_diagnostic_flag_names()[names(observed)]))
+  # ESS remains informational, including mismatched labels.
+  checks$ess_within_bounds <- ess_within_bounds(x, rpi)
   checks
 }
 
@@ -261,6 +244,8 @@ ess_within_bounds <- function(x, rpi){
   n_variables <- posterior::nvariables(x)
   within <- function(values, limits) {
     is.numeric(values) &&
+      (is.null(names(values)) ||
+       checkmate::test_names(names(values), permutation.of = posterior::variables(x))) &&
       length(values) == n_variables && n_variables > 0L &&
       all(is.finite(values)) &&
       all(values >= min(limits)) &&

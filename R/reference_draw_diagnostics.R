@@ -59,16 +59,17 @@ reference_draw_diagnostics_from_extracted <- function(extracted, checks = "all",
        status = evaluated$status, failures = evaluated$failures)
 }
 
-reference_diagnostic_evaluation <- function(observed, checks, policy = reference_draw_policy()) {
+reference_diagnostic_evaluation <- function(observed, checks, policy = reference_draw_policy(),
+                                            summary = FALSE) {
   thresholds <- policy$thresholds[checks]
+  if (summary && "ndraws" %in% checks) thresholds$ndraws <- policy$ndraws_summary_min
   failures <- list()
   status <- lapply(checks, function(key) {
     x <- observed[[key]]
-    if (identical(x, "unavailable") || is.null(x) || !length(x) ||
-        (is.numeric(x) && any(!is.finite(x)))) return(FALSE)
+    if (!is.numeric(x) || !length(x) || any(!is.finite(x))) return(FALSE)
     switch(key,
-      ndraws = length(x) == 1L && is.numeric(x) && x == policy$ndraws_exact,
-      nchains = x >= policy$nchains_min,
+      ndraws = length(x) == 1L && (if (summary) x >= policy$ndraws_summary_min else x == policy$ndraws_exact),
+      nchains = length(x) == 1L && x >= policy$nchains_min,
       mean_lag1_ac = all(abs(x) <= policy$mean_lag1_ac_max),
       r_hat = all(x <= policy$r_hat_max),
       efmi = all(x >= policy$efmi_min),
@@ -78,11 +79,11 @@ reference_diagnostic_evaluation <- function(observed, checks, policy = reference
   for (key in checks) {
     x <- observed[[key]]
     if (is.null(x) || identical(x, "unavailable") || !isTRUE(status[[key]])) {
-      bad <- if (is.null(x) || identical(x, "unavailable")) {
+      bad <- if (!is.numeric(x) || !length(x)) {
         "unavailable"
       } else if (key %in% c("ndraws", "nchains")) {
         list(observed = unname(x), required = thresholds[[key]],
-             comparison = if (key == "ndraws") "equal" else "at_least")
+             comparison = if (key == "ndraws" && !summary) "equal" else "at_least")
       } else if (key == "mean_lag1_ac") {
         names(x)[!is.finite(x) | abs(x) > thresholds[[key]]]
       } else if (key == "r_hat") {
@@ -219,4 +220,12 @@ reference_draw_policy <- function() {
                       mean_lag1_ac = mean_lag1_ac_max, r_hat = r_hat_max,
                       efmi = efmi_min, divergent_transitions = divergences_max)
   )
+}
+
+# Map report keys to the existing persisted acceptance schema.
+reference_diagnostic_flag_names <- function(summary = FALSE) {
+  c(ndraws = if (summary) "ndraws_is_gte_10k" else "ndraws_is_10k",
+    nchains = "nchains_is_gte_4", mean_lag1_ac = "abs_mean_lag1_ac_below_0_05",
+    r_hat = "r_hat_below_1_01", efmi = "efmi_above_0_2",
+    divergent_transitions = "no_divergent_transitions")
 }
