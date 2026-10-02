@@ -58,6 +58,9 @@ Its Stan source must match the source embedded in `fit`.}
 Its linked data/model and unconstrained dimensions must match the bundle.}
 
 \item{data_info}{Named data metadata. `name` and `title` are required;
+names must be nonempty single path components without separators,
+control characters, or the special names `.` and `..`. Dots within names
+and hyphens are allowed; the same rules apply to model names.
 supported descriptive fields are `description`, `references`, `urls`,
 and `keywords`.}
 

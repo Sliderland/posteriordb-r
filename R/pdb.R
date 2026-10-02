@@ -722,8 +722,8 @@ pdb_write_output_path <- function(pdb, path, type, name, zip = FALSE,
                                  info = TRUE) {
   checkmate::assert_class(pdb, "pdb_local")
   checkmate::assert_string(path)
-  checkmate::assert_string(type)
-  checkmate::assert_string(name)
+  assert_pdb_resource_name(type)
+  assert_pdb_resource_name(name)
   checkmate::assert_flag(zip)
   checkmate::assert_flag(info)
   filename <- if (info) {
@@ -731,12 +731,43 @@ pdb_write_output_path <- function(pdb, path, type, name, zip = FALSE,
   } else {
     paste0(name, ".", type)
   }
-  path_parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
-  filepath <- file.path(
-    pdb_endpoint(pdb),
-    do.call(file.path, as.list(c(path_parts, filename)))
-  )
-  if (zip) paste0(filepath, ".zip") else filepath
+  relative <- file.path(path, filename)
+  filepath <- pdb_local_resource_path(pdb, relative)
+  # ZIP writes also create and remove the uncompressed JSON beside the archive.
+  if (zip) pdb_local_resource_path(pdb, paste0(relative, ".zip")) else filepath
+}
+
+# Resolve existing ancestors so missing directories cannot hide an escaping
+# symlink. This checks the filesystem before mutation; it does not lock it.
+pdb_local_resource_path <- function(pdb, path) {
+  checkmate::assert_class(pdb, "pdb_local")
+  checkmate::assert_string(path, min.chars = 1)
+  if (grepl("^/|^[A-Za-z]:|\\\\|[[:cntrl:]]", path) ||
+      any(strsplit(path, "/", fixed = TRUE)[[1L]] %in% c(".", ".."))) {
+    stop("PosteriorDB paths must be relative and cannot contain '.' or '..' components, backslashes, or control characters.",
+         call. = FALSE)
+  }
+  endpoint <- pdb_endpoint(pdb)
+  root <- normalizePath(endpoint, winslash = "/", mustWork = TRUE)
+  destination <- file.path(endpoint, path)
+  # A file can point back inside while its parent directory points outside;
+  # replacement still mutates that parent, so check both independently.
+  for (ancestor in c(destination, dirname(destination))) {
+    while (!file.exists(ancestor)) {
+      link <- Sys.readlink(ancestor)
+      if (!is.na(link) && nzchar(link)) {
+        stop("PosteriorDB paths cannot use dangling symlinks: ", destination,
+             call. = FALSE)
+      }
+      ancestor <- dirname(ancestor)
+    }
+    resolved <- normalizePath(ancestor, winslash = "/", mustWork = TRUE)
+    if (!identical(resolved, root) && !startsWith(resolved, paste0(root, "/"))) {
+      stop("PosteriorDB path resolves outside the database: ", destination,
+           call. = FALSE)
+    }
+  }
+  destination
 }
 
 #' @rdname write_to_path

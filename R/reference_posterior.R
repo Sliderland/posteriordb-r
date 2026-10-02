@@ -227,7 +227,7 @@ assert_reference_posterior_draws <- function(x){
 assert_reference_posterior_info <- function(x){
   checkmate::assert_class(x, "pdb_reference_posterior_info")
   checkmate::assert_names(names(x), identical.to = c("name", "inference", "diagnostics", "checks_made", "comments", "added_by", "added_date", "versions"))
-  checkmate::assert_string(x$name)
+  assert_pdb_resource_name(x$name)
 
   checkmate::assert_true(x$inference$method %in% c("stan_sampling", "analytical"))
   checkmate::assert_list(x$inference$method_arguments)

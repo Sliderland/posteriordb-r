@@ -537,6 +537,21 @@ files with that name, it can be copied to the target. Partial or
 ambiguous same-name files for a reused object stop the operation
 regardless of `overwrite`.
 
+Resource names must be nonempty single path components. Names such as
+`example.v2-model` are valid; names containing `/`, `\\`, control
+characters, or the entire name `.` or `..` are rejected during
+construction and writing. The same rule applies to rename, link, and
+import operations. Relative model implementation paths such as
+`models/stan/example.v2-model.stan` remain paths, not resource names.
+
+Before writing, local output paths are checked against the database
+root, including existing symlink targets, missing parent directories,
+and the temporary JSON files used to build ZIP archives. An escaping or
+dangling symlink causes an error before the operation writes resource
+files. The individual data, model, reference-draw, and summary writers
+check payload destinations before saving metadata. These checks assume
+paths do not change concurrently; they do not lock the filesystem.
+
 After preflight, the writes remain sequential in data, model, posterior,
 then reference-draw and summary order. Preflight prevents file-name
 collisions from causing a partial write, but a later serialization or

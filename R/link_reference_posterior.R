@@ -21,23 +21,24 @@ link_reference_posterior <- function(
 
   if (inherits(posterior, "pdb_posterior")) {
     pdb <- pdb(posterior)
-    checkmate::assert_string(posterior$name, min.chars = 1L)
-    assert_link_resource_name(posterior$name, "posterior")
-    target <- posterior.character(posterior$name, pdb = pdb)
+    posterior_name <- posterior$name
   } else {
-    checkmate::assert_string(posterior, min.chars = 1L)
-    assert_link_resource_name(posterior, "posterior")
-    target <- posterior.character(posterior, pdb = pdb)
+    posterior_name <- posterior
   }
+  assert_pdb_resource_name(posterior_name)
+  if (!is.null(reference_posterior)) assert_pdb_resource_name(reference_posterior)
   checkmate::assert_class(pdb, "pdb_local")
+  pdb_write_output_path(pdb, "posteriors", "json", posterior_name, info = FALSE)
+  target <- posterior.character(posterior_name, pdb = pdb)
   checkmate::assert_class(target, "pdb_posterior")
   if (is.null(reference_posterior)) reference_posterior <- target$name
-  checkmate::assert_string(reference_posterior, min.chars = 1L)
-  assert_link_resource_name(reference_posterior, "reference posterior")
   link_reference_posterior_object(target, reference_posterior, pdb, verify)
 }
 
 link_reference_posterior_object <- function(target, reference_posterior, pdb, verify) {
+  assert_pdb_resource_name(target$name)
+  assert_pdb_resource_name(reference_posterior)
+  pdb_write_output_path(pdb, "posteriors", "json", target$name, info = FALSE)
   current_reference <- target$reference_posterior_name
   if (!is.null(current_reference) &&
       !identical(current_reference, reference_posterior)) {
@@ -89,12 +90,4 @@ link_reference_posterior_object <- function(target, reference_posterior, pdb, ve
     }
   }
   invisible(target)
-}
-
-assert_link_resource_name <- function(name, label) {
-  if (name %in% c(".", "..") || grepl("[/\\\\]", name) ||
-      grepl("[[:cntrl:]]", name)) {
-    stop("The ", label, " name must be a single path component.", call. = FALSE)
-  }
-  invisible(name)
 }

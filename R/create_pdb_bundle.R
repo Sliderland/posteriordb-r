@@ -32,6 +32,9 @@
 #'   objects. Defaults to the current date when the function is called.
 #'   Values supplied in the corresponding metadata lists take precedence.
 #' @param data_info Named data metadata. `name` and `title` are required;
+#'   names must be nonempty single path components without separators,
+#'   control characters, or the special names `.` and `..`. Dots within names
+#'   and hyphens are allowed; the same rules apply to model names.
 #'   supported descriptive fields are `description`, `references`, `urls`,
 #'   and `keywords`.
 #' @param model_info Named model metadata. `name` and `title` are required;
@@ -922,7 +925,7 @@ assert_metadata_pair <- function(x, arg, fields) {
   if (length(missing)) {
     return(missing)
   }
-  checkmate::assert_string(x$name)
+  assert_pdb_resource_name(x$name)
   checkmate::assert_string(x$title)
   character()
 }

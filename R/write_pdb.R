@@ -28,6 +28,14 @@
 #'   When checks fail, newly written posteriors omit the candidate reference
 #'   link unless its files already exist. Existing links to stored reference
 #'   files are preserved. The in-memory bundle still contains the candidate.
+#'   Resource names must be nonempty single path components: separators,
+#'   `.` and `..`, and control characters are rejected. Dots within names
+#'   and hyphens are allowed. Local destinations are checked before writing,
+#'   including temporary JSON files used for ZIP archives. Paths that resolve
+#'   through symlinks outside the database, or through dangling symlinks,
+#'   are rejected. Individual multi-file writers check their payload paths
+#'   before saving metadata. These checks do not lock the filesystem or make
+#'   ordinary writes transactional.
 #'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
@@ -216,31 +224,10 @@ preflight_pdb_bundle_write <- function(
 
   if (include_reference_draws) {
     draw_name <- info(bundle$reference_draws)$name
-    draw_paths <- c(
-      pdb_write_output_path(
-        pdb, "reference_posteriors/draws/info", "json", draw_name
-      ),
-      pdb_write_output_path(
-        pdb, "reference_posteriors/draws/draws", "json", draw_name,
-        zip = TRUE, info = FALSE
-      )
+    draw_paths <- pdb_reference_output_paths(
+      pdb, draw_name,
+      if (write_summary_statistics) supported_summary_statistic_types() else character()
     )
-    if (write_summary_statistics) {
-      summary_types <- supported_summary_statistic_types()
-      summary_paths <- unlist(lapply(summary_types, function(type) c(
-        pdb_write_output_path(
-          pdb,
-          paste0("reference_posteriors/summary_statistics/", type, "/info"),
-          "json", draw_name
-        ),
-        pdb_write_output_path(
-          pdb,
-          paste0("reference_posteriors/summary_statistics/", type, "/", type),
-          "json", draw_name, info = FALSE
-        )
-      )), use.names = FALSE)
-      draw_paths <- c(draw_paths, summary_paths)
-    }
     specs$reference_draws <- list(
       object = bundle$reference_draws,
       reused = FALSE,
@@ -352,6 +339,23 @@ preflight_pdb_bundle_write <- function(
   )
 }
 
+# Shared destination preflight for bundle, individual, and staged import writes.
+pdb_reference_output_paths <- function(pdb, name, summary_types = character()) {
+  paths <- c(
+    pdb_write_output_path(pdb, "reference_posteriors/draws/info", "json", name),
+    pdb_write_output_path(pdb, "reference_posteriors/draws/draws", "json", name,
+                          zip = TRUE, info = FALSE)
+  )
+  summaries <- unlist(lapply(summary_types, function(type) c(
+    pdb_write_output_path(pdb,
+      paste0("reference_posteriors/summary_statistics/", type, "/info"), "json", name),
+    pdb_write_output_path(pdb,
+      paste0("reference_posteriors/summary_statistics/", type, "/", type),
+      "json", name, info = FALSE)
+  )), use.names = FALSE)
+  c(paths, summaries)
+}
+
 same_local_pdb <- function(left, right) {
   endpoint <- function(x) {
     value <- tryCatch(pdb_endpoint(x), error = function(error) NULL)
@@ -386,6 +390,8 @@ write_pdb.pdb_reference_posterior_draws <- function(
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
   reference_posterior_name <- info(x)$name
+  pdb_reference_output_paths(pdb, reference_posterior_name,
+    if (write_summary_statistics) supported_summary_statistic_types() else character())
   assert_reference_posterior_exists(pdb, reference_posterior_name)
   summary_statistics <- if (write_summary_statistics) {
     summary_statistics_from_checked_reference_draws(x)
@@ -430,6 +436,9 @@ write_pdb.pdb_reference_posterior_summary_statistic <- function(x, pdb, overwrit
   assert_reference_posterior_summary_statistic(x)
   assert_checked_summary_statistics_draws(x)
   sstype <- summary_statistic_type(x)
+  pdb_write_output_path(pdb,
+    paste0("reference_posteriors/summary_statistics/", sstype, "/", sstype),
+    "json", info(x)$name, info = FALSE)
   write_pdb(info(x), pdb = pdb, overwrite = overwrite, type = sstype)
   write_json_to_path(x, path = paste0("reference_posteriors/summary_statistics/", sstype, "/", sstype), pdb, zip = FALSE, info = FALSE, overwrite = overwrite, name = info(x)$name)
 }
@@ -439,6 +448,8 @@ write_pdb.pdb_reference_posterior_summary_statistic <- function(x, pdb, overwrit
 #' @export
 write_pdb.pdb_data <- function(x, pdb, overwrite = FALSE, ...){
   assert_data(x)
+  pdb_write_output_path(pdb, "data/data", "json", info(x)$name,
+                        zip = TRUE, info = FALSE)
   write_pdb(info(x), pdb = pdb, overwrite = overwrite)
   write_json_to_path(x, "data/data", pdb, name = info(x)$name, zip = TRUE, info = FALSE, overwrite = overwrite)
 }
@@ -465,6 +476,8 @@ write_pdb.stanmodel <- function(x, pdb, overwrite = FALSE, ...){
 #' @export
 write_pdb.pdb_model_code <- function(x, pdb,  overwrite = FALSE, ...){
   assert_model_code(x)
+  pdb_write_output_path(pdb, paste0("models/", framework(x)), framework(x),
+                        info(x)$name, info = FALSE)
   write_pdb(info(x), pdb, overwrite = overwrite)
   write_model_code_to_path(x, path = "models/", pdb = pdb, name = info(x)$name, framework = framework(x), zip = FALSE, info = FALSE, overwrite = overwrite)
 }

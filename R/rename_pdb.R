@@ -23,7 +23,7 @@
 #' @return The renamed in-memory object.
 #' @export
 rename_pdb <- function(x, new_name, ...){
-  checkmate::assert_string(new_name, min.chars = 1)
+  assert_pdb_resource_name(new_name)
   UseMethod("rename_pdb")
 }
 
@@ -31,7 +31,7 @@ rename_pdb <- function(x, new_name, ...){
 #' @export
 rename_pdb.character <- function(x, new_name, type = NULL,
                                  pdb = pdb_default(), ...){
-  checkmate::assert_string(x, min.chars = 1)
+  assert_pdb_resource_name(x)
   checkmate::assert_class(pdb, "pdb_local")
   type <- rename_pdb_infer_type(x, type, pdb)
   object <- switch(
@@ -132,27 +132,9 @@ rename_pdb_infer_type <- function(x, type, pdb) {
   names(exists)[exists]
 }
 
-rename_pdb_validate_name <- function(name) {
-  checkmate::assert_string(name, min.chars = 1)
-  if (grepl("[/\\\\]", name) || name %in% c(".", "..") ||
-      grepl("[[:cntrl:]]", name)) {
-    stop("Names must be single path components without separators or control characters.",
-         call. = FALSE)
-  }
-  invisible(name)
-}
-
 rename_pdb_connection <- function(pdb) {
   checkmate::assert_class(pdb, "pdb_local")
   pdb
-}
-
-rename_pdb_relpath <- function(pdb, path) {
-  checkmate::assert_string(path, min.chars = 1)
-  if (grepl("^[/\\\\]", path) || grepl("(^|/)[.][.](/|$)", path)) {
-    stop("PosteriorDB paths must be relative and cannot contain '..'.", call. = FALSE)
-  }
-  file.path(pdb$pdb_local_endpoint, path)
 }
 
 rename_pdb_read_json <- function(path) {
@@ -218,7 +200,7 @@ rename_pdb_add_action <- function(actions, source, target, content = NULL,
 }
 
 rename_pdb_posterior_files <- function(pdb) {
-  root <- rename_pdb_relpath(pdb, "posteriors")
+  root <- pdb_local_resource_path(pdb, "posteriors")
   files <- list.files(root, pattern = "[.]json$", full.names = TRUE, recursive = FALSE)
   lapply(files, function(path) {
     object <- rename_pdb_read_json(path)
@@ -231,7 +213,7 @@ rename_pdb_posterior_files <- function(pdb) {
 }
 
 rename_pdb_reference_files <- function(pdb, old_name) {
-  root <- rename_pdb_relpath(pdb, "reference_posteriors")
+  root <- pdb_local_resource_path(pdb, "reference_posteriors")
   if (!dir.exists(root)) return(character())
   files <- list.files(root, full.names = TRUE, recursive = TRUE)
   files[basename(files) %in% c(
@@ -302,8 +284,8 @@ rename_pdb_commit <- function(actions, pdb) {
   sources <- vapply(action_list, `[[`, character(1), "source")
   targets <- vapply(action_list, `[[`, character(1), "target")
   if (anyDuplicated(targets)) stop("The rename plan has duplicate target paths.", call. = FALSE)
-  source_abs <- vapply(sources, function(path) rename_pdb_relpath(pdb, path), character(1))
-  target_abs <- vapply(targets, function(path) rename_pdb_relpath(pdb, path), character(1))
+  source_abs <- vapply(sources, function(path) pdb_local_resource_path(pdb, path), character(1))
+  target_abs <- vapply(targets, function(path) pdb_local_resource_path(pdb, path), character(1))
   if (any(!file.exists(source_abs))) stop("The rename plan refers to a missing source file.", call. = FALSE)
   source_set <- unique(source_abs)
   unexpected_targets <- target_abs[file.exists(target_abs) & !(target_abs %in% source_set)]
@@ -394,8 +376,8 @@ rename_pdb_commit <- function(actions, pdb) {
 }
 
 rename_pdb_entity <- function(old_name, new_name, type, pdb, ...) {
-  rename_pdb_validate_name(old_name)
-  rename_pdb_validate_name(new_name)
+  assert_pdb_resource_name(old_name)
+  assert_pdb_resource_name(new_name)
   checkmate::assert_choice(type, c("data", "model", "posterior"))
   pdb <- rename_pdb_connection(pdb)
   if (identical(old_name, new_name)) return(invisible(TRUE))
@@ -411,11 +393,11 @@ rename_pdb_entity <- function(old_name, new_name, type, pdb, ...) {
     data_candidates <- file.path("data", "data", paste0(old_name, c(".json.zip", ".json")))
     data_files <- data_candidates[vapply(
       data_candidates,
-      function(path) file.exists(rename_pdb_relpath(pdb, path)),
+      function(path) file.exists(pdb_local_resource_path(pdb, path)),
       logical(1)
     )]
     if (!length(data_files)) stop("No data file was found for '", old_name, "'.", call. = FALSE)
-    info_path <- rename_pdb_relpath(pdb, info_rel)
+    info_path <- pdb_local_resource_path(pdb, info_rel)
     if (!file.exists(info_path)) stop("No data metadata was found for '", old_name, "'.", call. = FALSE)
     data_info <- rename_pdb_read_json(info_path)
     if (!identical(data_info$name, old_name)) stop("Data metadata name does not match its filename.", call. = FALSE)
@@ -430,7 +412,7 @@ rename_pdb_entity <- function(old_name, new_name, type, pdb, ...) {
     entity_field <- "data_name"
   } else if (type == "model") {
     info_rel <- file.path("models", "info", paste0(old_name, ".info.json"))
-    info_path <- rename_pdb_relpath(pdb, info_rel)
+    info_path <- pdb_local_resource_path(pdb, info_rel)
     if (!file.exists(info_path)) stop("No model metadata was found for '", old_name, "'.", call. = FALSE)
     model_info <- rename_pdb_read_json(info_path)
     if (!identical(model_info$name, old_name)) stop("Model metadata name does not match its filename.", call. = FALSE)
@@ -451,7 +433,7 @@ rename_pdb_entity <- function(old_name, new_name, type, pdb, ...) {
     entity_field <- "model_name"
   } else {
     info_rel <- file.path("posteriors", paste0(old_name, ".json"))
-    if (!file.exists(rename_pdb_relpath(pdb, info_rel))) stop("No posterior was found for '", old_name, "'.", call. = FALSE)
+    if (!file.exists(pdb_local_resource_path(pdb, info_rel))) stop("No posterior was found for '", old_name, "'.", call. = FALSE)
     entity_field <- NULL
   }
 
@@ -511,7 +493,7 @@ rename_pdb_entity <- function(old_name, new_name, type, pdb, ...) {
     actions <- rename_pdb_add_reference_actions(actions, pdb, item$old, item$new)
   }
 
-  alias_path <- rename_pdb_relpath(pdb, file.path("alias", "posteriors.json"))
+  alias_path <- pdb_local_resource_path(pdb, file.path("alias", "posteriors.json"))
   if (file.exists(alias_path) && length(affected)) {
     aliases <- rename_pdb_read_json(alias_path)
     changed <- FALSE

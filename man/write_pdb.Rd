@@ -90,4 +90,12 @@ Writing reference draws requires all recorded reference acceptance
   When checks fail, newly written posteriors omit the candidate reference
   link unless its files already exist. Existing links to stored reference
   files are preserved. The in-memory bundle still contains the candidate.
+  Resource names must be nonempty single path components: separators,
+  `.` and `..`, and control characters are rejected. Dots within names
+  and hyphens are allowed. Local destinations are checked before writing,
+  including temporary JSON files used for ZIP archives. Paths that resolve
+  through symlinks outside the database, or through dangling symlinks,
+  are rejected. Individual multi-file writers check their payload paths
+  before saving metadata. These checks do not lock the filesystem or make
+  ordinary writes transactional.
 }

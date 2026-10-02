@@ -71,7 +71,7 @@ append_reference.bibentry <- function(ref, pdb, ...) {
     stop("`ref` contains an invalid BibTeX entry.", call. = FALSE)
   }
 
-  reference_path <- pdb_file_path(pdb, "bibliography", "references.bib")
+  reference_path <- pdb_local_resource_path(pdb, "bibliography/references.bib")
   checkmate::assert_file_exists(reference_path)
   existing <- if (file.info(reference_path)$size == 0L) {
     structure(list(), class = "bibentry")
