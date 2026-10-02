@@ -272,12 +272,13 @@ assert_reference_posterior_info <- function(x){
 #' @param ... Further arguments (not used).
 #' @details Variable diagnostics follow the selected variables. Changed
 #'   selections clear acceptance flags and reports; recheck before writing.
+#'   The class chain and attached connection are preserved.
 #' @export
 subset.pdb_reference_posterior_draws <- function(x, variable, ...){
   requireNamespace("posterior")
   attrs <- attributes(x)
   previous_variables <- posterior::variables(x)
-  class(x) <- class(x)[-1]
+  class(x) <- class(x)[-seq_len(match("pdb_reference_posterior_draws", class(x)))]
   x <- subset(x, variable = variable, regex = FALSE)
   selected_variables <- posterior::variables(x)
   if (!identical(selected_variables, previous_variables)) {
@@ -345,7 +346,8 @@ reference_posterior_type_path <- function(type) {
 #' @details Thinning updates retained counts and clears obsolete diagnostics,
 #'   acceptance flags, and reports. Retained sampler draws are thinned in
 #'   lockstep; E-FMI must be recalculated. Connections and descriptive metadata
-#'   are preserved. A thinning period of one leaves the object unchanged.
+#'   and the class chain are preserved. A thinning period of one leaves the
+#'   object unchanged.
 #'
 #' @export thin_draws.pdb_reference_posterior_draws
 #' @exportS3Method posterior::thin_draws
@@ -354,7 +356,7 @@ thin_draws.pdb_reference_posterior_draws <- function(x, thin, ...){
   original <- x
   rpdi <- info(x)
   connection <- pdb(x)
-  class(x) <- class(x)[-1]
+  class(x) <- class(x)[-seq_len(match("pdb_reference_posterior_draws", class(x)))]
   x <- posterior::thin_draws(x, thin, ...)
   if (posterior::ndraws(x) == posterior::ndraws(original)) return(original)
   rpdi$diagnostics <- bundle_reference_diagnostic_info(
@@ -362,6 +364,7 @@ thin_draws.pdb_reference_posterior_draws <- function(x, thin, ...){
   )
   rpdi["checks_made"] <- list(NULL)
   x <- as.pdb_reference_posterior_draws(x, rpdi, pdb = connection)
+  class(x) <- class(original)
   attr(x, "diagnostic_report") <- NULL
   sampler <- attr(original, "sampler_diagnostics")
   if (!is.null(sampler)) attr(x, "sampler_diagnostics") <- posterior::thin_draws(sampler, thin, ...)

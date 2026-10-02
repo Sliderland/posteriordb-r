@@ -18,10 +18,7 @@ supported_summary_statistic_classes <- function() {
 summary_statistic_type <- function(x){
   checkmate::assert_class(x, "pdb_reference_posterior_summary_statistic")
   sst <- supported_summary_statistic_types()
-  bool <- logical(length(sst))
-  for(i in seq_along(sst)){
-    bool[i] <- grepl(x = class(x)[1], pattern = sst[i])
-  }
+  bool <- summary_statistic_class_name(sst) %in% class(x)
   checkmate::assert_true(sum(bool) == 1L)
   sst[bool]
 }

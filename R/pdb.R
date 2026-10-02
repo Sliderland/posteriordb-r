@@ -342,7 +342,10 @@ print.pdb <- function(x, ...) {
 #' @param a \code{pdb} object.
 #' @keywords internal
 pdb_type <- function(pdb){
-  strsplit(class(pdb)[1], split = "_")[[1]][2]
+  types <- supported_pdb_types()
+  type <- types[paste0("pdb_", types) %in% class(pdb)]
+  checkmate::assert_choice(type, types)
+  type
 }
 
 
@@ -721,7 +724,7 @@ read_info_json.pdb_posterior <- function(x, path, pdb = NULL, ...){
 #' @param pdb a local posteriordb object to write to
 #' @keywords internal
 write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = TRUE, overwrite = FALSE){
-  checkmate::assert_subset(class(x)[1], choices = c("character", "pdb_posterior", "pdb_model_info", "pdb_data_info", "pdb_data", "pdb_model_code", "pdb_reference_posterior_draws", "pdb_reference_posterior_info", supported_summary_statistic_classes()))
+  checkmate::assert_true(any(class(x) %in% c("character", "pdb_posterior", "pdb_model_info", "pdb_data_info", "pdb_data", "pdb_model_code", "pdb_reference_posterior_draws", "pdb_reference_posterior_info", supported_summary_statistic_classes())))
   checkmate::assert_string(path)
   checkmate::assert_class(pdb, "pdb_local")
   checkmate::assert_choice(type, c("json", "txt", supported_frameworks()))

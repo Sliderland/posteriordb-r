@@ -23,5 +23,6 @@ Thin [pdb_reference_posterior_draws] objects to reduce their size and autocorrel
 Thinning updates retained counts and clears obsolete diagnostics,
   acceptance flags, and reports. Retained sampler draws are thinned in
   lockstep; E-FMI must be recalculated. Connections and descriptive metadata
-  are preserved. A thinning period of one leaves the object unchanged.
+  and the class chain are preserved. A thinning period of one leaves the
+  object unchanged.
 }
