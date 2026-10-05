@@ -1,4 +1,8 @@
-# Conversation handoff — updated 2026-10-02
+# Conversation handoff — updated 2026-10-05
+
+Latest unit: unused posterior lookup argument warnings are verified at
+`d89897b`; all other remaining V6 choices are deferred. See the
+[2026-10-05 checkpoint](#posterior-lookup-warnings--2026-10-05) before selecting work.
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
 Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation, the scoped I/O-result audit and complementary CmdStan coverage are complete. V4 is deferred. The historical review
@@ -118,7 +122,7 @@ CmdStan 2.40.0, posterior 1.7.0, testthat 3.3.2, roxygen2 8.1.0.
 | V3 | Verified at `10cf216`: summary fields checked by name, required values/MCSE aligned to unique nonmissing variable labels, attached metadata validated; reference-info keys order-independent with the same required-key schema. Original16 failures/errors; final39 passed development, installed namespace-only and independent Sol review. Installed identity11, subclass27, transform28, integrity57, acceptance28 and rename58 passed; help/bundle guide regenerated. Numeric NA/Inf and extra numeric-field length behavior preserved and documented. |
 | V2 | Verified at `472f867`: supplied posterior validated without reloading; getter-returned model/data/draw content and metadata checked; detached results skip cache eviction. No citations need no bibliography; supplied citations require a connection and are checked for all three component types. `check_pdb()` still loads saved records and checks database-wide consistency. Original reload errors reproduced; independent review added two failing metadata/getter-result regressions. Final standalone36 passed development, installed namespace-only and independent Sol review; installed status8, model-path97, bibliography48 and integrity57 passed. Help/bundle guide regenerated. Stan execution enabled during posterior checking and the broad corpus suite were not run for this unit. |
 | V4 | Deferred by maintainer on 2026-10-02 after discussion of nested-list ambiguity. Preserve current batch behavior; clarify workflow usage in the guide. |
-| V6 | Open; revalidate and separate demonstrated bugs from policy choices. |
+| V6 | Partial; unused lookup argument warnings verified at `d89897b`. Remaining configuration, numerical, removal and endpoint choices deferred by maintainer on 2026-10-05. |
 | V5 | Verified at `3d519bb`: supported controls translated, aliases/conflicts/NULL options handled and native iteration names matched exactly. Final arguments55/versions11 passed development and installed namespace-only; independent review approved and reran arguments55. Genuine CmdStan CSV40-draw smoke confirmed step_size0.5 and disabled adaptation for both chains. Help and bundle guide regenerated; no broad suite run. |
 | T1 | Verified at `1e80aea`: default tests are offline; each opt-in corpus test copies the configured database, scopes both path settings and working directory, and cleans up even after failure. Direct `test_file()` loads the same helper. Stan/GitHub integrations have separate explicit flags; automatic CI uses fixtures and a manual corpus workflow pins a full revision SHA. Development and installed namespace-only suites each passed 1,203 assertions with 40 explicit skips and a nonexistent corpus sentinel; harness33 and independent review passed. Manual corpus CI, live GitHub and Windows runtime remain unrun. |
 | T2 | Verified at `5b3c675`: public compiled CmdStan constrained/CSV integration18 passed development, installed with RStan unavailable, and independent review. Existing shared real-RStan20 plus dimension18/version11 passed installed. See resumed-run details for precision requirements and limitations. |
@@ -176,8 +180,8 @@ S5, D6, P3/P4/P8 and V4/V6. These are tracking groups, not
 7 equally sized bugs. Several require a behavior decision or an audit.
 
 Next implementation depends on maintainer input: custom Stan write paths
-(P8), unused lookup arguments/config fallback/analytical finiteness (V6), or
-stronger fit identity (D6). The questions below are pending. Draw-shape repair
+(P8) or stronger fit identity (D6). Unused lookup argument warnings are
+verified at `d89897b`; other remaining V6 choices are deferred. Draw-shape repair
 is verified at `aad0754`; the audit cut is verified at `fda18a4`.
 V6 duplicate-variable handling is verified at `ff65fa3`.
 D6 recovery is verified at `c1c3631`; stronger identity remains pending.
@@ -596,26 +600,21 @@ Do not infer a choice from elapsed time. These questions are pending:
 
 - D6 stronger source/data identity evidence, beyond the current name/free-count
   guarantee; bounded schema recovery is complete.
-- V6 whether an existing malformed config should stop `pdb_default()` rather
-  than falling back to another database.
-- V6 whether analytical reference-draw values must be finite. Summary-statistic
-  NA/Inf behavior is separately permissive and documented.
 - P8 custom Stan paths: reject before saving metadata, honor the declared path,
   or defer. Non-Stan writing stays explicitly deferred.
-- V6 unused lookup arguments: reject extras in `posterior()` or preserve its
-  current compatibility. Intentional argument forwarding stays separate.
-
-Arbitrary-path removal restrictions are now explicitly deferred (2026-10-05).
-Mixed internal endpoint return forms still need contract/caller review before
-proposing a compatibility change. `summary()`
+The remaining V6 configuration, numerical, arbitrary-path removal and mixed
+internal endpoint questions are explicitly deferred (2026-10-05). `summary()`
 already returns a structured result and requires no repair. Keep those facts
 in the existing active queue, not a second backlog.
 
 ### Maintainer decisions and questions for later
 
-- **V6 removal restriction deferred (2026-10-05):** leave arbitrary-path
-  `remove_pdb()` behavior unchanged; revisit directory containment only when
-  the maintainer resumes this work.
+- **V6 remaining choices deferred (2026-10-05):** preserve configuration
+  fallback, analytical draw finiteness, arbitrary-path removal and mixed
+  internal endpoint return forms. Warn about unused posterior lookup arguments
+  without rejecting the lookup. Finite structural constants need separate
+  treatment from NA/NaN/Inf payloads; the current lag-1 helper rejects any
+  constant chain. No numerical acceptance rule was changed in this unit.
 - **V4 deferred:** preserve batch-list classification. Document the supported
   shared/per-workflow forms; revisit ambiguous-map rejection only after a new
   maintainer decision. Future questions must explain the concrete behavior,
@@ -640,10 +639,8 @@ in the existing active queue, not a second backlog.
   contract: include/exclude cannot remove model parameter-block variables.
   D6 stronger source/data verification is an optional policy enhancement,
   not an undisclosed guarantee of the current importer.
-- **API choices:** S4 is documented without breaking aliases. V6 needs decisions
-  before changing configuration fallback or endpoint return contracts;
-  arbitrary-path removal restrictions are deferred. The active guide contains
-  the specific examples.
+- **API choices:** S4 is documented without breaking aliases. The remaining V6
+  choices are deferred; the active guide contains the specific examples.
 
 The maintainer confirmed P3/S5/non-Stan writing deferrals and additionally
 deferred V4 during the resumed run. Ask about any new choice when its unit is selected; do not
@@ -717,3 +714,26 @@ guide was preserved before its resume edits in `ad90721`.
 All fixes are separate ordinary commits with matching checkpoint commits;
 use Git to inspect/revert selected units if needed. Do not reset/rebase the
 shared branch or revert a unit without considering later dependent changes.
+
+### Posterior lookup warnings — 2026-10-05
+
+Commit `d89897b`, based on `e509168`: `posterior(name, pdb, ...)` and its
+`pdb_posterior()` alias warn about extra arguments and return the same saved
+record. The two-line check in `posterior.character()` counts arguments without
+evaluating their values. Construction and intentional forwarding stay unchanged.
+Help was regenerated from roxygen; no dependency or warning helper was added.
+
+Assigned files were clean before editing, so no pre-edit commit was needed.
+The regression reproduced silent named/unnamed extras before the fix.
+Independent review caught control-name collisions in the initial base helper;
+the final direct check and regression also cover `allowed` and `which.call`.
+The same reviewer approved the final patch and independently ran 32 assertions.
+Development and fresh installed namespace-only runs each passed 246 assertions:
+optional-dependencies32, resource-paths178 and standalone-posterior36, with no
+failures/errors. No backend, live GitHub, oldest-R runtime or full-suite rerun
+was required or claimed for this lookup-only change.
+
+The maintainer deferred all other discussed V6 issues: configuration fallback,
+non-finite draw acceptance/structural constant handling, arbitrary-path removal
+and mixed endpoint return forms. Keep these visible and unchanged until resumed.
+The original count remains 26/33 fully verified and seven partial/deferred IDs.

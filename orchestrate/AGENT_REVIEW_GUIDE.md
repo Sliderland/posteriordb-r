@@ -41,7 +41,7 @@ Its findings are not new unfinished queue entries; the seven IDs below remain.
 | Conversion/API contracts | S5 | Constructor fixed, setter deferred. S4 conversion documentation is verified. |
 | Diagnostics, extraction and counts | D6 | Revalidate current source; preserve numerical/provenance contracts. D1–D5 diagnostics/extraction/schema coverage and D7 versions are verified. |
 | Persistence and writing | P3, P4, P8 | P3 cache policy deferred; P4 reporting/operation-result audit fixed, future rollback open; P8 reads/removal fixed, non-Stan writing deferred and custom-path writer contract open. |
-| Remaining validation | V4, V6 | Batch forms and smaller API/validation questions. V5 translation is verified; V4 is deferred by the maintainer. |
+| Remaining validation | V4, V6 | Unused lookup argument warnings verified at `d89897b`; V4 and all remaining V6 choices deferred. V5 translation is verified. |
 
 Keep P3, the S5 setter, non-Stan writing, and V4 batch classification deferred until the maintainer
 explicitly resumes those choices. Do not reopen completed fixes to fill an
@@ -240,16 +240,16 @@ initialization. Test named/unnamed single and multiple configurations,
 workflow-name collisions with sampler-option names, and mixed/unknown keys.
 Add direct tests for continue/stop semantics and per-stage result reporting.
 
-### V6. Other small validation/API inconsistencies to investigate
+### V6. Remaining small validation/API inconsistencies — deferred
+
+Maintainer decision, 2026-10-05: implement warnings for unused posterior lookup
+arguments; defer the other configuration, numerical, removal and endpoint
+questions below. Resume them only when the maintainer prioritizes them.
 
 - `pdb_config()` constructor validation and disabled YAML expression evaluation
   are verified at `888b098`. Remaining: `pdb_default()` swallows configuration
-  errors and can silently fall back to another database. The maintainer question
-  is pending: stop on an existing invalid config, or preserve fallback?
-- Unused-argument choice is pending: `posterior(name, pdb, typo=TRUE)`
-  silently ignores the extra argument. Ask whether to reject extras in this
-  lookup API or preserve compatibility. Do not blanket-reject arguments
-  intentionally forwarded by other methods.
+  errors and can silently fall back to another database. Deferred choice:
+  stop on an existing invalid config, or preserve fallback?
 - `remove_pdb.character()` deletes the literal path supplied even if outside
   the connection's endpoint. Clarify whether it is a public arbitrary-path
   API or an internal worker; do not change its semantics without review.
@@ -259,8 +259,11 @@ Add direct tests for continue/stop semantics and per-stage result reporting.
   `ff65fa3`; equal retained vector/chain lengths are verified at `aad0754`.
   Mutated draws no longer bypass these checks. Remaining: analytical NA/Inf
   values can pass count checks;
-  the maintainer question about finiteness is pending. Revalidate any further
-  malformed-input candidates against these checks before expanding validation.
+  the finiteness choice is deferred. Known finite structural constants (matrix
+  diagonal ones/Cholesky zeros) differ from non-finite draw values; the current
+  lag-1 helper rejects any constant chain and has no structural exemption.
+  Revalidate further malformed-input candidates against these checks before
+  expanding validation.
 - `pdb_endpoint.pdb_local()` returns a path when an endpoint is already set,
   but a modified connection object when resolving an unset endpoint. Several
   callers rely on one of those forms. Clarify the contract and, if useful,

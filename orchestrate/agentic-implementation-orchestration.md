@@ -162,7 +162,7 @@ The active queue and handoff hold their evidence. Suggested remaining units:
 | Deferred: arbitrary-path removal restriction | Relevant V6 | Maintainer deferred this on 2026-10-05; preserve current removal behavior. Write/cache containment and archive checks are verified (P9). |
 | Deferred framework setter | S5 | Constructor and S4 conversion documentation are verified; preserve current setter until the maintainer resumes it. |
 | Partial: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan writing deferred, custom-path writer contract open. |
-| Normalize remaining validation | V6; V4 deferred | Config dispatch, optional-summary reads, draw labels/lengths and the axis audit cut are verified. Resolve explicit API/finiteness choices before changing compatibility. Preserve batch classification; V5 sampler translation is verified. |
+| Deferred: remaining validation/API choices | V6; V4 | Maintainer deferred remaining V6 choices on 2026-10-05 after authorizing unused-argument warnings. Preserve configuration fallback, numerical policy, removal and endpoint contracts. Config dispatch, optional-summary reads, draw labels/lengths and the axis audit cut are verified. Preserve batch classification; V5 sampler translation is verified. |
 | Resolve documented fit-identity choice | D6 | Stronger identity verification is awaiting maintainer input; bounded missing-method recovery and archived-model lookup bypass are verified at `c1c3631`. Fixed NULL policy is implemented; preserve honest provenance. |
 
 This is a starting priority order, not permission for one giant patch.
