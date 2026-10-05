@@ -3,7 +3,8 @@
 #' @param x For `posterior()`, a saved posterior name. For `as.posterior()`,
 #'   a named list used to construct a posterior object.
 #' @param pdb a \code{pdb} posterior database object.
-#' @param ... currently not in use.
+#' @param ... currently unused; posterior name lookups warn when extra arguments
+#'   are supplied and continue the lookup.
 #'
 #' @details
 #' Use `posterior(name, pdb)` to look up a saved record. Use `as.posterior()`
@@ -40,6 +41,8 @@ as.posterior <- function(x, pdb = pdb_default(), ...) {
 posterior.character <- function(x, pdb = pdb_default(), ...) {
   checkmate::assert_string(x)
   checkmate::assert_class(pdb, "pdb")
+  if (...length())
+    warning("Extra arguments to posterior name lookup will be disregarded.", call. = FALSE)
   x <- handle_aliases(x, type = "posteriors", pdb)
   po <- read_info_json(x, "posteriors", pdb)
   pdb(po) <- pdb

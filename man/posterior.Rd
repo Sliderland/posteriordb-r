@@ -27,7 +27,8 @@ a named list used to construct a posterior object.}
 
 \item{pdb}{a \code{pdb} posterior database object.}
 
-\item{...}{currently not in use.}
+\item{...}{currently unused; posterior name lookups warn when extra arguments
+are supplied and continue the lookup.}
 }
 \description{
 Access a posterior in the posterior database
