@@ -168,17 +168,18 @@ Every variable named in `posterior$dimensions`, and every
 parameter-block variable inferred from the fit, is retained
 automatically even if omitted from `include`. Additional outputs may be
 transformed parameters or generated quantities; all their indexed
-columns are retained. `exclude` removes additional selections and takes
-precedence over `include`, but excluding a dimensions or parameter-block
-variable is an error. Unknown names are errors. Without these arguments,
-only those required variables are retained. This can retain more
-variables than older importer versions. Diagnostics and written
-summaries cover the retained selection, not omitted outputs. Existing
-dimensions are not changed. Required variables missing from the saved
-fit cause an error. Retaining the complete parameter block provides the
-inputs needed by `reconstruct_stan_output()`, but the importer does not
-itself reconstruct outputs or verify model/data identity. Random
-generated quantities cannot generally be recovered exactly.
+columns are retained. `exclude` removes optional outputs from the
+default all-output selection. Naming a variable in both selectors, or
+explicitly excluding a dimension or parameter-block variable, raises an
+error. Unknown names are errors. Without these arguments, all saved
+model outputs except `lp__` are retained. This can retain more variables
+than older importer versions. Diagnostics and written summaries cover
+the retained selection, not omitted outputs. Existing dimensions are not
+changed. Required variables missing from the saved fit cause an error.
+Retaining the complete parameter block provides the inputs needed by
+`reconstruct_stan_output()`, but the importer does not itself
+reconstruct outputs or verify model/data identity. Random generated
+quantities cannot generally be recovered exactly.
 
 The importer stages the reference-draw files, summaries, and any
 required posterior-link update, checks their round trip, and restores
@@ -662,113 +663,85 @@ transformations preserve the attached connection and do not write files.
 Thinned draws still need to meet the unchanged acceptance requirements,
 including exactly 10,000 retained draws for a reference-draw write.
 
-By default, the bundle includes saved parameters, transformed
-parameters, and generated quantities, excluding `lp__`: this is the
-`include = NULL` default. `include = "all"` is an equivalent bundle
-option; `c("all")` means exactly the same thing. Use `include = "none"`
-or `include = character(0)` to retain only the complete parameter block,
-with no additional outputs. `c("none")` is equivalent to `"none"`. The
-names `"all"` and `"none"` are reserved when used alone as bundle
-selections; `exclude` still applies to derived outputs. In R, `c()` is
-`NULL`, so `include = c()` selects all outputs rather than
-parameter-block-only draws. Use `include` or `exclude` with base
-variable names to select additional outputs. For example,
-`include = c("mu", "tau")` keeps those variables **and every inferred
-parameter-block variable**. `include = "theta"` can additionally retain
-all elements of a transformed parameter or generated quantity. Excluding
-an inferred parameter-block variable is an error; derived outputs can be
-excluded. The same retained selection is used for immediate or deferred
-diagnostics and summary statistics. The posterior’s `dimensions` entries
-always describe the complete inferred parameter block and are unaffected
-by selection of derived outputs. These entries record unconstrained
-parameter counts, which can differ from the number or shape of saved
-output columns (for example, a constrained simplex has one fewer
-unconstrained coordinate than output elements).
+The package uses the same selection conventions in bundle creation,
+internal reference sampling, fit import, standalone diagnostics, and
+unconstrained-count inference. All default to `include = NULL` and
+`exclude = NULL`.
 
-The `dimensions` map describes the model parameters that have
-unconstrained coordinates; it is not a complete inventory of every
-variable saved in the draws. Transformed parameters and generated
-quantities can be present in the draw payload without appearing in this
-map. Use `include` and `exclude` to choose which saved variables are
-retained and used for the bundle’s draw diagnostics. In particular,
-exclude a generated quantity if it is not useful for diagnosing the fit.
+| Value | Meaning in `include` | Meaning in `exclude` |
+|----|----|----|
+| `NULL` | Select all applicable variables | Exclude nothing |
+| `"all"` | Select all applicable variables | Reduce to the minimum required selection |
+| `"none"` | Select the minimum required selection | Exclude nothing |
+| `character(0)` | Select the minimum required selection | Exclude nothing |
+| Explicit base names | Select those names plus any mandatory variables | Remove those names; required variables cannot be explicitly excluded |
 
-Acceptance applies to the retained variables. Omitted derived outputs
-are not certified by that report, even if the parameter-block variables
-pass. Unknown base names are errors; selection requires the
-corresponding columns to have been saved in the fitted object. Constant
-outputs can have undefined R-hat or autocorrelation and may fail checks
-rather than indicate a sampling problem.
+`"all"` and `"none"` are reserved only when used alone. `c("all")` is
+the same as `"all"`; `c()` is NULL, so an empty `c()` includes all
+rather than requesting the minimum. Unknown names, duplicate names,
+missing values, and empty or blank strings are errors. `lp__` is never
+selected: explicitly including it is an error, and explicitly excluding
+it is a harmless no-op. Base names select every saved indexed column, so
+`include = "theta"` selects all eight saved elements in the
+eight-schools example.
 
-Selection conventions currently differ across workflows:
+The applicable variables and minimum selection depend on the function:
 
-| Workflow | `include = NULL` | `include = character(0)` | `exclude = character(0)` |
-|----|----|----|----|
-| `create_pdb_bundle()` | All saved outputs except `lp__` | Parameter block only | Error |
-| `as_reference_posterior_draws()` / `import_reference_posterior_draws()` | Parameter block plus dimension-listed variables | Parameter block plus dimension-listed variables | Error |
-| `compute_reference_posterior_draws()` | All saved outputs except `lp__` | Parameter block plus dimension-listed variables | Error |
-| `reference_draw_diagnostics()` / `passes_reference_draw_checks()` | All saved outputs except `lp__` | Error | Error |
-| `infer_posterior_dimensions()` / `infer_unconstrained_parameter_counts_from_fit()` | All inferred unconstrained parameter counts | Selects no parameters, then errors | Excludes nothing |
+| Workflow | All applicable variables | Minimum required selection |
+|----|----|----|
+| `create_pdb_bundle()` | Saved parameters, transformed parameters, and generated quantities, except `lp__` | Complete parameter block |
+| `compute_reference_posterior_draws()` | All saved model outputs except `lp__` | Complete parameter block plus dimension-listed variables |
+| `as_reference_posterior_draws()` / `import_reference_posterior_draws()` | All saved model outputs except `lp__` | Complete parameter block plus dimension-listed variables |
+| `reference_draw_diagnostics()` / `passes_reference_draw_checks()` | All saved model outputs except `lp__` | Empty; raises an empty-selection error |
+| `infer_posterior_dimensions()` / `infer_unconstrained_parameter_counts_from_fit()` | All inferred nonzero parameter counts | Empty; raises an empty-selection error |
 
-Use `exclude = NULL` to exclude nothing in every workflow. The
-empty-vector errors in compute, import, and bundle come from their
-shared selector validator: non-NULL `exclude` must contain at least one
-name. Standalone diagnostics require both non-NULL selectors to contain
-at least one name. These are input-validation rules, not evidence of bad
-sampling. Dimension helpers accept empty selectors, but reject a result
-with no parameters.
+Dimension helpers select parameter counts, not derived outputs or
+constrained shapes. Every saved parameter-block variable remains
+mandatory in a bundle, compute, or import selection, including
+zero-free-coordinate parameters such as `simplex[1]`. Explicitly
+excluding one raises an error. A dimension-listed derived output is also
+mandatory for compute and import.
 
-In bundle, import, and compute, explicit `include` names add outputs to
-the mandatory parameter block; import and compute also retain
-dimension-listed variables. `exclude` cannot remove those mandatory
-variables. In standalone diagnostics and dimension helpers, `include` is
-a filter: it does not automatically restore omitted parameters.
-Dimension helpers select counts for parameter-block variables, not
-transformed parameters or generated quantities.
-
-Bundle and compute support `include = "all"` and `"none"` when used
-alone. Import and the standalone helpers interpret these strings as
-variable names, not aliases. Also, `c()` is NULL, whereas `character(0)`
-is an empty character vector; they therefore differ wherever the table
-shows different meanings.
-
-For example, with required `vector[10] mu` and saved derived
-`vector[10] exp_mu`, `include = character(0)` keeps only `mu` in bundle,
-import, and compute. `include = "exp_mu"` keeps both variables in those
-workflows, but diagnoses only `exp_mu` in standalone diagnostics.
-
-The broader bundle default includes derived outputs in a new
-contribution. Import keeps its existing required-variable default;
-compute defaults to `include = "none"` to preserve its previous
-selection. In compute, omitting `include` differs from explicitly
-passing `include = NULL`. Making import’s NULL selection mean all
-outputs would change both written draws and acceptance: for example, a
-failing `exp_mu` diagnostic could reject an import that currently checks
-only required `mu`. No such behavior change is implied by this guide.
-The empty-`exclude` rejection is a validator asymmetry, rather than a
-requirement of reference-posterior diagnostics.
-
-There is no `keep_dims` or `diagnose_params` argument.
-`include`/`exclude` control both stored outputs and variable-level
-diagnostics. To diagnose more outputs in an import, explicitly include
-their base names.
-
-The conventional internally sampled workflow also supports selection:
+To retain and diagnose everything except a saved derived output, omit
+`include` and specify only `exclude`. For example, for a model saving
+`exp_mu`:
 
 ``` r
-draws <- compute_reference_posterior_draws(rpi, pdb, include = "exp_mu")
+draws <- compute_reference_posterior_draws(rpi, pdb, exclude = "exp_mu")
 draws <- check_reference_posterior_draws(draws)
 write_pdb(draws, pdb)
 ```
 
-Its default `include = "none"`, or `character(0)`, retains the required
-parameter block and dimension-listed variables. Explicit base names add
-saved outputs; `include = NULL` or `"all"` retains all saved outputs
-except `lp__`. `exclude` removes optional outputs only. All selected
-scalar columns are returned for writing and diagnosed before acceptance,
-without changing the posterior’s unconstrained counts. This uses the
-bundle’s alias meanings; the existing-posterior importer keeps its
-selection behavior shown above.
+The same selector works in bundle creation, import, and standalone
+diagnostics when that output is available and is not mandatory.
+`include = "all"` with that exclusion is valid but redundant. Use
+`include = "none"` or `exclude = "all"` for required variables only in
+bundle, compute, or import. In diagnostics and count helpers, those
+requests leave nothing to process and raise an error.
+
+Naming the same variable explicitly in both selectors is a configuration
+error. For example, `include = "exp_mu", exclude = "exp_mu"` fails
+instead of silently removing it. This also applies to mixed vectors such
+as `include = c("mu", "exp_mu"), exclude = "exp_mu"`. The aliases are
+controls, not explicit variable names: `exclude = "all"` always requests
+the minimum selection, even with named inclusions.
+
+Both stored outputs and variable-level diagnostics use the retained
+selection. Acceptance does not certify omitted outputs. Constant outputs
+can have undefined R-hat or autocorrelation and may fail the unchanged
+checks. Counts are independent of output selection: for example,
+`simplex[3]` has three saved values but two unconstrained coordinates,
+and derived outputs add no counts.
+
+**Compatibility:** compute and import previously defaulted to required
+variables only; both now select all saved outputs. Existing calls may
+return more variables and fail acceptance when an additional output has
+poor or undefined diagnostics. Pass `include = "none"` to retain the
+previous minimum selection. Callers that explicitly named a variable in
+both selectors must remove that contradiction; named exclusion no longer
+silently overrides it. These conventions apply to the package’s
+output/count selectors, rather than backend-specific sampler options
+passed inside `stan_args`.
 
 For an existing fit, the package can infer the named unconstrained
 counts directly from either supported fit class:

@@ -72,8 +72,11 @@
 #'   outputs. `"all"` and `"none"` are reserved when used alone.
 #'   `c()` is NULL and therefore selects all.
 #' @param exclude Optional character vector of base variable names to omit.
-#'   Exclusion takes precedence over inclusion for derived outputs; excluding
-#'   an inferred parameter-block variable is an error.
+#'   `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"` removes all
+#'   optional outputs, retaining the complete parameter block. Explicitly
+#'   excluding a parameter-block variable is an error. Naming a variable in
+#'   both `include` and `exclude` is a configuration error. The aliases
+#'   `"all"` and `"none"` are reserved when used alone in either selector.
 #' @param check Whether to evaluate the package's reference-draw acceptance
 #'   checks. `FALSE` leaves the candidate explicitly unchecked and skips
 #'   draw-diagnostic and acceptance-metric calculations.
@@ -384,9 +387,7 @@ assemble_standalone_fit_bundle <- function(
   data <- resolved_data$data
   draws_array <- extracted$draws
   all_vars <- setdiff(posterior::variables(draws_array), "lp__")
-  bases <- unique(sub("\\[.*$", "", all_vars))
   # Extraction already selected complete saved outputs using the model schema.
-  chosen_bases <- bases
   chosen <- all_vars
   if (!length(chosen)) {
     stop("Variable selection leaves no saved draws.", call. = FALSE)
@@ -474,10 +475,7 @@ assemble_standalone_fit_bundle <- function(
   )]
   if (check) {
     # Diagnostics must be attached before summaries can be accepted or built.
-    diagnostic_report <- bundle_full_diagnostic_report(
-      extracted,
-      include = chosen_bases
-    )
+    diagnostic_report <- bundle_full_diagnostic_report(extracted)
   } else {
     # Keep only structural counts needed to print and serialize the unchecked
     # object. Do not calculate acceptance or informational draw metrics.
@@ -625,12 +623,11 @@ bundle_summary_statistics <- function(draws) {
   summary_statistics_from_checked_reference_draws(draws)
 }
 
-bundle_full_diagnostic_report <- function(extracted, include = NULL) {
+bundle_full_diagnostic_report <- function(extracted) {
   draws <- extracted$draws
   report <- reference_draw_diagnostics_from_extracted(
     extracted,
-    checks = "all",
-    include = include
+    checks = "all"
   )
   report$metrics$effective_sample_size_bulk <- reference_variable_diagnostic(draws, posterior::ess_bulk)
   report$metrics$effective_sample_size_tail <- reference_variable_diagnostic(draws, posterior::ess_tail)
@@ -937,9 +934,8 @@ validate_variable_selection <- function(x, arg) {
   if (is.null(x)) {
     return(NULL)
   }
-  checkmate::assert_character(x, any.missing = FALSE,
-                              min.len = if (arg == "include") 0L else 1L)
-  if (any(!nzchar(x)) || anyDuplicated(x)) {
+  checkmate::assert_character(x, any.missing = FALSE)
+  if (any(!nzchar(trimws(x))) || anyDuplicated(x)) {
     stop(
       "`",
       arg,
@@ -947,7 +943,45 @@ validate_variable_selection <- function(x, arg) {
       call. = FALSE
     )
   }
+  x <- unname(x)
+  if (identical(x, "none")) return(character())
+  if (arg == "include" && identical(x, "all")) return(NULL)
   x
+}
+
+validate_variable_selections <- function(include, exclude) {
+  include <- validate_variable_selection(include, "include")
+  exclude <- validate_variable_selection(exclude, "exclude")
+  if ("lp__" %in% include)
+    stop("`lp__` cannot be included in model-output selections.", call. = FALSE)
+  overlap <- if (identical(exclude, "all")) character() else intersect(include, exclude)
+  if (length(overlap))
+    stop("Variable(s) appear in both `include` and `exclude`: ",
+         paste(overlap, collapse = ", "), call. = FALSE)
+  list(include = include, exclude = exclude)
+}
+
+# Workflows provide their available names and any mandatory variables.
+resolve_variable_selection <- function(available, required = character(),
+                                       include = NULL, exclude = NULL) {
+  selection <- validate_variable_selections(include, exclude)
+  include <- selection$include
+  exclude <- selection$exclude
+  available <- setdiff(unique(available), "lp__")
+  for (argument in c("include", "exclude")) {
+    values <- if (argument == "include") include else exclude
+    if (argument == "exclude" && identical(values, "all")) next
+    unknown <- setdiff(values, c(available, if (argument == "exclude") "lp__"))
+    if (length(unknown))
+      stop("Unknown base variable(s) in `", argument, "`: ",
+           paste(unknown, collapse = ", "), call. = FALSE)
+  }
+  if (identical(exclude, "all")) return(required)
+  protected <- intersect(required, exclude)
+  if (length(protected))
+    stop("Cannot exclude required posterior dimensions or parameter-block variables: ",
+         paste(protected, collapse = ", "), call. = FALSE)
+  setdiff(union(required, if (is.null(include)) available else include), exclude)
 }
 
 new_bundle_reference_info <- function(

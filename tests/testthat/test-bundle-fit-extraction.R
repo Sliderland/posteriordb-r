@@ -4,7 +4,7 @@ test_that("import selection retains every saved scalar for required base variabl
   draws <- posterior::as_draws_array(array(seq_len(10L), c(2L, 1L, 5L),
     dimnames = list(NULL, NULL, variables)))
   required <- posteriordb:::posterior_dimension_names(dimensions)
-  selected <- posteriordb:::resolve_import_variable_selection(draws, required)
+  selected <- posteriordb:::resolve_import_variable_selection(draws, required, include = "none")
   expect_identical(selected, c("mu", "theta", "beta"))
   retained <- posteriordb:::filter_external_posterior_draws(draws, selected)
   expect_identical(posterior::variables(retained), variables[1:4])
@@ -191,7 +191,54 @@ test_that("bundle extraction rejects unsupported provenance and incomplete varia
     dimnames = list(NULL, NULL, "mu")))
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(zero), "zero-sized")
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(zero, exclude = "theta"),
-               "Cannot exclude parameter-block variables")
+               "Cannot exclude.*parameter-block variables")
+})
+
+test_that("public bundle selection shares aliases and retains zero-coordinate parameters", {
+  fit <- make_bundle_extraction_fit(
+    dimensions = list(mu = integer(), fixed = 1L, derived = integer()),
+    variables = c("mu", "fixed[1]", "derived"))
+  fit$.MISC$stan_fit_instance$constrained_param_names <- function(...) c("mu", "fixed.1")
+  testthat::local_mocked_bindings(
+    extract_external_stan_fit = function(fit, checks = "all", strict = TRUE,
+                                         for_bundle = FALSE, ...) {
+      extract_rstan_fit_for_bundle(fit, strict = strict, ...)
+    },
+    rstan_fit_slot = function(fit, slot_name) fit[[slot_name]],
+    rstan_fit_stan_args = function(fit) fit$stan_args,
+    extract_rstan_sampler_diagnostics = function(fit, ...) fit$.sampler,
+    infer_unconstrained_parameter_counts_from_fit = function(fit, ...) {
+      stats::setNames(list(1L), names(fit$par_dims)[1L])
+    },
+    extract_rstan_fit = function(fit, ...) list(draws = fit$.draws,
+      sampler_diagnostics = fit$.sampler, metadata = list())
+  )
+  for (include in list(NULL, "all", "none", character(), "derived")) {
+    minimal <- create_pdb_bundle(fit, data = list(),
+      data_info = list(name = "selector-data", title = "Inputs"),
+      model_info = list(name = "selector-model", title = "Model"),
+      include = include, exclude = "all", check = FALSE)
+    expect_identical(posterior::variables(minimal$reference_draws), c("mu", "fixed[1]"))
+    expect_identical(minimal$posterior$dimensions, list(mu = 1L))
+  }
+  for (exclude in list(NULL, character(), "none")) {
+    extracted <- posteriordb:::extract_rstan_fit_for_bundle(fit, exclude = exclude)
+    expect_identical(posterior::variables(extracted$draws), c("mu", "fixed[1]", "derived"))
+  }
+  expect_error(posteriordb:::extract_rstan_fit_for_bundle(fit,
+    include = "derived", exclude = "derived"), "both.*include.*exclude")
+  expect_error(posteriordb:::extract_rstan_fit_for_bundle(fit, exclude = "fixed"),
+    "Cannot exclude required")
+
+  fit <- make_bundle_extraction_fit(dimensions = list(none = integer()),
+    variables = "none", source = "parameters { real none; } model {}")
+  build <- function(check) create_pdb_bundle(fit, data = list(),
+    data_info = list(name = "selector-data", title = "Inputs"),
+    model_info = list(name = "selector-model", title = "Model"), check = check)
+  immediate <- build(TRUE)
+  deferred <- check_reference_posterior_draws(build(FALSE))
+  expect_identical(posterior::variables(immediate$reference_draws), "none")
+  expect_identical(immediate$diagnostics, deferred$diagnostics)
 })
 
 

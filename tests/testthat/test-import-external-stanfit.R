@@ -544,3 +544,35 @@ test_that("CmdStan parameter schema protects saved zero-free-coordinate values",
   expect_error(as_reference_posterior_draws(fit, object, connection, exclude = "fixed"),
     "Cannot exclude required")
 })
+
+test_that("public import shares aliases, protects dimensions, and rejects conflicts", {
+  fit <- cmdstanr_fit_fixture()
+  original_draws <- fit$draws
+  fit$draws <- function(...) {
+    draws <- original_draws(...)
+    extras <- posterior::as_draws_array(array(rnorm(160), c(40, 2, 2),
+      dimnames = list(NULL, NULL, c("dimension_output", "derived"))))
+    posterior::bind_draws(draws, extras, along = "variable")
+  }
+  object <- structure(list(name = "selection-posterior", reference_posterior_name = NULL,
+    dimensions = list(alpha = 1L, dimension_output = 1L)), class = "pdb_posterior")
+  connection <- structure(list(), class = c("pdb_local", "pdb"))
+  all_names <- c("alpha", "undeclared", "dimension_output", "derived")
+  required <- all_names[1:3]
+  expect_identical(posterior::variables(as_reference_posterior_draws(fit, object, connection)), all_names)
+  for (include in list(NULL, "all", "derived", "none", character())) {
+    minimal <- as_reference_posterior_draws(fit, object, connection,
+      include = include, exclude = "all")
+    expect_identical(posterior::variables(minimal), required)
+    expect_named(info(minimal)$diagnostics$r_hat, required)
+  }
+  for (exclude in list(NULL, character(), "none")) {
+    full <- import_reference_posterior_draws(fit, object, connection,
+      include = "all", exclude = exclude, write = FALSE)
+    expect_identical(posterior::variables(full), all_names)
+  }
+  expect_error(as_reference_posterior_draws(fit, object, connection,
+    include = "derived", exclude = "derived"), "both.*include.*exclude")
+  expect_error(as_reference_posterior_draws(fit, object, connection,
+    exclude = "dimension_output"), "Cannot exclude required")
+})

@@ -78,14 +78,17 @@ fixed package checks; caller-supplied policies are rejected.}
 
 \item{include}{Optional character vector of additional saved base variable
 names to retain, diagnose, and summarize. Names in posterior dimensions
-and inferred parameter-block variables are always added. `NULL` retains
-these required variables without any additional outputs.}
+and inferred parameter-block variables are always added. The default
+`NULL`, or `"all"`, retains every saved output except `lp__`.
+`"none"` or `character(0)` retains only required variables.}
 
 \item{exclude}{Optional character vector of saved base variable names to
-omit from the additional selection. Exclusion takes precedence over
-inclusion, but excluding a dimension or parameter-block variable raises
-an error. Unknown
-names raise errors; base names select every indexed column.}
+omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
+removes all optional outputs, retaining required variables. Explicit
+exclusions of dimension or parameter-block variables, or names appearing
+in both selectors, are configuration errors. Unknown names raise errors;
+base names select every indexed column. `"all"` and `"none"` are reserved
+when used alone in either selector.}
 
 \item{...}{optional metadata fields such as `comments`, `added_by`,
 `added_date`, and `sampling_timestamp`.}
@@ -98,8 +101,8 @@ A `pdb_reference_posterior_draws` object. If a required check fails,
 \description{
 Sampling is deliberately kept outside this package. This function accepts a
 completed post-warmup `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object,
-keeps the variables declared by the PosteriorDB posterior plus optional
-additional outputs selected with `include`, computes the
+keeps all saved model outputs by default, with the selection controlled by
+`include` and `exclude`, computes the
 usual reference-posterior diagnostics, and returns the in-memory object
 without writing to a database. For CmdStanR, calling this function reads the
 draws and sampler diagnostics from the fit's CSV output files.

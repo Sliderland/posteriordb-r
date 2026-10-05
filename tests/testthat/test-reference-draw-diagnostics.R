@@ -44,14 +44,33 @@ test_that("selector composition excludes lp and rejects malformed selectors", {
                dimnames = list(NULL, NULL, c("alpha[1]", "beta", "lp__")))
   draws <- posterior::as_draws_array(arr)
   selected <- posteriordb:::select_reference_diagnostic_draws(
-    draws, include = c("alpha", "beta"), exclude = "beta")
+    draws, exclude = "beta")
   expect_identical(posterior::variables(selected), "alpha[1]")
   expect_error(posteriordb:::select_reference_diagnostic_draws(draws, include = c("alpha", "alpha")),
-               "duplicated")
+               "unique")
   expect_error(posteriordb:::select_reference_diagnostic_draws(draws, include = ""),
-               "nonempty")
+               "non.empty")
   expect_identical(posterior::variables(posteriordb:::select_reference_diagnostic_draws(draws)),
                    c("alpha[1]", "beta"))
+  for (include in list(NULL, "all")) {
+    for (exclude in list(NULL, character(), "none", "lp__")) {
+      expect_identical(posterior::variables(posteriordb:::select_reference_diagnostic_draws(
+        draws, include = include, exclude = exclude)), c("alpha[1]", "beta"))
+    }
+  }
+  for (include in list("none", character())) {
+    expect_error(posteriordb:::select_reference_diagnostic_draws(draws, include = include),
+      "No posterior variables remain")
+  }
+  expect_error(posteriordb:::select_reference_diagnostic_draws(draws, exclude = "all"),
+    "No posterior variables remain")
+  expect_error(posteriordb:::select_reference_diagnostic_draws(draws,
+    include = c("alpha", "beta"), exclude = "beta"), "both.*include.*exclude")
+  mock <- make_diagnostic_cmdstan_fit()
+  for (exclude in list(character(), "none")) {
+    expect_identical(reference_draw_diagnostics(mock$fit, "mean_lag1_ac", exclude = exclude),
+      reference_draw_diagnostics(mock$fit, "mean_lag1_ac"))
+  }
 })
 
 test_that("constant variables retain named unavailable metrics without dropping others", {

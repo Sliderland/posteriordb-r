@@ -30,7 +30,7 @@ test_that("real constrained parameters separate free counts from complete saved 
   expect_equal(extracted$output_shapes$a, c(2L, 2L))
   expect_equal(as.numeric(extracted$draws[, , "fixed[1]"]), rep(1, 12))
   expect_error(extract_rstan_fit_for_bundle(fit, compute_diagnostics = FALSE,
-    exclude = "fixed"), "Cannot exclude parameter-block")
+    exclude = "fixed"), "Cannot exclude.*parameter-block")
   bundle <- create_pdb_bundle(fit, data = list(), include = "none", check = FALSE,
     data_info = list(name = "constrained-data", title = "Inputs"),
     model_info = list(name = "constrained-model", title = "Model"))
@@ -38,7 +38,13 @@ test_that("real constrained parameters separate free counts from complete saved 
   expect_identical(bundle$posterior$dimensions, expected)
   expect_error(create_pdb_bundle(fit, data = list(), include = "none", exclude = "fixed",
     check = FALSE, data_info = list(name = "constrained-data", title = "Inputs"),
-    model_info = list(name = "constrained-model", title = "Model")), "Cannot exclude parameter-block")
+    model_info = list(name = "constrained-model", title = "Model")), "Cannot exclude.*parameter-block")
+  excluded <- create_pdb_bundle(fit, data = list(), exclude = "all", check = FALSE,
+    data_info = list(name = "constrained-data", title = "Inputs"),
+    model_info = list(name = "constrained-model", title = "Model"))
+  expect_equal(excluded$reference_draws, bundle$reference_draws)
+  expect_identical(infer_unconstrained_parameter_counts_from_fit(fit,
+    include = "all", exclude = "none"), counts)
 })
 
 
@@ -48,6 +54,8 @@ test_that("fit import retains zero-free-coordinate parameters without accepting 
   object <- structure(list(name = "constrained-posterior", reference_posterior_name = NULL,
     dimensions = infer_unconstrained_parameter_counts_from_fit(fit)), class = "pdb_posterior")
   imported <- as_reference_posterior_draws(fit, object, connection, include = "theta")
+  expect_identical(posterior::variables(as_reference_posterior_draws(fit, object, connection,
+    exclude = "all")), posterior::variables(imported))
   expect_true("fixed[1]" %in% posterior::variables(imported))
   expect_false(any(c("twice_theta", "prediction") %in% posterior::variables(imported)))
   expect_true(is.na(info(imported)$diagnostics$mean_lag1_ac[["fixed[1]"]]))

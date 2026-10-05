@@ -41,14 +41,17 @@ Defaults to `TRUE`.}
 
 \item{include}{Optional character vector of additional saved base variable
 names to retain, diagnose, and summarize. Names in posterior dimensions
-and inferred parameter-block variables are always added. `NULL` retains
-these required variables without any additional outputs.}
+and inferred parameter-block variables are always added. The default
+`NULL`, or `"all"`, retains every saved output except `lp__`.
+`"none"` or `character(0)` retains only required variables.}
 
 \item{exclude}{Optional character vector of saved base variable names to
-omit from the additional selection. Exclusion takes precedence over
-inclusion, but excluding a dimension or parameter-block variable raises
-an error. Unknown
-names raise errors; base names select every indexed column.}
+omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
+removes all optional outputs, retaining required variables. Explicit
+exclusions of dimension or parameter-block variables, or names appearing
+in both selectors, are configuration errors. Unknown names raise errors;
+base names select every indexed column. `"all"` and `"none"` are reserved
+when used alone in either selector.}
 
 \item{...}{optional metadata fields forwarded to the conversion function.}
 }
@@ -71,8 +74,9 @@ originals. If rollback is incomplete, warnings identify remaining installed
 files and retained backups with their intended destinations for recovery.
 }
 \details{
-The importer selects all scalar output columns for each base variable in the
-posterior dimensions plus additional outputs named in `include`. `exclude`
+The importer selects all saved model outputs by default. Named `include`
+values select outputs in addition to the required parameter block and
+posterior dimensions. `exclude`
 may remove additional outputs, but cannot remove dimension variables or
 inferred parameter-block variables, which are always retained.
 Diagnostics and summaries use the resulting selection. The importer verifies

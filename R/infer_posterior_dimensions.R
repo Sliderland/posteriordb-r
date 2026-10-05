@@ -10,10 +10,13 @@
 #'   `pdb_model_code` object.
 #' @param data A named list of Stan data or a `pdb_data` object.
 #' @param include Optional unique base parameter names to retain. `NULL`
-#'   retains all inferred parameter-block variables with nonzero counts.
-#' @param exclude Unique base parameter names to omit. A name cannot appear
-#'   in both `include` and `exclude`. Derived outputs are not parameter names
-#'   for these helpers; `lp__` may be excluded but cannot be included.
+#'   (the default) or `"all"` retains all nonzero parameter counts. `"none"`
+#'   or `character(0)` selects nothing and raises an empty-selection error.
+#' @param exclude Unique base parameter names to omit. `NULL`, `character(0)`,
+#'   or `"none"` excludes nothing. `"all"` selects nothing and raises an
+#'   empty-selection error. A name cannot appear in both selectors. Derived
+#'   outputs are not parameter names for these helpers; `lp__` may be excluded
+#'   but cannot be included. `"all"` and `"none"` are reserved when used alone.
 #' @param backend Stan backend, either `"rstan"` or `"cmdstanr"`.
 #' @param iter Total iterations for the short CmdStanR fit, split between
 #'   warmup and sampling. RStan compiles without sampling.
@@ -40,7 +43,7 @@ infer_posterior_dimensions <- function(
   checkmate::assert_string(model_code, min.chars = 1L)
   if (file.exists(model_code)) model_code <- paste(readLines(model_code, warn = FALSE), collapse = "\n")
   if (inherits(data, "pdb_data")) data <- unclass(data)
-  validate_unconstrained_selection(include, exclude)
+  validate_variable_selections(include, exclude)
   checkmate::assert_list(data)
   if (length(data) && (is.null(names(data)) || anyNA(names(data)) || any(!nzchar(names(data))) || anyDuplicated(names(data))))
     stop("`data` must be a fully named list with unique, non-empty names.", call. = FALSE)
@@ -70,10 +73,13 @@ infer_posterior_dimensions <- function(
 #'
 #' @param fit An `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param include Optional unique base parameter names to retain. `NULL`
-#'   retains all inferred parameter-block variables with nonzero counts.
-#' @param exclude Unique base parameter names to omit. A name cannot appear
-#'   in both `include` and `exclude`. Derived outputs are not parameter names
-#'   for these helpers; `lp__` may be excluded but cannot be included.
+#'   (the default) or `"all"` retains all nonzero parameter counts. `"none"`
+#'   or `character(0)` selects nothing and raises an empty-selection error.
+#' @param exclude Unique base parameter names to omit. `NULL`, `character(0)`,
+#'   or `"none"` excludes nothing. `"all"` selects nothing and raises an
+#'   empty-selection error. A name cannot appear in both selectors. Derived
+#'   outputs are not parameter names for these helpers; `lp__` may be excluded
+#'   but cannot be included. `"all"` and `"none"` are reserved when used alone.
 #' @return A named list of positive integer unconstrained parameter counts.
 #' @details
 #' RStan requires a usable compiled model instance. If serialization has
@@ -93,7 +99,7 @@ infer_posterior_dimensions <- function(
 #' @md
 #' @export
 infer_unconstrained_parameter_counts_from_fit <- function(fit, include = NULL, exclude = NULL) {
-  validate_unconstrained_selection(include, exclude)
+  validate_variable_selections(include, exclude)
   if (inherits(fit, "stanfit")) {
     instance <- tryCatch(fit@.MISC$stan_fit_instance, error = function(e) NULL)
     if (is.null(instance)) stop("The `stanfit` does not expose its compiled model instance and unconstrained parameter names.", call. = FALSE)
@@ -117,14 +123,6 @@ infer_unconstrained_parameter_counts_from_fit <- function(fit, include = NULL, e
   unconstrained_parameter_counts(unconstrained_names, include, exclude)
 }
 
-validate_unconstrained_selection <- function(include, exclude) {
-  checkmate::assert_character(include, null.ok = TRUE, min.chars = 1L, unique = TRUE)
-  checkmate::assert_character(exclude, null.ok = TRUE, min.chars = 1L, unique = TRUE)
-  if (length(intersect(include, exclude))) stop("A parameter cannot appear in both `include` and `exclude`.", call. = FALSE)
-  if ("lp__" %in% include) stop("`lp__` is an internal Stan variable and cannot be included.", call. = FALSE)
-  invisible(TRUE)
-}
-
 unconstrained_parameter_counts <- function(unconstrained_names, include = NULL, exclude = NULL) {
   if (!length(unconstrained_names)) stop("No unconstrained parameter names were returned for this fit.", call. = FALSE)
   unconstrained_names <- setdiff(unconstrained_names, "lp__")
@@ -133,15 +131,7 @@ unconstrained_parameter_counts <- function(unconstrained_names, include = NULL, 
   counts <- as.list(table(factor(bases, levels = unique(bases))))
   counts <- lapply(counts, as.integer)
   available <- names(counts)
-  if (!is.null(include)) {
-    missing <- setdiff(include, available)
-    if (length(missing)) stop("Included parameter(s) were not found among unconstrained parameters: ", paste(missing, collapse = ", "), call. = FALSE)
-  }
-  if (!is.null(exclude)) {
-    missing <- setdiff(exclude, c(available, "lp__"))
-    if (length(missing)) stop("Excluded parameter(s) were not found among unconstrained parameters: ", paste(missing, collapse = ", "), call. = FALSE)
-  }
-  selected <- setdiff(if (is.null(include)) available else include, exclude %||% character())
+  selected <- resolve_variable_selection(available, include = include, exclude = exclude)
   if (!length(selected)) stop("Parameter selection produced no unconstrained parameters.", call. = FALSE)
   counts[selected]
 }

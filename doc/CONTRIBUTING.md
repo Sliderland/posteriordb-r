@@ -184,27 +184,29 @@ criteria are fulfilled and add checked diagnostics to the object.
     rp <- compute_reference_posterior_draws(rpi, pdbl)
     rp <- check_reference_posterior_draws(x = rp)
 
-The default `include = "none"` keeps the required parameter block and
-dimension-listed variables. To also retain a saved transformed parameter
-or generated quantity, pass its base name. For example, if the model saves
-`vector[10] exp_mu`, all ten elements are included and diagnosed:
+The default `include = NULL` retains and diagnoses all saved model outputs
+except `lp__`, including transformed parameters and generated quantities.
+For example, a saved `vector[10] exp_mu` is retained with all ten elements.
+To retain everything except that optional output, specify only `exclude`:
 
-    rp <- compute_reference_posterior_draws(rpi, pdbl, include = "exp_mu")
+    rp <- compute_reference_posterior_draws(rpi, pdbl, exclude = "exp_mu")
     rp <- check_reference_posterior_draws(x = rp)
 
-Use `include = "all"` or `include = NULL` for all saved outputs except `lp__`;
-`include = "none"` or `character(0)` keeps only required variables. `exclude`
-can remove optional derived outputs, but not required parameters or
-dimension-listed variables. Every retained variable receives diagnostics.
-A failing retained output prevents acceptance; omitted outputs are not
-certified. Selection does not change the posterior's unconstrained counts.
+Use `include = "all"` as an alias for the default, or `include = "none"` /
+`character(0)` for required parameter-block and dimension-listed variables
+only. `exclude = NULL`, `character(0)`, or `"none"` excludes nothing;
+`exclude = "all"` keeps required variables only. Explicitly excluding required
+variables, or naming the same variable in both selectors, raises an error.
+Every retained variable receives diagnostics; a failing retained output
+prevents acceptance. Omitted outputs are not certified, and selection does
+not change unconstrained counts.
 
-Use `exclude = NULL` to exclude nothing; `exclude = character(0)` currently
-raises an input-validation error. Selection conventions differ across APIs:
-the existing-posterior importer uses `include = NULL` for required variables
-only, whereas this compute workflow and the bundle creator use it for all
-saved outputs. See the [workflow comparison](CREATE_PDB_BUNDLE.md#choose-variables)
-for empty-vector behavior, aliases, and the standalone diagnostic/count helpers.
+These aliases are consistent across bundle, compute, import, diagnostics,
+and count helpers. Standalone diagnostic/count helpers have no mandatory
+selection, so `include = "none"` or `exclude = "all"` raises an empty-selection
+error. Compute/import previously defaulted to required variables only; use
+`include = "none"` to preserve that selection in existing scripts. See the
+[workflow comparison](CREATE_PDB_BUNDLE.md#choose-variables) for examples and compatibility details.
 
 We can now write the reference posterior draws to the posteriordb.
 

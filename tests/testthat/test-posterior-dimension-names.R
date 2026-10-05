@@ -34,9 +34,23 @@ test_that("free-coordinate count selection and representations stay canonical", 
     list(weights = 2L))
   expect_identical(unconstrained_parameter_counts(coordinates, exclude = "weights"),
     list(M = 2L, theta = 1L))
-  expect_error(unconstrained_parameter_counts(coordinates, include = "fixed"), "not found")
+  expect_error(unconstrained_parameter_counts(coordinates, include = "fixed"), "Unknown")
   expect_error(unconstrained_parameter_counts(coordinates, include = character()), "no unconstrained")
   expect_error(unconstrained_parameter_counts(character()), "No unconstrained")
   expect_equal(validate_import_dimensions(c(theta = 1, M = 2)), list(theta = 1L, M = 2L))
   expect_error(validate_import_dimensions(list(theta = c(2L, 3L))), "one positive integer")
+  for (include in list(NULL, "all")) {
+    for (exclude in list(NULL, character(), "none", "lp__")) {
+      expect_identical(unconstrained_parameter_counts(coordinates, include, exclude),
+        list(weights = 2L, M = 2L, theta = 1L))
+    }
+  }
+  expect_error(unconstrained_parameter_counts(coordinates, include = "none"), "no unconstrained")
+  expect_error(unconstrained_parameter_counts(coordinates, exclude = "all"), "no unconstrained")
+  expect_error(unconstrained_parameter_counts(coordinates, include = "weights", exclude = "weights"),
+    "both.*include.*exclude")
+  fit <- structure(list(unconstrain_draws = function() posterior::as_draws_array(
+    array(1:10, c(2, 1, 5), dimnames = list(NULL, NULL, coordinates)))), class = "CmdStanMCMC")
+  expect_identical(infer_unconstrained_parameter_counts_from_fit(fit, include = "all", exclude = "none"),
+    list(weights = 2L, M = 2L, theta = 1L))
 })

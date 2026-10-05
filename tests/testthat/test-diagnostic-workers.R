@@ -79,7 +79,7 @@ test_that("internal sampling routes both backends through fit extraction", {
     added_by = "Test", added_date = Sys.Date(), versions = NULL))
   connection <- structure(list(), class = c("pdb_local", "pdb"))
   outputs <- lapply(c("rstan", "cmdstanr"), function(backend) {
-    compute_reference_posterior_draws(metadata, connection, backend)
+    compute_reference_posterior_draws(metadata, connection, backend, include = "none")
   })
   expect_identical(calls, c("stanfit", "CmdStanMCMC"))
   expect_equal(outputs[[1]], outputs[[2]])
@@ -100,6 +100,7 @@ test_that("internal sampling routes both backends through fit extraction", {
     expect_silent(check_reference_posterior_draws(extra))
     for (include in list(NULL, "all")) {
       full <- compute_reference_posterior_draws(metadata, connection, backend, include = include)
+      expect_equal(compute_reference_posterior_draws(metadata, connection, backend), full)
       expect_identical(posterior::variables(full), setdiff(posterior::variables(draws), "lp__"))
       expect_named(info(full)$diagnostics$r_hat, posterior::variables(full))
       expect_error(check_reference_posterior_draws(full), "r_hat")
@@ -107,7 +108,15 @@ test_that("internal sampling routes both backends through fit extraction", {
       omitted <- compute_reference_posterior_draws(metadata, connection, backend,
         include = include, exclude = "bad")
       expect_equal(omitted, extra)
+      for (exclude in list(NULL, character(), "none")) {
+        expect_equal(compute_reference_posterior_draws(metadata, connection, backend,
+          include = include, exclude = exclude), full)
+      }
+      expect_equal(compute_reference_posterior_draws(metadata, connection, backend,
+        include = include, exclude = "all"), minimal)
     }
+    expect_error(compute_reference_posterior_draws(metadata, connection, backend,
+      include = "derived", exclude = "derived"), "both.*include.*exclude")
     expect_error(compute_reference_posterior_draws(metadata, connection, backend,
       include = "unknown"), "Unknown")
     expect_error(compute_reference_posterior_draws(metadata, connection, backend,

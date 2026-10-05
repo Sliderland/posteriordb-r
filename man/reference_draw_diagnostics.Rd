@@ -12,7 +12,14 @@ reference_draw_diagnostics(fit, checks = "all", include = NULL, exclude = NULL)
 \item{checks}{character vector of checks: `ndraws`, `nchains`,
 `mean_lag1_ac`, `r_hat`, `efmi`, and `divergent_transitions`; or `"all"`.}
 
-\item{include, exclude}{optional base parameter names to retain or omit.}
+\item{include}{Saved base variable names to diagnose. `NULL` (the default)
+or `"all"` selects all saved model outputs except `lp__`. `"none"` or
+`character(0)` selects nothing and raises an empty-selection error.}
+
+\item{exclude}{Saved base variable names to omit. `NULL`, `character(0)`,
+or `"none"` excludes nothing. `"all"` selects nothing and raises an
+empty-selection error. Names appearing in both selectors are configuration
+errors. `"all"` and `"none"` are reserved when used alone.}
 }
 \value{
 `reference_draw_diagnostics()` returns a list with `metrics`,

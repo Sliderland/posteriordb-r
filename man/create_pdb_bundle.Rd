@@ -103,8 +103,11 @@ outputs. `"all"` and `"none"` are reserved when used alone.
 `c()` is NULL and therefore selects all.}
 
 \item{exclude}{Optional character vector of base variable names to omit.
-Exclusion takes precedence over inclusion for derived outputs; excluding
-an inferred parameter-block variable is an error.}
+`NULL`, `character(0)`, or `"none"` excludes nothing. `"all"` removes all
+optional outputs, retaining the complete parameter block. Explicitly
+excluding a parameter-block variable is an error. Naming a variable in
+both `include` and `exclude` is a configuration error. The aliases
+`"all"` and `"none"` are reserved when used alone in either selector.}
 
 \item{check}{Whether to evaluate the package's reference-draw acceptance
 checks. `FALSE` leaves the candidate explicitly unchecked and skips

@@ -20,11 +20,14 @@ infer_posterior_dimensions(
 \item{data}{A named list of Stan data or a \code{pdb_data} object.}
 
 \item{include}{Optional unique base parameter names to retain. \code{NULL}
-retains all inferred parameter-block variables with nonzero counts.}
+(the default) or \code{"all"} retains all nonzero parameter counts. \code{"none"}
+or \code{character(0)} selects nothing and raises an empty-selection error.}
 
-\item{exclude}{Unique base parameter names to omit. A name cannot appear
-in both \code{include} and \code{exclude}. Derived outputs are not parameter names
-for these helpers; \code{lp__} may be excluded but cannot be included.}
+\item{exclude}{Unique base parameter names to omit. \code{NULL}, \code{character(0)},
+or \code{"none"} excludes nothing. \code{"all"} selects nothing and raises an
+empty-selection error. A name cannot appear in both selectors. Derived
+outputs are not parameter names for these helpers; \code{lp__} may be excluded
+but cannot be included. \code{"all"} and \code{"none"} are reserved when used alone.}
 
 \item{backend}{Stan backend, either \code{"rstan"} or \code{"cmdstanr"}.}
 

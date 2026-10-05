@@ -14,12 +14,20 @@ test_that("compiled CmdStan CSV imports preserve constrained parameters and hone
   expected <- list(weights = 2L, C = 3L, Sigma = 3L, Lcorr = 3L, Lcov = 6L,
     M = 6L, singleton = 1L, a = 4L, theta = 1L)
   expect_identical(infer_unconstrained_parameter_counts_from_fit(fit), expected)
+  expect_identical(infer_unconstrained_parameter_counts_from_fit(fit,
+    include = "all", exclude = "none"), expected)
   expect_identical(infer_posterior_dimensions(source, list(), backend = "cmdstanr"), expected)
   object <- structure(list(name = "constrained-posterior", reference_posterior_name = NULL,
     dimensions = expected), class = "pdb_posterior")
   connection <- structure(list(pdb_local_endpoint = root), class = c("pdb_local", "pdb"))
   imported <- suppressWarnings(import_reference_posterior_draws(fit, object, connection,
     include = c("twice_theta", "prediction")))
+  default <- suppressWarnings(import_reference_posterior_draws(fit, object, connection))
+  expect_equal(default, imported)
+  minimal <- suppressWarnings(import_reference_posterior_draws(fit, object, connection,
+    exclude = "all"))
+  expect_false(any(c("twice_theta", "prediction") %in% posterior::variables(minimal)))
+  expect_true("fixed[1]" %in% posterior::variables(minimal))
   csv <- cmdstanr::read_cmdstan_csv(fit$output_files())
   saved <- posterior::subset_draws(csv$post_warmup_draws,
     variable = setdiff(posterior::variables(csv$post_warmup_draws), "lp__"))

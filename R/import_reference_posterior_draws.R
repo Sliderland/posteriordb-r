@@ -2,8 +2,8 @@
 #'
 #' Sampling is deliberately kept outside this package. This function accepts a
 #' completed post-warmup `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object,
-#' keeps the variables declared by the PosteriorDB posterior plus optional
-#' additional outputs selected with `include`, computes the
+#' keeps all saved model outputs by default, with the selection controlled by
+#' `include` and `exclude`, computes the
 #' usual reference-posterior diagnostics, and returns the in-memory object
 #' without writing to a database. For CmdStanR, calling this function reads the
 #' draws and sampler diagnostics from the fit's CSV output files.
@@ -33,13 +33,16 @@
 #'   `posterior$dimensions` is authoritative.
 #' @param include Optional character vector of additional saved base variable
 #'   names to retain, diagnose, and summarize. Names in posterior dimensions
-#'   and inferred parameter-block variables are always added. `NULL` retains
-#'   these required variables without any additional outputs.
+#'   and inferred parameter-block variables are always added. The default
+#'   `NULL`, or `"all"`, retains every saved output except `lp__`.
+#'   `"none"` or `character(0)` retains only required variables.
 #' @param exclude Optional character vector of saved base variable names to
-#'   omit from the additional selection. Exclusion takes precedence over
-#'   inclusion, but excluding a dimension or parameter-block variable raises
-#'   an error. Unknown
-#'   names raise errors; base names select every indexed column.
+#'   omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
+#'   removes all optional outputs, retaining required variables. Explicit
+#'   exclusions of dimension or parameter-block variables, or names appearing
+#'   in both selectors, are configuration errors. Unknown names raise errors;
+#'   base names select every indexed column. `"all"` and `"none"` are reserved
+#'   when used alone in either selector.
 #' @param policy Compatibility argument; must be `NULL`. Acceptance uses the
 #'   fixed package checks; caller-supplied policies are rejected.
 #' @param ... optional metadata fields such as `comments`, `added_by`,
@@ -108,6 +111,7 @@ as_reference_posterior_draws_external <- function(
   ...
 ) {
   checkmate::assert_class(pdb, "pdb")
+  validate_variable_selections(include, exclude)
   if (!is.null(policy)) {
     stop("Custom diagnostic policies are not implemented; `policy` must be NULL.", call. = FALSE)
   }
@@ -234,8 +238,9 @@ as_reference_posterior_draws_from_cmdstanr <- as_reference_posterior_draws
 #' originals. If rollback is incomplete, warnings identify remaining installed
 #' files and retained backups with their intended destinations for recovery.
 #'
-#' The importer selects all scalar output columns for each base variable in the
-#' posterior dimensions plus additional outputs named in `include`. `exclude`
+#' The importer selects all saved model outputs by default. Named `include`
+#' values select outputs in addition to the required parameter block and
+#' posterior dimensions. `exclude`
 #' may remove additional outputs, but cannot remove dimension variables or
 #' inferred parameter-block variables, which are always retained.
 #' Diagnostics and summaries use the resulting selection. The importer verifies
@@ -253,13 +258,16 @@ as_reference_posterior_draws_from_cmdstanr <- as_reference_posterior_draws
 #' @param dimensions optional named list of unconstrained parameter counts.
 #' @param include Optional character vector of additional saved base variable
 #'   names to retain, diagnose, and summarize. Names in posterior dimensions
-#'   and inferred parameter-block variables are always added. `NULL` retains
-#'   these required variables without any additional outputs.
+#'   and inferred parameter-block variables are always added. The default
+#'   `NULL`, or `"all"`, retains every saved output except `lp__`.
+#'   `"none"` or `character(0)` retains only required variables.
 #' @param exclude Optional character vector of saved base variable names to
-#'   omit from the additional selection. Exclusion takes precedence over
-#'   inclusion, but excluding a dimension or parameter-block variable raises
-#'   an error. Unknown
-#'   names raise errors; base names select every indexed column.
+#'   omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
+#'   removes all optional outputs, retaining required variables. Explicit
+#'   exclusions of dimension or parameter-block variables, or names appearing
+#'   in both selectors, are configuration errors. Unknown names raise errors;
+#'   base names select every indexed column. `"all"` and `"none"` are reserved
+#'   when used alone in either selector.
 #' @param policy Compatibility argument; must be `NULL`. Acceptance uses the
 #'   fixed package checks; caller-supplied policies are rejected.
 #' @param write whether to write the validated result to `pdb`.
@@ -654,10 +662,9 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     stop("Bundle extraction requires an `rstan::stanfit`.", call. = FALSE)
   checkmate::assert_flag(strict)
   checkmate::assert_flag(compute_diagnostics)
-  if (identical(include, "all")) include <- NULL
-  if (identical(include, "none")) include <- character(0)
-  include <- validate_variable_selection(include, "include")
-  exclude <- validate_variable_selection(exclude, "exclude")
+  selection <- validate_variable_selections(include, exclude)
+  include <- selection$include
+  exclude <- selection$exclude
 
   stan_args <- rstan_fit_stan_args(fit)
   if (!length(stan_args))
@@ -724,8 +731,8 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   declared_bases <- setdiff(names(declared), "lp__")
   if (!is.null(include) && length(setdiff(include, declared_bases)))
     stop("Unknown Stan variable(s) in `include`: ", paste(setdiff(include, declared_bases), collapse = ", "), call. = FALSE)
-  if (!is.null(exclude) && length(setdiff(exclude, declared_bases)))
-    stop("Unknown Stan variable(s) in `exclude`: ", paste(setdiff(exclude, declared_bases), collapse = ", "), call. = FALSE)
+  if (!identical(exclude, "all") && length(setdiff(exclude, c(declared_bases, "lp__"))))
+    stop("Unknown Stan variable(s) in `exclude`: ", paste(setdiff(exclude, c(declared_bases, "lp__")), collapse = ", "), call. = FALSE)
   schema_fit <- fit
   instance <- rstan_fit_slot(fit, ".MISC")$stan_fit_instance
   if (!is.null(data) && (!is.function(instance$unconstrained_param_names) ||
@@ -744,12 +751,8 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
     names = fitted_parameter_names(schema_fit)
   )
   parameter_counts <- parameter_schema$counts
-  protected <- intersect(parameter_schema$names, exclude)
-  if (length(protected))
-    stop("Cannot exclude parameter-block variables: ", paste(protected, collapse = ", "), call. = FALSE)
-  selected_bases <- setdiff(
-    union(if (is.null(include)) declared_bases else include, parameter_schema$names),
-    exclude %||% character()
+  selected_bases <- resolve_variable_selection(
+    declared_bases, parameter_schema$names, include, exclude
   )
   if (!length(selected_bases)) stop("Variable selection leaves no saved draws.", call. = FALSE)
   invalid_axes <- selected_bases[vapply(selected_bases, function(base) {
@@ -845,23 +848,8 @@ validate_import_dimensions <- function(dimensions) {
 # additional saved outputs need not contribute unconstrained coordinates.
 resolve_import_variable_selection <- function(draws, required, include = NULL,
                                               exclude = NULL) {
-  include <- validate_variable_selection(include, "include")
-  exclude <- validate_variable_selection(exclude, "exclude")
   available <- unique(sub("\\[.*$", "", posterior::variables(draws)))
-  for (argument in c("include", "exclude")) {
-    values <- if (argument == "include") include else exclude
-    unknown <- setdiff(values, available)
-    if (length(unknown)) {
-      stop("Unknown saved base variable(s) in `", argument, "`: ",
-           paste(unknown, collapse = ", "), call. = FALSE)
-    }
-  }
-  protected <- intersect(required, exclude)
-  if (length(protected)) {
-    stop("Cannot exclude required posterior dimensions or parameter-block variables: ",
-         paste(protected, collapse = ", "), call. = FALSE)
-  }
-  setdiff(union(required, include), exclude %||% character())
+  resolve_variable_selection(available, required, include, exclude)
 }
 
 filter_external_posterior_draws <- function(draws, keep_dimensions) {

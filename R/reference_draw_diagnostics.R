@@ -8,7 +8,13 @@
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` fit.
 #' @param checks character vector of checks: `ndraws`, `nchains`,
 #'   `mean_lag1_ac`, `r_hat`, `efmi`, and `divergent_transitions`; or `"all"`.
-#' @param include,exclude optional base parameter names to retain or omit.
+#' @param include Saved base variable names to diagnose. `NULL` (the default)
+#'   or `"all"` selects all saved model outputs except `lp__`. `"none"` or
+#'   `character(0)` selects nothing and raises an empty-selection error.
+#' @param exclude Saved base variable names to omit. `NULL`, `character(0)`,
+#'   or `"none"` excludes nothing. `"all"` selects nothing and raises an
+#'   empty-selection error. Names appearing in both selectors are configuration
+#'   errors. `"all"` and `"none"` are reserved when used alone.
 #' @return `reference_draw_diagnostics()` returns a list with `metrics`,
 #'   `thresholds`, named logical `status`, and named `failures`. Metric vectors
 #'   are named by scalar variable or chain. Unavailable metrics are marked
@@ -23,6 +29,7 @@
 #' @export
 reference_draw_diagnostics <- function(fit, checks = "all", include = NULL,
                                        exclude = NULL) {
+  validate_variable_selections(include, exclude)
   checks <- reference_diagnostic_checks(checks)
   extracted <- extract_external_stan_fit(fit, checks = checks, strict = FALSE)
   reference_draw_diagnostics_from_extracted(extracted, checks, include, exclude)
@@ -120,23 +127,8 @@ select_reference_diagnostic_draws <- function(draws, include = NULL, exclude = N
   vars <- vars[!grepl("^lp__(?:\\[|$)", vars)]
   if (!length(vars)) stop("No posterior variables remain after excluding `lp__`.", call. = FALSE)
   base <- sub("\\[.*$", "", vars)
-  available <- unique(base)
-  if (!is.null(include)) {
-    checkmate::assert_character(include, min.len = 1L, any.missing = FALSE, unique = TRUE)
-    if (any(!nzchar(trimws(include)))) stop("`include` values must be nonempty.", call. = FALSE)
-    unknown <- setdiff(include, available)
-    if (length(unknown)) stop("Unknown base variable(s) in `include`: ", paste(unknown, collapse = ", "), call. = FALSE)
-    keep <- base %in% include
-    vars <- vars[keep]
-    base <- base[keep]
-  }
-  if (!is.null(exclude)) {
-    checkmate::assert_character(exclude, min.len = 1L, any.missing = FALSE, unique = TRUE)
-    if (any(!nzchar(trimws(exclude)))) stop("`exclude` values must be nonempty.", call. = FALSE)
-    unknown <- setdiff(exclude, available)
-    if (length(unknown)) stop("Unknown base variable(s) in `exclude`: ", paste(unknown, collapse = ", "), call. = FALSE)
-    vars <- vars[!base %in% exclude]
-  }
+  selected <- resolve_variable_selection(unique(base), include = include, exclude = exclude)
+  vars <- vars[base %in% selected]
   if (!length(vars)) stop("No posterior variables remain after `include`/`exclude`.", call. = FALSE)
   posterior::subset_draws(draws, variable = vars, regex = FALSE)
 }
