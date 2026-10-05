@@ -1,7 +1,14 @@
-test_that("bundle dimension names are base variables with unconstrained counts", {
-  dimensions <- list(mu = 1L, theta = 1L, beta = 6L)
-  expect_identical(posteriordb:::bundle_dimension_names(dimensions),
-                   c("mu", "theta", "beta"))
+test_that("import selection retains every saved scalar for required base variables", {
+  dimensions <- list(mu = 1L, theta = 1L, beta = 2L)
+  variables <- c("mu", "theta[1]", "beta[1]", "beta[2]", "extra")
+  draws <- posterior::as_draws_array(array(seq_len(10L), c(2L, 1L, 5L),
+    dimnames = list(NULL, NULL, variables)))
+  required <- posteriordb:::posterior_dimension_names(dimensions)
+  selected <- posteriordb:::resolve_import_variable_selection(draws, required)
+  expect_identical(selected, c("mu", "theta", "beta"))
+  retained <- posteriordb:::filter_external_posterior_draws(draws, selected)
+  expect_identical(posterior::variables(retained), variables[1:4])
+  expect_equal(as.numeric(retained), as.numeric(draws[, , 1:4]))
 })
 
 test_that("bundle extraction validates complete declared array coverage", {
@@ -18,13 +25,6 @@ test_that("bundle extraction validates complete declared array coverage", {
   expect_error(posteriordb:::validate_rstan_saved_coverage("beta",
     c("beta[1,1]", "beta[2,1]", "beta[1,2]", "beta[2,2]",
       "beta[1,3]", "beta[2,3]", "beta[2,3]"), c(2L, 3L)), "partial")
-})
-
-test_that("bundle dimension names do not expand scalar or array axes", {
-  expect_identical(posteriordb:::bundle_dimension_names(list(theta = 1L)),
-                   "theta")
-  expect_identical(posteriordb:::bundle_dimension_names(list(mu = 1L)),
-                   "mu")
 })
 
 bundle_fit_count_mock <- function(fit, include = NULL, exclude = NULL) {

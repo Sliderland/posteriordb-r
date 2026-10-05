@@ -23,8 +23,8 @@
 #' Unlike the dotted [as.reference_posterior_draws()] wrapper, this function
 #' performs fit import, parameter-count validation and reference checks.
 #' The historical `as_reference_posterior_draws_from_stanfit()` and
-#' `as_reference_posterior_draws_from_cmdstanr()` convenience wrappers forward
-#' to this generic; dispatch follows the actual fit class, not the wrapper name.
+#' `as_reference_posterior_draws_from_cmdstanr()` are aliases for this generic;
+#' dispatch follows the actual fit class, not the alias name.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
@@ -212,51 +212,11 @@ as_reference_posterior_draws.default <- function(fit, ...) {
 
 #' @rdname as_reference_posterior_draws
 #' @export
-as_reference_posterior_draws_from_stanfit <- function(
-  fit,
-  posterior,
-  pdb = pdb_default(),
-  dimensions = NULL,
-  policy = NULL,
-  include = NULL,
-  exclude = NULL,
-  ...
-) {
-  as_reference_posterior_draws(
-    fit = fit,
-    posterior = posterior,
-    pdb = pdb,
-    dimensions = dimensions,
-    policy = policy,
-    include = include,
-    exclude = exclude,
-    ...
-  )
-}
+as_reference_posterior_draws_from_stanfit <- as_reference_posterior_draws
 
 #' @rdname as_reference_posterior_draws
 #' @export
-as_reference_posterior_draws_from_cmdstanr <- function(
-  fit,
-  posterior,
-  pdb = pdb_default(),
-  dimensions = NULL,
-  policy = NULL,
-  include = NULL,
-  exclude = NULL,
-  ...
-) {
-  as_reference_posterior_draws(
-    fit = fit,
-    posterior = posterior,
-    pdb = pdb,
-    dimensions = dimensions,
-    policy = policy,
-    include = include,
-    exclude = exclude,
-    ...
-  )
-}
+as_reference_posterior_draws_from_cmdstanr <- as_reference_posterior_draws
 
 #' Import externally sampled Stan draws into a local PosteriorDB
 #'
@@ -869,13 +829,6 @@ validate_rstan_saved_coverage <- function(base, saved_names, axes) {
     stop("Saved scalar coverage for `", base, "` is partial or does not match declared axes ",
          paste(axes, collapse = " x "), ".", call. = FALSE)
   invisible(TRUE)
-}
-
-# Select every saved scalar draw belonging to each declared base parameter.
-bundle_dimension_names <- function(dimensions, variables = NULL) {
-  validate_posterior_dimension_counts(dimensions)
-  if (is.null(variables)) return(names(dimensions))
-  variables[ sub("\\[.*$", "", variables) %in% names(dimensions) ]
 }
 
 resolve_import_posterior <- function(posterior, pdb) {

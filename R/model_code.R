@@ -202,9 +202,7 @@ framework.pdb_model_code <- function(x){
 #' @rdname framework
 #' @export
 `framework<-.pdb_model_code` <- function(x, value){
-  checkmate::assert_choice(value, supported_frameworks())
-  x <- `framework<-.character`(x, value)
-  x
+  `framework<-.character`(x, value)
 }
 
 supported_frameworks <- function() c("stan", "pymc3", "pymc", "tfp", "pyro")
