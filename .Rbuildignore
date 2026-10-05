@@ -12,3 +12,4 @@ posteriordb*
 ^LICENSE\.md$
 ^\.positai$
 ^\.claude$
+^orchestrate/
