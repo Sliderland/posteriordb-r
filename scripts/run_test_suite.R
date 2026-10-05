@@ -1,13 +1,13 @@
 # Run the complete testthat suite against an isolated snapshot of the local
-# PosteriorDB checkout and save console output to tests/test-suite.log.
+# PosteriorDB checkout and save console output to scripts/test-suite.log.
 
 run_test_suite <- function() {
   args <- commandArgs(trailingOnly = FALSE)
   file_arg <- grep("^--file=", args, value = TRUE)
-  if (!length(file_arg)) stop("Run this script with Rscript tests/run_test_suite.R")
+  if (!length(file_arg)) stop("Run this script with Rscript scripts/run_test_suite.R")
   script_path <- normalizePath(sub("^--file=", "", file_arg[[1L]]), mustWork = TRUE)
-  tests_dir <- dirname(script_path)
-  repo_root <- normalizePath(file.path(tests_dir, ".."), mustWork = TRUE)
+  scripts_dir <- dirname(script_path)
+  repo_root <- normalizePath(file.path(scripts_dir, ".."), mustWork = TRUE)
   setwd(repo_root)
 
   source_repo <- Sys.getenv(
@@ -45,7 +45,7 @@ run_test_suite <- function() {
   options(pdb_path = isolated_root)
   testthat::set_max_fails(Inf)
 
-  log_path <- file.path(tests_dir, "test-suite.log")
+  log_path <- file.path(scripts_dir, "test-suite.log")
   log_connection <- file(log_path, open = "wt")
   output_sinks <- sink.number()
   message_sinks <- sink.number(type = "message")
