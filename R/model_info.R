@@ -10,6 +10,7 @@
 #' @param ... further arguments to methods.
 #'
 #' @export
+# Retrieve existing metadata; as.model_info() constructs it from a list.
 model_info <- function(x, ...) {
   UseMethod("model_info")
 }
@@ -45,6 +46,7 @@ model_info.character <- function(x, pdb = pdb_default(), ...) {
 #' @export
 as.model_info.list <- function(x, pdb = NULL, ...) {
   class(x) <- "pdb_model_info"
+  # Expand framework shorthand, or retain explicit implementation metadata.
   if (!is.null(x$framework)) {
     framework <- x$framework
     checkmate::assert_string(framework)
@@ -70,6 +72,7 @@ as.model_info.list <- function(x, pdb = NULL, ...) {
         must.include = framework
       )
     }
+    # Store the nested implementation entry, not the shorthand field.
     x$framework <- NULL
   }
   assert_model_info(x)
@@ -116,6 +119,7 @@ assert_model_info <- function(x){
     } else {
       c("model_code", "stan_version", "pymc_version")
     }
+    # Check field names; source paths and code are not validated here.
     checkmate::assert_names(
       names(implementation),
       must.include = "model_code",
