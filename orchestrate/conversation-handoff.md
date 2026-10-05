@@ -1,8 +1,8 @@
 # Conversation handoff — updated 2026-10-05
 
-Latest unit: unused posterior lookup argument warnings are verified at
-`d89897b`; all other remaining V6 choices are deferred. See the
-[2026-10-05 checkpoint](#posterior-lookup-warnings--2026-10-05) before selecting work.
+Latest unit on `main`: internal reference sampling output selection is verified
+at `6256b1c`. See the [selection checkpoint](#internal-reference-sampling-selection--2026-10-05)
+before selecting work. Remaining V6 numerical/API choices stay deferred.
 
 **Start at the [resume checkpoint](#resume-checkpoint--current-2026-10-02).**
 Implementation resumed at the maintainer's request; D1–D5/D7/V5/S4 are complete; offline test isolation, the scoped I/O-result audit and complementary CmdStan coverage are complete. V4 is deferred. The historical review
@@ -737,3 +737,38 @@ The maintainer deferred all other discussed V6 issues: configuration fallback,
 non-finite draw acceptance/structural constant handling, arbitrary-path removal
 and mixed endpoint return forms. Keep these visible and unchanged until resumed.
 The original count remains 26/33 fully verified and seven partial/deferred IDs.
+
+### Internal reference sampling selection — 2026-10-05
+
+Main implementation commit `6256b1c`, based on clean `ff2f63d`. The maintainer
+explicitly focused this unit on `compute_reference_posterior_draws()` in the
+original contribution workflow, rather than changing import or bundle APIs.
+The main checkout and this documentation file were clean before editing;
+no pre-edit preservation commit was needed.
+
+Arguments appended after `backend`: `include = "none"`, `exclude = NULL`.
+`"none"`/`character(0)` keeps required parameter-block and dimension-listed
+variables; explicit base names add saved outputs; `NULL`/`"all"` selects all
+saved outputs except `lp__`. Required variables cannot be excluded. Existing
+import selection/filter/schema helpers supply the implementation. Diagnostics
+cover exactly the returned scalar columns, preserving their order and values.
+Required schema coverage includes zero-coordinate parameters; dimension counts
+are unchanged. No acceptance thresholds or structural-constant exemptions changed.
+
+The regression first failed because `include` was unsupported. Final
+diagnostic-workers70 includes both-backend selection and a public write/read
+roundtrip. A fresh installed namespace-only run passed 268 assertions across
+that suite, bundle-fit-extraction41, diagnostic-alignment22, generic-bundle-
+acceptance28, reference-draw-diagnostics53, generic-sampler-contract6 and
+import-external-stanfit48; five opt-in Stan import tests were skipped. S3 checks
+passed. A short native RStan fit confirmed actual extraction and parameter-schema
+selection, including simplex[1] and derived vector outputs; sampling/lookup were
+substituted with that saved fit for the probe, so this is not full reference
+acceptance evidence. Native CmdStan sampling and the full suite were not rerun.
+
+Independent review approved the runtime patch and final roundtrip test,
+independently rerunning 70 assertions. The original contribution guide,
+contribution vignette, bundle guide source/generated Markdown and roxygen help
+were updated. Import/bundle defaults and aliases are unchanged by this scoped
+unit. The original seven partial/deferred finding IDs remain; do not reopen
+numerical policy or change other workflow defaults without a new decision.
