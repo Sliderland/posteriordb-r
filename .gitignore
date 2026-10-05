@@ -8,3 +8,5 @@ tmp*
 TODO.tdl
 sandbox/*
 inst/doc
+.positai
+/scripts

@@ -10,3 +10,5 @@ posteriordb*
 ^codecov\.yml$
 ^doc
 ^LICENSE\.md$
+^\.positai$
+^\.claude$

@@ -1,0 +1,208 @@
+Test suite started: 2026-09-29 11:29:31
+Package checkout: /Users/gerpr308/Documents/Forked_posteriordb-r
+Isolated PDB snapshot: /var/folders/wr/hyypnrfn0zd4gdjdhbmfzhg80000gn/T//Rtmp5hhMuy/posteriordb-test-suite-16a87302a8217/posterior_database
+
+ℹ Testing posteriordb
+✔ | F W  S  OK | Context
+
+⠏ |          0 | alias                                                          
+⠏ |          0 | test-alias                                                     
+⠧ |          8 | test-alias                                                     
+✔ |          9 | test-alias
+
+⠏ |          0 | bibliography                                                   
+⠏ |          0 | test-bibliography                                              
+⠼ |          5 | test-bibliography                                              
+⠦ |         27 | test-bibliography                                              
+✔ |         28 | test-bibliography
+
+⠏ |          0 | bundle-fit-extraction                                          
+⠸ |         34 | bundle-fit-extraction                                          
+✔ |         36 | bundle-fit-extraction
+
+⠏ |          0 | check_pdb                                                      
+⠏ |          0 | test-check_pdb                                                 Error : Posterior dimension for `A` must be one positive integer unconstrained-parameter count.
+Error : Posterior dimension for `A` must be one positive integer unconstrained-parameter count.
+Error : Posterior dimension for `A` must be one positive integer unconstrained-parameter count.
+Error : Posterior dimension for `A` must be one positive integer unconstrained-parameter count.
+
+⠹ |   1      2 | test-check_pdb                                                 
+✔ |   1      2 | test-check_pdb [1.2s]
+────────────────────────────────────────────────────────────────────────────────
+Warning ('test-check_pdb.R:8:3'): test checking a posterior database
+incomplete final line found on '/var/folders/wr/hyypnrfn0zd4gdjdhbmfzhg80000gn/T//Rtmp5hhMuy/posteriordb_cache/6c6f63616c3a2f707269766174652f7661722f666f6c646572732f77722f687979706e72666e307a643467646a6468626d66/7a68673830303030676e2f542f52746d703568684d75792f706f73746572696f7264622d746573742d73756974652d313661/383733303261383231372f706f73746572696f725f6461746162617365/models/pymc/eight_schools_centered.py'
+Backtrace:
+     ▆
+  1. ├─testthat::expect_message(...) at test-check_pdb.R:8:3
+  2. │ └─testthat:::quasi_capture(enquo(object), label, capture_messages)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─posteriordb::check_pdb(...)
+  7.   ├─base::try(...) at Forked_posteriordb-r/R/check_pdb.R:45:5
+  8.   │ └─base::tryCatch(...)
+  9.   │   └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 10.   │     └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 11.   │       └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 12.   └─posteriordb::check_pdb_posterior(...)
+ 13.     └─posteriordb:::check_pdb_read_model_code(list(po)) at Forked_posteriordb-r/R/check_posterior.R:21:3
+ 14.       ├─posteriordb::model_code(pl[[i]], framework = framework) at Forked_posteriordb-r/R/check_pdb.R:85:7
+ 15.       └─posteriordb:::model_code.pdb_posterior(pl[[i]], framework = framework) at Forked_posteriordb-r/R/model_code.R:15:3
+ 16.         ├─posteriordb::model_code(...) at Forked_posteriordb-r/R/model_code.R:35:3
+ 17.         └─posteriordb:::model_code.character(...) at Forked_posteriordb-r/R/model_code.R:15:3
+ 18.           ├─base::paste0(readLines(scfp), collapse = "\n") at Forked_posteriordb-r/R/model_code.R:43:3
+ 19.           └─base::readLines(scfp)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | check_posterior_draws                                          
+⠏ |          0 | test-check_posterior_draws                                     
+⠇ |          9 | test-check_posterior_draws                                     
+✔ |          9 | test-check_posterior_draws
+
+⠏ |          0 | check_posterior                                                
+⠏ |          0 | test-check_posterior                                           
+⠹ |          3 | test-check_posterior                                           
+✔ |          3 | test-check_posterior [15.1s]
+
+⠏ |          0 | contributing                                                   
+⠏ |          0 | test-contributing                                              
+⠴ |          6 | test-contributing                                              
+⠙ |         12 | test-contributing                                              
+⠸ |         14 | test-contributing                                              
+✔ |         14 | test-contributing [29.1s]
+
+⠏ |          0 | create-pdb-bundle                                              
+⠏ |         20 | create-pdb-bundle                                              
+⠦ |         57 | create-pdb-bundle                                              
+⠇ |         79 | create-pdb-bundle                                              
+✔ |         90 | create-pdb-bundle [12.9s]
+
+⠏ |          0 | deferred-bundle-check                                          
+⠸ |         14 | deferred-bundle-check                                          
+✔ |         22 | deferred-bundle-check
+
+⠏ |          0 | doc-README                                                     
+⠏ |          0 | test-README.md                                                 
+⠋ |          1 | test-README.md                                                 
+✔ |          1 | test-README.md [1.5s]
+
+⠏ |          0 | filter-tibble                                                  
+⠏ |          0 | test-filter-tibble                                             
+⠙ |          2 | test-filter-tibble                                             
+⠹ |          3 | test-filter-tibble                                             
+✔ |      1   3 | test-filter-tibble
+
+⠏ |          0 | generic-bundle-acceptance                                      
+⠼ |          5 | generic-bundle-acceptance                                      
+✔ |         28 | generic-bundle-acceptance
+
+⠏ |          0 | generic-sampler-contract                                       
+✔ |          6 | generic-sampler-contract
+
+⠏ |          0 | import-external-stanfit                                        
+⠏ |          0 | test-import-external-stanfit                                   
+⠋ |          1 | test-import-external-stanfit                                   
+⠙ |         22 | test-import-external-stanfit                                   
+⠸ |         24 | test-import-external-stanfit                                   
+⠴ |         26 | test-import-external-stanfit                                   
+⠸ |         34 | test-import-external-stanfit                                   
+⠧ |         38 | test-import-external-stanfit                                   
+⠋ |         41 | test-import-external-stanfit                                   
+✔ |         50 | test-import-external-stanfit [14.2s]
+
+⠏ |          0 | info                                                           
+⠏ |          0 | test-info                                                      
+⠇ |         29 | test-info                                                      
+✔ |         33 | test-info
+
+⠏ |          0 | lag1-autocorrelation                                           
+✔ |         24 | lag1-autocorrelation
+
+⠏ |          0 | pdb_github                                                     
+⠏ |          0 | test-pdb_github                                                
+✔ |      3   0 | test-pdb_github
+
+⠏ |          0 | pdb-cache                                                      
+⠏ |          0 | test-pdb-cache                                                 
+⠙ |          2 | test-pdb-cache                                                 
+⠧ |          8 | test-pdb-cache                                                 
+✔ |         13 | test-pdb-cache
+
+⠏ |          0 | pdb                                                            
+⠏ |          0 | test-pdb                                                       
+✔ |         34 | test-pdb
+
+⠏ |          0 | posterior_names                                                
+⠏ |          0 | test-posterior_names                                           
+✔ |          4 | test-posterior_names
+
+⠏ |          0 | posterior-dimension-names                                      
+⠏ |          0 | test-posterior-dimension-names                                 
+✔ |          9 | test-posterior-dimension-names
+
+⠏ |          0 | posterior-getters                                              
+⠏ |          0 | test-posterior-getters                                         
+⠹ |         33 | test-posterior-getters                                         
+✔ |      1  63 | test-posterior-getters
+
+⠏ |          0 | print                                                          
+⠏ |          0 | test-print                                                     
+✔ |          3 | test-print
+
+⠏ |          0 | reference_posterior_summary_statistic                          
+⠏ |          0 | test-pdb-reference_posterior_summary_statistics                
+⠼ |      1  14 | test-pdb-reference_posterior_summary_statistics                
+⠸ |      1  33 | test-pdb-reference_posterior_summary_statistics                
+✔ |      1  33 | test-pdb-reference_posterior_summary_statistics
+
+⠏ |          0 | reference_posterior                                            
+⠏ |          0 | test-pdb-reference_posterior                                   
+⠼ |         25 | test-pdb-reference_posterior                                   
+⠧ |         28 | test-pdb-reference_posterior                                   
+✔ |      1  32 | test-pdb-reference_posterior
+
+⠏ |          0 | reference-draw-diagnostics                                     
+⠋ |         51 | reference-draw-diagnostics                                     
+✔ |         53 | reference-draw-diagnostics
+
+⠏ |          0 | rename-pdb                                                     
+⠏ |          0 | test-rename-pdb                                                
+⠙ |          2 | test-rename-pdb                                                
+⠸ |         14 | test-rename-pdb                                                
+⠇ |         29 | test-rename-pdb                                                
+✔ |         36 | test-rename-pdb
+
+⠏ |          0 | search-posteriors                                              
+⠏ |          0 | test-search-posteriors                                         
+⠸ |          4 | test-search-posteriors                                         
+⠙ |         12 | test-search-posteriors                                         
+✔ |         23 | test-search-posteriors
+
+⠏ |          0 | standalone-posterior                                           
+⠦ |         17 | standalone-posterior                                           
+✔ |         17 | standalone-posterior
+
+⠏ |          0 | write-pdb                                                      
+⠏ |          0 | test-write-pdb                                                 
+⠹ |         23 | test-write-pdb                                                 
+⠏ |         40 | test-write-pdb                                                 
+⠏ |         50 | test-write-pdb                                                 
+⠙ |         52 | test-write-pdb                                                 
+⠸ |         54 | test-write-pdb                                                 
+✔ |         65 | test-write-pdb
+
+══ Results ═════════════════════════════════════════════════════════════════════
+Duration: 79.8 s
+
+── Skipped tests (7) ───────────────────────────────────────────────────────────
+• is.null(github_pat()) is TRUE (5): 'test-filter-tibble.R:9:3',
+  'test-pdb_github.R:4:3', 'test-pdb_github.R:17:3', 'test-pdb_github.R:46:3',
+  'test-posterior-getters.R:89:3'
+• LDA model will work from version 0.4 (2):
+  'test-reference_posterior_summary_statistic.R:20:3',
+  'test-reference_posterior.R:45:3'
+
+[ FAIL 0 | WARN 1 | SKIP 7 | PASS 743 ]
+
+Test suite finished: 2026-09-29 11:30:51
+Full output saved to: /Users/gerpr308/Documents/Forked_posteriordb-r/tests/test-suite.log
