@@ -534,14 +534,49 @@ corresponding columns to have been saved in the fitted object. Constant
 outputs can have undefined R-hat or autocorrelation and may fail checks
 rather than indicate a sampling problem.
 
-Selection defaults differ between the two workflows:
+Selection conventions currently differ across workflows:
 
-| Selection | Bundle creator | Existing-posterior importer |
-|------------------------|------------------------|------------------------|
-| `include = NULL` | All saved outputs except `lp__` | Complete inferred parameter block plus dimensions variables |
-| Explicit base names | Required parameter block plus requested outputs | Required parameter block, dimensions variables, and requested outputs |
-| `exclude` | May remove derived outputs only | May remove extras, but neither parameter-block nor dimensions variables |
-| `"all"` / `"none"` aliases | Supported when used alone | Not aliases; interpreted as variable names |
+| Workflow | `include = NULL` | `include = character(0)` | `exclude = character(0)` |
+|------------------------|------------------------|------------------------|------------------------|
+| `create_pdb_bundle()` | All saved outputs except `lp__` | Parameter block only | Error |
+| `as_reference_posterior_draws()` / `import_reference_posterior_draws()` | Parameter block plus dimension-listed variables | Parameter block plus dimension-listed variables | Error |
+| `compute_reference_posterior_draws()` | All saved outputs except `lp__` | Parameter block plus dimension-listed variables | Error |
+| `reference_draw_diagnostics()` / `passes_reference_draw_checks()` | All saved outputs except `lp__` | Error | Error |
+| `infer_posterior_dimensions()` / `infer_unconstrained_parameter_counts_from_fit()` | All inferred unconstrained parameter counts | Selects no parameters, then errors | Excludes nothing |
+
+Use `exclude = NULL` to exclude nothing in every workflow. The empty-vector
+errors in compute, import, and bundle come from their shared selector
+validator: non-NULL `exclude` must contain at least one name. Standalone
+diagnostics require both non-NULL selectors to contain at least one name.
+These are input-validation rules, not evidence of bad sampling. Dimension
+helpers accept empty selectors, but reject a result with no parameters.
+
+In bundle, import, and compute, explicit `include` names add outputs to
+the mandatory parameter block; import and compute also retain dimension-listed
+variables. `exclude` cannot remove those mandatory variables. In standalone
+diagnostics and dimension helpers, `include` is a filter: it does not
+automatically restore omitted parameters. Dimension helpers select counts
+for parameter-block variables, not transformed parameters or generated quantities.
+
+Bundle and compute support `include = "all"` and `"none"` when used alone.
+Import and the standalone helpers interpret these strings as variable names,
+not aliases. Also, `c()` is NULL, whereas `character(0)` is an empty character
+vector; they therefore differ wherever the table shows different meanings.
+
+For example, with required `vector[10] mu` and saved derived
+`vector[10] exp_mu`, `include = character(0)` keeps only `mu` in bundle,
+import, and compute. `include = "exp_mu"` keeps both variables in those
+workflows, but diagnoses only `exp_mu` in standalone diagnostics.
+
+The broader bundle default includes derived outputs in a new contribution.
+Import keeps its existing required-variable default; compute defaults to
+`include = "none"` to preserve its previous selection. In compute, omitting
+`include` differs from explicitly passing `include = NULL`. Making import's NULL
+selection mean all outputs would change both written draws and acceptance:
+for example, a failing `exp_mu` diagnostic could reject an import that
+currently checks only required `mu`. No such behavior change is implied by
+this guide. The empty-`exclude` rejection is a validator asymmetry, rather
+than a requirement of reference-posterior diagnostics.
 
 There is no `keep_dims` or `diagnose_params` argument.
 `include`/`exclude` control both stored outputs and variable-level

@@ -194,6 +194,13 @@ dimension-listed variables. Every retained variable receives diagnostics.
 A failing retained output prevents acceptance; omitted outputs are not
 certified. Selection does not change the posterior's unconstrained counts.
 
+Use `exclude = NULL` to exclude nothing; `exclude = character(0)` currently
+raises an input-validation error. Selection conventions differ across APIs:
+the existing-posterior importer uses `include = NULL` for required variables
+only, whereas this compute workflow and the bundle creator use it for all
+saved outputs. See the [workflow comparison](CREATE_PDB_BUNDLE.md#choose-variables)
+for empty-vector behavior, aliases, and the standalone diagnostic/count helpers.
+
 We can now write the reference posterior draws to the posteriordb.
 
     write_pdb(rp, pdbl, overwrite = TRUE)

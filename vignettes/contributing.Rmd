@@ -289,6 +289,14 @@ Every retained variable receives diagnostics; a failing retained output
 prevents acceptance, and omitted outputs are not certified. Selection does
 not change the posterior's unconstrained counts.
 
+Use `exclude = NULL` to exclude nothing; `exclude = character(0)` currently
+raises an input-validation error. Selection conventions differ across APIs:
+the existing-posterior importer uses `include = NULL` for required variables
+only, whereas this compute workflow and the bundle creator use it for all
+saved outputs. Standalone diagnostic helpers reject empty `include` and
+`exclude` vectors; dimension helpers accept empty `exclude`, but an empty
+`include` selects no parameters and raises an error.
+
 We can now write the reference posterior draws to the posteriordb, just as the other objects.
 
 ```{r, eval = FALSE}
