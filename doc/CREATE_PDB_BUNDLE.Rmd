@@ -225,6 +225,139 @@ accepted candidate before any writes if the reused posterior's stored
 reference link is empty or differs from the candidate reference name.
 The importer can fill an empty link, but rejects a different existing link.
 
+## End-to-end example: eight schools
+
+This is a continuous version of the eight-schools contribution in
+`CONTRIBUTING.md`, using the bundle API instead of constructing and writing
+each object separately. Run it with this version of the R package, RStan,
+and a working C++ toolchain. Replace the database path and contributor name
+before running it. The database path identifies your local contribution
+checkout; this example writes files there after the checks pass.
+
+The data/model names below are demonstration names. Choose unused names for
+a new contribution. If these records already exist, use the existing-record
+workflow above rather than assuming `overwrite = TRUE` is appropriate.
+As in the original guide, the citation key `rubin1981estimation` must already
+exist in the database bibliography; add a missing reference before proceeding.
+
+```{r eight-schools-end-to-end, eval=FALSE}
+library(posteriordb)
+library(rstan)
+
+# 1. Connect to your local PosteriorDB checkout explicitly.
+database_path <- "/path/to/posteriordb/posterior_database"
+pdbl <- pdb_local(database_path)
+stopifnot("rubin1981estimation" %in% names(bibliography(pdbl)))
+
+# 2. Keep the exact input list used for sampling.
+source(system.file("test_files/eight_schools.R", package = "posteriordb"))
+stan_file <- system.file(
+  "test_files/eight_schools_noncentered.stan", package = "posteriordb"
+)
+stan_model <- rstan::stan_model(file = stan_file, auto_write = FALSE)
+fit <- rstan::sampling(
+  stan_model, data = eight_schools,
+  chains = 10, iter = 20000, warmup = 10000, thin = 10,
+  seed = 4711, control = list(adapt_delta = 0.99), refresh = 0
+)
+# 1,000 retained post-warmup draws per chain: 10,000 draws in total.
+
+# 3. Construct all linked objects in memory and calculate diagnostics.
+bundle <- create_pdb_bundle(
+  fit, data = eight_schools, added_by = "Your Name",
+  data_info = list(
+    name = "test_eight_schools_data",
+    title = "Eight schools treatment estimates",
+    description = "Treatment estimates and standard errors for eight schools.",
+    references = "rubin1981estimation"
+  ),
+  model_info = list(
+    name = "test_eight_schools_model",
+    title = "Non-centered eight schools model",
+    framework = "stan",
+    description = "A hierarchical model with a non-centered parameterization.",
+    references = "rubin1981estimation"
+  ),
+  posterior_info = list(references = "rubin1981estimation"),
+  reference_info = list(comments = "Eight schools bundle contribution."),
+  include = NULL, exclude = NULL, check = TRUE, pdb = pdbl
+)
+bundle$posterior$name
+bundle$posterior$dimensions
+# theta_trans = 8, mu = 1, tau = 1: unconstrained counts, not output shapes.
+# include = NULL also retains all eight derived theta values for diagnostics.
+
+# 4. Inspect acceptance before writing anything.
+bundle$diagnostics$metrics
+bundle$diagnostics$status
+bundle$diagnostics$failures
+assert_checked_reference_posterior_draws(bundle$reference_draws)
+check_pdb_posterior(bundle$posterior, run_stan_code_checks = FALSE)
+
+# 5. Write the accepted bundle and inspect the returned report.
+write_result <- write_pdb(bundle, pdbl, overwrite = FALSE)
+write_result[c("written", "reused", "reference_draws_written",
+               "summary_statistics_written", "skipped_reason")]
+bundle <- write_result$bundle
+stopifnot(isTRUE(write_result$reference_draws_written),
+          isTRUE(write_result$summary_statistics_written))
+
+# 6. Read the saved contribution through a fresh cache.
+read_cache <- tempfile("eight-schools-readback-")
+dir.create(read_cache)
+read_pdb <- pdb_local(database_path, cache_path = read_cache)
+saved_posterior <- posterior(bundle$posterior$name, pdb = read_pdb)
+check_pdb_posterior(saved_posterior, run_stan_code_checks = FALSE)
+saved_data <- get_data(saved_posterior)
+saved_code <- model_code(saved_posterior, framework = "stan")
+saved_draws <- reference_posterior_draws(saved_posterior)
+saved_summaries <- reference_posterior_summary_statistics(saved_posterior)
+saved_array <- posterior::as_draws_array(saved_draws)
+stopifnot(posterior::ndraws(saved_array) == 10000L,
+          posterior::nchains(saved_array) == 10L,
+          setequal(names(saved_summaries), c("mean_value", "mean_squared_value")))
+posterior::variables(saved_array)
+# theta_trans[1:8], mu, tau, and theta[1:8] are saved as individual columns.
+```
+
+The sampling settings retain the original guide's draw count, with a higher
+`adapt_delta`. They do not guarantee acceptance: inspect any failed checks,
+address the sampling problem, and construct a new bundle from the new fit.
+The assertion in step 4 stops this example before persistence when checks
+fail. Without that assertion, the bundle writer can write data/model/posterior
+components while skipping rejected reference draws and summaries. A small
+trial fit can demonstrate construction, but will fail the required draw-count
+check and cannot supply accepted reference draws.
+
+There are 18 saved scalar columns in this model, but only 10 unconstrained
+parameters. `theta` is derived and contributes no unconstrained coordinates;
+`include = NULL` nevertheless keeps it, so its diagnostics also affect
+acceptance. To keep only the parameter block, use `include = "none"` or
+`character(0)` instead. The example uses `exclude = NULL` to omit nothing.
+
+If step 5 fails with an I/O or serialization error, earlier successful writes
+remain and the failing component may be incomplete. The failure message
+reports completed components; the failed call does not return a write report.
+Inspect the files, fix the cause, and review existing paths before deciding
+whether to retry with `overwrite = TRUE`. That option replaces files at the
+selected names; it is not automatic recovery. See **Write the objects** below
+for the full partial-write and retry behavior.
+
+Finally, review the local database changes, including newly created files:
+
+```sh
+git -C /path/to/posteriordb status --short
+git -C /path/to/posteriordb diff
+```
+
+`git diff` does not show the contents of untracked files: open the new metadata
+and Stan source, and inspect payloads through the read-back objects above.
+Check the names, citation keys, unconstrained counts, persisted reference link,
+and selected outputs. Commit the reviewed contribution files in your database
+checkout and open a pull request. The R package checkout and the PosteriorDB
+data checkout are separate repositories; the contribution files belong in the
+latter. The following sections explain the individual steps and alternatives.
+
 ## Create a new bundle: eight schools
 
 Prepare the fit and the exact named Stan input list used for sampling.

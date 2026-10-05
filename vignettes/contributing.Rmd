@@ -16,6 +16,11 @@ knitr::opts_chunk$set(
 
 First, clone the `posteriordb` repository for a local copy you want to update. Then install the posteriordb R package.
 
+For a continuous eight-schools example that constructs, checks, writes, and
+reads back all linked objects with `create_pdb_bundle()`, see the
+[end-to-end bundle workflow](../doc/CREATE_PDB_BUNDLE.md#end-to-end-example-eight-schools).
+The steps below describe the individual-object contribution workflow.
+
 Writes update this local checkout; contributing the files requires a commit
 and pull request for review. Bundle and individual component writes happen
 sequentially. If an I/O or serialization error occurs, the operation stops

@@ -6,6 +6,11 @@ Contributing to a posterior database with R
 First clone the posteriordb repository and install the posteriordb R
 package.
 
+For a continuous eight-schools example that constructs, checks, writes, and
+reads back all linked objects with `create_pdb_bundle()`, see the
+[end-to-end bundle workflow](CREATE_PDB_BUNDLE.md#end-to-end-example-eight-schools).
+The steps below describe the individual-object contribution workflow.
+
     remotes::install_github("stan-dev/posteriordb-r")
 
 Then loading the posteriordb R package and create a connection to the
