@@ -24,7 +24,7 @@ assert_checked_reference_posterior_draws.pdb_reference_posterior_draws <- functi
   rpi <- info(x)
   assert_checked_reference_posterior_draws(rpi)
   assert_diagnostic_draw_counts(x, rpi)
-  checkmate::assert_true(posterior::ndraws(x) == reference_draw_policy()$ndraws_exact)
+  checkmate::assert_true(posterior::ndraws(x) >= reference_draw_policy()$ndraws_min)
 }
 
 #' @rdname assert_checked_reference_posterior_draws

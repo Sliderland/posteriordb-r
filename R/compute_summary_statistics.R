@@ -38,8 +38,7 @@ compute_reference_posterior_summary_statistic <- function(rpd, summary_statistic
 
 # Create the summary-statistic acceptance record from a reference-draw object
 # whose stricter PosteriorDB checks have already passed. The summary writer
-# requires `ndraws_is_gte_10k`, while reference-draw writes require exactly
-# 10,000 retained draws; preserve the common acceptance evidence in a separate
+# requires `ndraws_is_gte_10k`; preserve the common acceptance evidence in a separate
 # info object and leave the original draw metadata unchanged.
 summary_statistics_from_checked_reference_draws <- function(rpd) {
   assert_checked_reference_posterior_draws(rpd)

@@ -85,7 +85,7 @@ test_that("all diagnostics aggregate failures and E-FMI is independent of chain 
                     names(report$failures)))
 })
 
-test_that("exact count and E-FMI boundaries pass", {
+test_that("minimum count and E-FMI boundaries pass", {
   arr <- array(stats::rnorm(2500L * 4L), c(2500L, 4L, 1L),
                dimnames = list(NULL, NULL, "theta"))
   report <- posteriordb:::reference_draw_diagnostics_from_extracted(
@@ -101,7 +101,9 @@ test_that("exact count and E-FMI boundaries pass", {
     c("mean_lag1_ac", "r_hat"))
   expect_true(all(unlist(boundary$status)))
   expect_false(posteriordb:::reference_diagnostic_evaluation(
-    list(ndraws = 10000.5), "ndraws")$status$ndraws)
+    list(ndraws = 9999L), "ndraws")$status$ndraws)
+  expect_true(posteriordb:::reference_diagnostic_evaluation(
+    list(ndraws = 10001L), "ndraws")$status$ndraws)
 })
 
 test_that("R-hat is computed per scalar variable and malformed arrays error", {
@@ -145,7 +147,7 @@ test_that("diagnostics reject unknown checks and empty selections", {
 
 test_that("direct-fit diagnostics and object acceptance share one policy", {
   policy <- posteriordb:::reference_draw_policy()
-  expect_identical(policy$ndraws_exact, 10000L)
+  expect_identical(policy$ndraws_min, 10000L)
   expect_identical(policy$ndraws_summary_min, 10000L)
   expect_identical(policy$thresholds, list(
     ndraws = 10000L, nchains = 4L, mean_lag1_ac = 0.05,
@@ -156,7 +158,7 @@ test_that("direct-fit diagnostics and object acceptance share one policy", {
   report <- reference_draw_diagnostics(mock$fit, "ndraws")
   expect_false(report$status$ndraws)
   expect_equal(report$failures$ndraws$observed, 8000L)
-  expect_equal(report$failures$ndraws$required, policy$ndraws_exact)
+  expect_equal(report$failures$ndraws$required, policy$ndraws_min)
 })
 
 

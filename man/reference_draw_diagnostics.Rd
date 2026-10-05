@@ -20,7 +20,7 @@ reference_draw_diagnostics(fit, checks = "all", include = NULL, exclude = NULL)
   are named by scalar variable or chain. Unavailable metrics are marked
   `"unavailable"`; undefined variable metrics are `NA` and fail their check.
   Failed count checks report observed and required values. `ndraws` requires
-  exactly 10,000 retained draws total.
+at least 10,000 retained draws total.
 }
 \description{
 Intended for callers who have an already sampled RStan or CmdStanR fit and

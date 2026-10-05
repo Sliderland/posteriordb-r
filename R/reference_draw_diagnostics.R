@@ -14,7 +14,7 @@
 #'   are named by scalar variable or chain. Unavailable metrics are marked
 #'   `"unavailable"`; undefined variable metrics are `NA` and fail their check.
 #'   Failed count checks report observed and required values. `ndraws` requires
-#'   exactly 10,000 retained draws total.
+#'   at least 10,000 retained draws total.
 #' @examples
 #' \dontrun{
 #' report <- reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
@@ -68,7 +68,7 @@ reference_diagnostic_evaluation <- function(observed, checks, policy = reference
     x <- observed[[key]]
     if (!is.numeric(x) || !length(x) || any(!is.finite(x))) return(FALSE)
     switch(key,
-      ndraws = length(x) == 1L && (if (summary) x >= policy$ndraws_summary_min else x == policy$ndraws_exact),
+      ndraws = length(x) == 1L && x >= policy$ndraws_min,
       nchains = length(x) == 1L && x >= policy$nchains_min,
       mean_lag1_ac = all(abs(x) <= policy$mean_lag1_ac_max),
       r_hat = all(x <= policy$r_hat_max),
@@ -190,7 +190,7 @@ reference_diagnostic_metrics <- function(draws, extracted, checks) {
 # Single policy source for reference and summary-draw acceptance. Existing
 # acceptance helpers consume this object alongside the direct-fit report.
 reference_draw_policy <- function() {
-  ndraws_exact <- 10000L
+  ndraws_min <- 10000L
   ndraws_summary_min <- 10000L
   nchains_min <- 4L
   mean_lag1_ac_max <- 0.05
@@ -198,14 +198,14 @@ reference_draw_policy <- function() {
   efmi_min <- 0.2
   divergences_max <- 0L
   list(
-    ndraws_exact = ndraws_exact,
+    ndraws_min = ndraws_min,
     ndraws_summary_min = ndraws_summary_min,
     nchains_min = nchains_min,
     mean_lag1_ac_max = mean_lag1_ac_max,
     r_hat_max = r_hat_max,
     efmi_min = efmi_min,
     divergences_max = divergences_max,
-    thresholds = list(ndraws = ndraws_exact, nchains = nchains_min,
+    thresholds = list(ndraws = ndraws_min, nchains = nchains_min,
                       mean_lag1_ac = mean_lag1_ac_max, r_hat = r_hat_max,
                       efmi = efmi_min, divergent_transitions = divergences_max)
   )

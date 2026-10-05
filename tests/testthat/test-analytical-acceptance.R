@@ -14,6 +14,9 @@ test_that("analytical draws require count evidence without HMC flags", {
   checked <- check_reference_posterior_draws(analytical_acceptance_draws())
   expect_identical(info(checked)$checks_made, list(ndraws_is_10k = TRUE))
   expect_silent(assert_checked_reference_posterior_draws(checked))
+  more_reference <- check_reference_posterior_draws(analytical_acceptance_draws(11000L))
+  expect_identical(info(more_reference)$checks_made, list(ndraws_is_10k = TRUE))
+  expect_silent(assert_checked_reference_posterior_draws(more_reference))
   summaries <- summary_statistics_from_checked_reference_draws(checked)
   expect_named(summaries, c("mean_value", "mean_squared_value"))
   for (type in names(summaries)) {
@@ -31,8 +34,8 @@ test_that("analytical draws require count evidence without HMC flags", {
 })
 
 test_that("method applicability does not bypass counts or Stan checks", {
-  for (n in c(9999L, 10001L))
-    expect_error(check_reference_posterior_draws(analytical_acceptance_draws(n)))
+  expect_error(check_reference_posterior_draws(analytical_acceptance_draws(9999L)))
+  expect_silent(check_reference_posterior_draws(analytical_acceptance_draws(10001L)))
   expect_error(check_summary_statistics_draws(analytical_acceptance_draws(9999L)))
   x <- analytical_acceptance_draws()
   expect_error(assert_checked_reference_posterior_draws(x), "checks_made")
