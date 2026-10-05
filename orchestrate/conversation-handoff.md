@@ -605,13 +605,17 @@ Do not infer a choice from elapsed time. These questions are pending:
 - V6 unused lookup arguments: reject extras in `posterior()` or preserve its
   current compatibility. Intentional argument forwarding stays separate.
 
-Arbitrary-path removal and mixed internal endpoint return forms still need
-contract/caller review before proposing a compatibility change. `summary()`
+Arbitrary-path removal restrictions are now explicitly deferred (2026-10-05).
+Mixed internal endpoint return forms still need contract/caller review before
+proposing a compatibility change. `summary()`
 already returns a structured result and requires no repair. Keep those facts
 in the existing active queue, not a second backlog.
 
 ### Maintainer decisions and questions for later
 
+- **V6 removal restriction deferred (2026-10-05):** leave arbitrary-path
+  `remove_pdb()` behavior unchanged; revisit directory containment only when
+  the maintainer resumes this work.
 - **V4 deferred:** preserve batch-list classification. Document the supported
   shared/per-workflow forms; revisit ambiguous-map rejection only after a new
   maintainer decision. Future questions must explain the concrete behavior,
@@ -636,9 +640,10 @@ in the existing active queue, not a second backlog.
   contract: include/exclude cannot remove model parameter-block variables.
   D6 stronger source/data verification is an optional policy enhancement,
   not an undisclosed guarantee of the current importer.
-- **API choices:** S4 is documented without breaking aliases. V6 needs decisions before changing configuration
-  fallback, arbitrary-path removal or endpoint return
-  contracts. The active guide contains the specific examples.
+- **API choices:** S4 is documented without breaking aliases. V6 needs decisions
+  before changing configuration fallback or endpoint return contracts;
+  arbitrary-path removal restrictions are deferred. The active guide contains
+  the specific examples.
 
 The maintainer confirmed P3/S5/non-Stan writing deferrals and additionally
 deferred V4 during the resumed run. Ask about any new choice when its unit is selected; do not

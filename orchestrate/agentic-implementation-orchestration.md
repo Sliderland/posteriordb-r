@@ -159,7 +159,7 @@ The active queue and handoff hold their evidence. Suggested remaining units:
 | --- | --- | --- |
 | Deferred: future write rollback | P4 | Reporting and the scoped operation-result audit are implemented. Preserve retained partial bundle/component writes and keep automatic rollback open for colleague discussion. |
 | Deferred: cache contract | P3 | Maintainer deferred this on 2026-10-02; preserve current manual refresh until resumed. Original proposal: Successful shared writes/removals make public reads reflect disk; failed writes preserve usable prior state. |
-| Review remaining remove/API boundaries | Relevant V6 | Write/cache containment and archive checks are verified (P9). Clarify arbitrary-path removal semantics before changing compatibility. |
+| Deferred: arbitrary-path removal restriction | Relevant V6 | Maintainer deferred this on 2026-10-05; preserve current removal behavior. Write/cache containment and archive checks are verified (P9). |
 | Deferred framework setter | S5 | Constructor and S4 conversion documentation are verified; preserve current setter until the maintainer resumes it. |
 | Partial: model writing | P8 | Framework/custom-path reads and removal verified; non-Stan writing deferred, custom-path writer contract open. |
 | Normalize remaining validation | V6; V4 deferred | Config dispatch, optional-summary reads, draw labels/lengths and the axis audit cut are verified. Resolve explicit API/finiteness choices before changing compatibility. Preserve batch classification; V5 sampler translation is verified. |
