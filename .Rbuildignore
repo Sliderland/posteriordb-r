@@ -13,3 +13,7 @@ posteriordb*
 ^\.positai$
 ^\.claude$
 ^orchestrate/
+^tests/check_posterior_dimension_consistency\.R$
+^tests/check_reference_draw_dimension_coverage\.R$
+^tests/run_test_suite\.R$
+^tests/test-suite\.log$

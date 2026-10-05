@@ -15,8 +15,8 @@ jobs:
       PDB_TEST_GITHUB: 'false'
       PDB_REVISION: ${{ inputs.pdb_revision }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: stan-dev/posteriordb
           ref: ${{ inputs.pdb_revision }}
@@ -24,6 +24,7 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
+          extra-repositories: https://stan-dev.r-universe.dev
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::testthat, any::pkgload
@@ -34,3 +35,10 @@ jobs:
           Sys.setenv(PDB_PATH = file.path(Sys.getenv('GITHUB_WORKSPACE'), 'posteriordb'))
           pkgload::load_all('.', helpers = FALSE, export_all = FALSE)
           testthat::test_dir('tests/testthat', package = 'posteriordb')
+      - name: Validate all saved posteriors and database links
+        shell: Rscript {0}
+        run: |
+          pkgload::load_all('.', helpers = FALSE, export_all = FALSE)
+          pdb <- posteriordb::pdb_local(file.path(Sys.getenv('GITHUB_WORKSPACE'), 'posteriordb'))
+          status <- posteriordb::check_pdb(pdb, run_stan_code_checks = FALSE)
+          quit(status = status)

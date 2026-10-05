@@ -233,6 +233,8 @@ posterior_dimension_names <- function(x) {
 }
 
 #' Extract relevant stan versions
+#'
+#' @param include_rstan Whether to include the installed RStan version when available.
 pdb_stan_sampling_versions <- function(include_rstan = TRUE) {
   M <- file.path(
     Sys.getenv("HOME"),

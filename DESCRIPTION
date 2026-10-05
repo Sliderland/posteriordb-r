@@ -37,6 +37,7 @@ Suggests:
     rstan,
     RcppEigen,
     testthat,
+    withr,
     yaml,
     knitr
 VignetteBuilder: knitr
