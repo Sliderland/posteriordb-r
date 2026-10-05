@@ -177,6 +177,7 @@ create_pdb_bundle.stanfit <- function(
     checkmate::assert_class(pdb, "pdb")
   }
   if (is.character(data) && length(data) == 1L) {
+    # Resolve saved names before validating and assembling the standalone bundle.
     data <- if (is.null(pdb)) pdb_data(data) else pdb_data(data, pdb = pdb)
   }
   if (is.character(model_code) && length(model_code) == 1L &&
@@ -193,6 +194,7 @@ create_pdb_bundle.stanfit <- function(
   if (!is.null(model_code)) checkmate::assert_class(model_code, "pdb_model_code")
   if (!is.null(posterior)) checkmate::assert_class(posterior, "pdb_posterior")
   if (!is.null(posterior)) {
+    # A supplied posterior can fill in its linked data and Stan source.
     if (is.null(data)) data <- get_data(posterior)
     if (is.null(model_code)) model_code <- model_code(posterior, framework = "stan")
   }
@@ -328,6 +330,7 @@ create_pdb_bundle.stanfit <- function(
     }
   }
 
+  # Convert the fit into backend-neutral draws, dimensions, and provenance.
   extracted <- extract_external_stan_fit(
     fit,
     checks = "all",
@@ -411,6 +414,7 @@ assemble_standalone_fit_bundle <- function(
   }
   model_info$framework <- NULL
   model_info$model_implementations <- NULL
+  # Keep supplied data as a normal pdb_data object for both memory and writing.
   dat <- existing_data %||% as.pdb_data(data, info = as.pdb_data_info(data_info))
   mi <- as.pdb_model_info(c(model_info, list(framework = "stan")))
   mi$model_implementations$stan["stan_version"] <- list(stan_version)
@@ -469,6 +473,7 @@ assemble_standalone_fit_bundle <- function(
     c("added_by", "added_date", names(structural))
   )]
   if (check) {
+    # Diagnostics must be attached before summaries can be accepted or built.
     diagnostic_report <- bundle_full_diagnostic_report(
       extracted,
       include = chosen_bases
@@ -521,6 +526,7 @@ assemble_standalone_fit_bundle <- function(
     posterior = bundle_component_is_database_backed(existing_posterior)
   )
   if (!is.null(existing_posterior)) {
+    # Embed components so the returned bundle remains usable before persistence.
     existing_posterior$reference_posterior_name <- structural$reference_posterior_name
     existing_posterior$embedded_data <- dat
     existing_posterior$embedded_model_code <- mc
