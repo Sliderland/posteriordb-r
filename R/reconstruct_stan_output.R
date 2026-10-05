@@ -68,10 +68,7 @@ reconstruct_stan_output <- function(
   seed = 1L, include_unconstrained = FALSE
 ) {
   started <- proc.time()[["elapsed"]]
-  if (!is.logical(include_unconstrained) || length(include_unconstrained) != 1L ||
-      is.na(include_unconstrained)) {
-    stop("`include_unconstrained` must be TRUE or FALSE.", call. = FALSE)
-  }
+  checkmate::assert_flag(include_unconstrained)
   if (!is.null(variables) && (!is.character(variables) || !length(variables) ||
       anyNA(variables) || any(!nzchar(variables)) || anyDuplicated(variables))) {
     stop("`variables` must contain unique, non-empty variable names.", call. = FALSE)
