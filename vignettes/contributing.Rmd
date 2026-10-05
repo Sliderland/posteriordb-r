@@ -192,7 +192,11 @@ When we have added the data and the model, we can add a posterior object connect
 
 Again, information on the different parts of the metadata can be found in [github.com/stan-dev/posteriordb/doc/DATABASE_CONTENT.md](https://github.com/stan-dev/posteriordb/blob/master/doc/DATABASE_CONTENT.md).
 
-Not all of the variables in the model code file are relevant for the posterior. For example, we might have generated quantities that are not relevant for diagnosing the posterior. As a result, the posterior dimensions list is a good opportunity to make explicit which named variables are relevant. Additionally, the values in this dimensions list should correspond to the number of unconstrained parameters associated with this variable. If we have already 
+The posterior dimensions list records unconstrained parameter counts keyed
+by parameter name, not the shapes of saved draws. Transformed parameters and
+generated quantities do not contribute independent coordinates. Choose optional
+saved outputs for reference-draw diagnostics with `include` and `exclude` when
+calling `compute_reference_posterior_draws()`, as shown below.
 
 
 ```{r}
@@ -268,6 +272,22 @@ rp <- compute_reference_posterior_draws(rpi, pdbl)
 # Check that the draws are of sufficient quality to use as a reference posterior
 rp <- check_reference_posterior_draws(x = rp)
 ```
+
+The default `include = "none"` keeps the required parameter block and
+dimension-listed variables. Explicit base names add saved outputs and retain
+every indexed element. For example, a model saving `vector[10] exp_mu` can use:
+
+```{r, eval=FALSE}
+rp <- compute_reference_posterior_draws(rpi, pdbl, include = "exp_mu")
+rp <- check_reference_posterior_draws(rp)
+```
+
+Use `include = NULL` or `"all"` for all saved outputs except `lp__`, or
+`"none"`/`character(0)` for required variables only. `exclude` can remove
+optional outputs, but not required parameters or dimension-listed variables.
+Every retained variable receives diagnostics; a failing retained output
+prevents acceptance, and omitted outputs are not certified. Selection does
+not change the posterior's unconstrained counts.
 
 We can now write the reference posterior draws to the posteriordb, just as the other objects.
 

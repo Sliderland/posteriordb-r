@@ -179,6 +179,21 @@ criteria are fulfilled and add checked diagnostics to the object.
     rp <- compute_reference_posterior_draws(rpi, pdbl)
     rp <- check_reference_posterior_draws(x = rp)
 
+The default `include = "none"` keeps the required parameter block and
+dimension-listed variables. To also retain a saved transformed parameter
+or generated quantity, pass its base name. For example, if the model saves
+`vector[10] exp_mu`, all ten elements are included and diagnosed:
+
+    rp <- compute_reference_posterior_draws(rpi, pdbl, include = "exp_mu")
+    rp <- check_reference_posterior_draws(x = rp)
+
+Use `include = "all"` or `include = NULL` for all saved outputs except `lp__`;
+`include = "none"` or `character(0)` keeps only required variables. `exclude`
+can remove optional derived outputs, but not required parameters or
+dimension-listed variables. Every retained variable receives diagnostics.
+A failing retained output prevents acceptance; omitted outputs are not
+certified. Selection does not change the posterior's unconstrained counts.
+
 We can now write the reference posterior draws to the posteriordb.
 
     write_pdb(rp, pdbl, overwrite = TRUE)

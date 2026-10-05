@@ -52,13 +52,16 @@ test_that("shared kernels preserve undefined lag values and backend E-FMI conven
 
 test_that("internal sampling routes both backends through fit extraction", {
   set.seed(412)
-  draws <- posterior::as_draws_array(array(rnorm(800), c(100, 4, 2),
-    dimnames = list(NULL, NULL, c("theta", "generated"))))
-  sampler <- posterior::as_draws_array(array(0, c(100, 4, 1),
+  draws <- posterior::as_draws_array(array(rnorm(60000), c(2500, 4, 6),
+    dimnames = list(NULL, NULL, c("theta[2]", "derived[1]", "theta[1]", "bad", "derived[2]", "lp__"))))
+  draws[, , "derived[1]"] <- exp(draws[, , "theta[1]"])
+  draws[, , "derived[2]"] <- exp(draws[, , "theta[2]"])
+  for (chain in 1:4) draws[, chain, "bad"] <- draws[, chain, "bad"] + chain * 10
+  sampler <- posterior::as_draws_array(array(0, c(2500, 4, 1),
     dimnames = list(NULL, NULL, "divergent__")))
   calls <- character()
   testthat::local_mocked_bindings(
-    posterior = function(...) structure(list(dimensions = list(theta = 1L)), class = "pdb_posterior"),
+    posterior = function(...) structure(list(dimensions = list(theta = 2L)), class = "pdb_posterior"),
     run_stan.pdb_posterior = function(x, stan_args, backend) {
       structure(list(), class = if (backend == "rstan") "stanfit" else "CmdStanMCMC")
     },
@@ -66,7 +69,8 @@ test_that("internal sampling routes both backends through fit extraction", {
       calls <<- c(calls, class(fit))
       list(draws = draws, sampler_diagnostics = sampler,
         metadata = list(expected_fraction_of_missing_information = rep(.5, 4)))
-    }
+    },
+    fitted_parameter_names = function(fit) "theta"
   )
   metadata <- as.reference_posterior_info(list(
     name = "internal-reference",
@@ -79,8 +83,52 @@ test_that("internal sampling routes both backends through fit extraction", {
   })
   expect_identical(calls, c("stanfit", "CmdStanMCMC"))
   expect_equal(outputs[[1]], outputs[[2]])
-  expect_identical(posterior::variables(outputs[[1]]), "theta")
-  expect_named(info(outputs[[1]])$diagnostics$r_hat, "theta")
+  required <- c("theta[2]", "theta[1]")
+  expect_identical(posterior::variables(outputs[[1]]), required)
+  expect_named(info(outputs[[1]])$diagnostics$r_hat, required)
+  for (backend in c("rstan", "cmdstanr")) {
+    expect_silent(check_reference_posterior_draws(outputs[[1]]))
+    minimal <- compute_reference_posterior_draws(metadata, connection, backend,
+      include = character(0))
+    expect_equal(minimal, outputs[[1]])
+    extra <- compute_reference_posterior_draws(metadata, connection, backend, include = "derived")
+    retained <- c("theta[2]", "derived[1]", "theta[1]", "derived[2]")
+    expect_identical(posterior::variables(extra), retained)
+    expect_named(info(extra)$diagnostics$r_hat, retained)
+    expect_equal(as.numeric(posterior::as_draws_array(extra)),
+      as.numeric(posterior::subset_draws(draws, variable = retained, regex = FALSE)))
+    expect_silent(check_reference_posterior_draws(extra))
+    for (include in list(NULL, "all")) {
+      full <- compute_reference_posterior_draws(metadata, connection, backend, include = include)
+      expect_identical(posterior::variables(full), setdiff(posterior::variables(draws), "lp__"))
+      expect_named(info(full)$diagnostics$r_hat, posterior::variables(full))
+      expect_error(check_reference_posterior_draws(full), "r_hat")
+      expect_error(assert_checked_reference_posterior_draws(full), "checks_made")
+      omitted <- compute_reference_posterior_draws(metadata, connection, backend,
+        include = include, exclude = "bad")
+      expect_equal(omitted, extra)
+    }
+    expect_error(compute_reference_posterior_draws(metadata, connection, backend,
+      include = "unknown"), "Unknown")
+    expect_error(compute_reference_posterior_draws(metadata, connection, backend,
+      exclude = "theta"), "Cannot exclude")
+    expect_error(compute_reference_posterior_draws(metadata, connection, backend,
+      include = "lp__"), "cannot be included")
+  }
+  root <- withr::local_tempdir()
+  for (directory in c("data", "models", "posteriors")) dir.create(file.path(root, directory))
+  jsonlite::write_json(list(reference_posterior_name = metadata$name),
+    file.path(root, "posteriors", "linked.json"), auto_unbox = TRUE)
+  destination <- pdb_local(root)
+  checked <- check_reference_posterior_draws(extra)
+  write_pdb(checked, destination, write_summary_statistics = FALSE)
+  restored <- reference_posterior_draws(info(checked), pdb = destination)
+  expect_identical(posterior::variables(restored), retained)
+  expect_equal(as.numeric(posterior::as_draws_array(restored)),
+    as.numeric(posterior::as_draws_array(checked)))
+  expect_identical(info(restored)$diagnostics$diagnostic_information$names, retained)
+  expect_equal(info(restored)$diagnostics$r_hat, unname(info(checked)$diagnostics$r_hat))
+  expect_silent(check_reference_posterior_draws(restored))
 })
 
 

@@ -8,7 +8,9 @@
 compute_reference_posterior_draws_stan_sampling(
   rpi,
   pdb,
-  backend = c("rstan", "cmdstanr")
+  backend = c("rstan", "cmdstanr"),
+  include = "none",
+  exclude = NULL
 )
 }
 \arguments{
@@ -17,6 +19,15 @@ compute_reference_posterior_draws_stan_sampling(
 \item{pdb}{a [pdb] object.}
 
 \item{backend}{Stan sampler backend, either `"rstan"` or `"cmdstanr"`.}
+
+\item{include}{Saved base variable names to add to the required parameter
+block and posterior dimensions. The default `"none"`, or `character(0)`,
+retains only required variables. `NULL` or `"all"` retains every saved
+output except `lp__`. All indexed columns of selected variables are kept.}
+
+\item{exclude}{Saved base variable names to omit from optional outputs.
+Required parameter-block and dimension-listed variables cannot be excluded.
+The returned draws and their variable diagnostics use the same selection.}
 }
 \description{
 Compute reference draws using a Stan sampling backend

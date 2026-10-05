@@ -3,6 +3,13 @@
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
 #' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
+#' @param include Saved base variable names to add to the required parameter
+#'   block and posterior dimensions. The default `"none"`, or `character(0)`,
+#'   retains only required variables. `NULL` or `"all"` retains every saved
+#'   output except `lp__`. All indexed columns of selected variables are kept.
+#' @param exclude Saved base variable names to omit from optional outputs.
+#'   Required parameter-block and dimension-listed variables cannot be excluded.
+#'   The returned draws and their variable diagnostics use the same selection.
 #' @details With CmdStanR, `iter`/`warmup` become `iter_sampling`/`iter_warmup`
 #'   and `cores` becomes `parallel_chains`. Supported nested RStan controls
 #'   are `adapt_delta`, `max_treedepth`, `stepsize`, `adapt_engaged`, `metric`,
@@ -18,13 +25,17 @@
 compute_reference_posterior_draws <- function(
   rpi,
   pdb = pdb_default(),
-  backend = c("rstan", "cmdstanr")
+  backend = c("rstan", "cmdstanr"),
+  include = "none",
+  exclude = NULL
 ) {
   checkmate::assert_class(pdb, "pdb")
   assert_reference_posterior_info(x = rpi)
   backend <- match.arg(backend)
   if (rpi$inference$method == "stan_sampling") {
-    rp <- compute_reference_posterior_draws_stan_sampling(rpi, pdb, backend)
+    rp <- compute_reference_posterior_draws_stan_sampling(
+      rpi, pdb, backend, include = include, exclude = exclude
+    )
   } else {
     stop("Currently not implemented")
   }
@@ -36,15 +47,23 @@ compute_reference_posterior_draws <- function(
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
 #' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
+#' @inheritParams compute_reference_posterior_draws
 #'
 compute_reference_posterior_draws_stan_sampling <- function(
   rpi,
   pdb,
-  backend = c("rstan", "cmdstanr")
+  backend = c("rstan", "cmdstanr"),
+  include = "none",
+  exclude = NULL
 ) {
   checkmate::assert_class(pdb, "pdb")
   assert_reference_posterior_info(x = rpi)
   backend <- match.arg(backend)
+  if (identical(include, "all")) include <- NULL
+  if (identical(include, "none")) include <- character(0)
+  include <- validate_variable_selection(include, "include")
+  exclude <- validate_variable_selection(exclude, "exclude")
+  if ("lp__" %in% include) stop("`lp__` cannot be included in reference draws.", call. = FALSE)
   po <- posterior(rpi$name, pdb = pdb)
   pdn <- posterior_dimension_names(x = po$dimensions)
 
@@ -54,11 +73,14 @@ compute_reference_posterior_draws_stan_sampling <- function(
     backend = backend
   )
   extracted <- extract_external_stan_fit(stan_object)
-  available <- posterior::variables(extracted$draws)
-  keep_draw_names <- available[sub("\\[.*$", "", available) %in% pdn]
-  missing <- setdiff(pdn, unique(sub("\\[.*$", "", keep_draw_names)))
-  if (length(missing)) stop("The sampled fit is missing posterior parameter(s): ", paste(missing, collapse = ", "), call. = FALSE)
-  draws <- posterior::subset_draws(extracted$draws, variable = keep_draw_names)
+  if (is.null(include)) {
+    include <- unique(sub("\\[.*$", "", setdiff(posterior::variables(extracted$draws), "lp__")))
+  }
+  selected <- resolve_import_variable_selection(
+    extracted$draws, union(pdn, fitted_parameter_names(stan_object)), include, exclude
+  )
+  draws <- filter_external_posterior_draws(extracted$draws, selected)
+  keep_draw_names <- posterior::variables(draws)
   rpi$diagnostics <- compute_stan_sampling_diagnostics(
     x = draws,
     keep_dimensions = keep_draw_names,

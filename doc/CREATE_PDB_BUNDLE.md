@@ -572,6 +572,23 @@ There is no `keep_dims` or `diagnose_params` argument.
 diagnostics. To diagnose more outputs in an import, explicitly include
 their base names.
 
+The conventional internally sampled workflow also supports selection:
+
+``` r
+draws <- compute_reference_posterior_draws(rpi, pdb, include = "exp_mu")
+draws <- check_reference_posterior_draws(draws)
+write_pdb(draws, pdb)
+```
+
+Its default `include = "none"`, or `character(0)`, retains the required
+parameter block and dimension-listed variables. Explicit base names add
+saved outputs; `include = NULL` or `"all"` retains all saved outputs
+except `lp__`. `exclude` removes optional outputs only. All selected
+scalar columns are returned for writing and diagnosed before acceptance,
+without changing the posterior’s unconstrained counts. This uses the
+bundle’s alias meanings; the existing-posterior importer keeps its
+selection behavior shown above.
+
 For an existing fit, the package can infer the named unconstrained
 counts directly from either supported fit class:
 
