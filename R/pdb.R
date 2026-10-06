@@ -587,11 +587,35 @@ pdb_assert_file_exist.pdb_local <- function(pdb, path, ...){
 }
 
 #' Clear posterior database cache
+#' @details Removes files in the configured cache. Local database directories
+#'   and their resource directories cannot be used as cache deletion roots.
+#'   Use a dedicated cache directory; unrelated files in that directory are
+#'   also removed by a full clear.
 #' @param pdb a \code{pdb} to clear cache for
 #' @keywords internal
 pdb_clear_cache <- function(pdb = pdb_default()){
-  cached_files <- dir(pdb_cache_path(pdb, ""), recursive = TRUE, full.names = TRUE)
-  file.remove(cached_files)
+  cached_files <- dir(pdb_cache_path(pdb, ""), recursive = TRUE)
+  pdb_remove_cached_files(pdb, cached_files)
+}
+
+pdb_remove_cached_files <- function(pdb, paths) {
+  cache <- normalizePath(pdb$cache_path, winslash = "/", mustWork = TRUE)
+  if (inherits(pdb, "pdb_local")) {
+    root <- normalizePath(pdb_endpoint(pdb), winslash = "/", mustWork = TRUE)
+    resources <- unique(c(pdb_minimum_contents(), "alias",
+      sub("/.*$", "", supported_pdb_paths())))
+    protected <- normalizePath(file.path(root, resources), winslash = "/", mustWork = FALSE)
+    cache_prefix <- paste0(sub("/+$", "", cache), "/")
+    if (identical(cache, root) || startsWith(root, cache_prefix) ||
+        any(cache == protected | startsWith(cache, paste0(sub("/+$", "", protected), "/")) |
+            startsWith(protected, cache_prefix))) {
+      stop("Refusing to remove cache files: the cache overlaps the local database or its resources.",
+           call. = FALSE)
+    }
+  }
+  # Validate every destination before deleting any, including symlink parents.
+  files <- pdb_cache_path(pdb, paths)
+  file.remove(files[file.exists(files)])
 }
 
 #' @rdname pdb_clear_cache
@@ -608,16 +632,18 @@ pdb_cache_rm <- function(x, ...){
 #' @export
 #' @rdname pdb_cache_rm
 pdb_cache_rm.pdb_reference_posterior_draws <- function(x, ...){
+  assert_pdb_resource_name(info(x)$name)
   fp <- file.path("reference_posteriors", "draws", "draws", paste0(info(x)$name, ".json"))
   fpi <- file.path("reference_posteriors", "draws", "info", paste0(info(x)$name, ".info.json"))
-  file.remove(pdb_cache_path(pdb(x), c(fp,fpi)))
+  pdb_remove_cached_files(pdb(x), c(fp, fpi))
 }
 
 #' @export
 #' @rdname pdb_cache_rm
 pdb_cache_rm.pdb_data <- function(x, ...){
+  assert_pdb_resource_name(info(x)$name)
   fp <- file.path("data", "data", paste0(info(x)$name, ".json"))
-  file.remove(pdb_cache_path(pdb(x), fp))
+  pdb_remove_cached_files(pdb(x), fp)
 }
 
 #' Cache a whole directory

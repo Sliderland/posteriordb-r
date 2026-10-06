@@ -117,6 +117,11 @@ test_that("posterior checking uses supplied standalone and connected content", {
   writeLines("@misc{known, title={Known}}", file.path(root, "bibliography/references.bib"))
   connection <- pdb_local(root, cache_path = file.path(root, "cache"))
   pdb(object) <- connection
+  pdb(object$embedded_data) <- connection
+  pdb(object$embedded_reference_draws) <- connection
+  withr::local_options(list(warn = 2))
+  expect_silent(expect_identical(check_pdb_posterior(object,
+    run_stan_code_checks = FALSE, verbose = FALSE), TRUE))
   object$references <- "known"
   stored <- object
   stored$embedded_data <- stored$embedded_model_code <- stored$embedded_reference_draws <- NULL
