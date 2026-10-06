@@ -11,6 +11,7 @@
 # Rscript scripts/check_posterior_dimension_consistency.R --update --write-from \
 #   scripts/posterior_dimension_audit/audit.rds [posterior-name ...]
 # Without --update, --write-from previews the saved audit without compiling.
+# Models with only a PyMC implementation are reported as skipped, not errors.
 
 script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
 if (!length(script_arg)) {
@@ -46,7 +47,7 @@ update_posterior_dimensions <- function(audit, backup, selected = names(audit$re
   for (filename in selected) {
     record <- audit$records[[filename]]
     if (!is.null(record$error) || is.null(record$inferred)) {
-      message("Skipping ", filename, ": ", record$error %||% "no inferred counts")
+      message("Skipping ", filename, ": ", record$skip_reason %||% record$error %||% "no inferred counts")
       next
     }
     if (!identical(filename, basename(filename)) || !grepl("[.]json$", filename))
@@ -110,6 +111,10 @@ if (length(args) && identical(args[[1L]], "--write-from")) {
       record$original$name %||% basename(record$file), character(1))
     print(subset(audit$comparisons, posterior %in% selected_names & status != "match"), row.names = FALSE)
     print(subset(audit$errors, posterior %in% selected_names), row.names = FALSE)
+    for (record in audit$records[selected]) {
+      if (!is.null(record$skip_reason))
+        message("Skipping ", basename(record$file), ": ", record$skip_reason)
+    }
     cat("Database unchanged. Add --update to apply these saved counts.\n")
   }
   quit(save = "no", status = 0L)
@@ -170,7 +175,7 @@ for (posterior_file in posterior_files) {
     "] ", posterior_name)
   records[[basename(posterior_file)]] <- list(file = posterior_file,
     original = if (inherits(po, "error")) NULL else po, inferred = NULL,
-    input_hashes = NULL, error = NULL)
+    input_hashes = NULL, error = NULL, skip_reason = NULL)
 
   if (inherits(po, "error")) {
     records[[basename(posterior_file)]]$error <- conditionMessage(po)
@@ -197,20 +202,22 @@ for (posterior_file in posterior_files) {
   key <- paste(model_name, data_name, sep = "\r")
   if (!exists(key, envir = inference_cache, inherits = FALSE)) {
     inferred <- tryCatch({
-      code <- posteriordb::model_code(
-        model_name, framework = "stan", pdb = pdb
-      )
-      data <- posteriordb::get_data(data_name, pdb = pdb)
       model_info <- read_info(file.path(db, "models", "info", paste0(model_name, ".info.json")))
-      input_files <- c(file.path(db, "models", "info", paste0(model_name, ".info.json")),
-        file.path(db, model_info$model_implementations$stan$model_code),
-        file.path(db, "data", "data", paste0(data_name, ".json.zip")))
-      input_hashes <- tools::md5sum(input_files)
-      if (anyNA(input_hashes)) stop("Could not fingerprint model/data input files.")
-      records[[basename(posterior_file)]]$input_hashes <- input_hashes
-      posteriordb::infer_posterior_dimensions(
-        code, data, backend = "rstan"
-      )
+      implementations <- model_info$model_implementations
+      frameworks <- names(implementations)[!vapply(implementations, is.null, logical(1))]
+      if (identical(frameworks, "pymc")) {
+        NULL
+      } else {
+        code <- posteriordb::model_code(model_name, framework = "stan", pdb = pdb)
+        data <- posteriordb::get_data(data_name, pdb = pdb)
+        input_files <- c(file.path(db, "models", "info", paste0(model_name, ".info.json")),
+          file.path(db, model_info$model_implementations$stan$model_code),
+          file.path(db, "data", "data", paste0(data_name, ".json.zip")))
+        input_hashes <- tools::md5sum(input_files)
+        if (anyNA(input_hashes)) stop("Could not fingerprint model/data input files.")
+        records[[basename(posterior_file)]]$input_hashes <- input_hashes
+        posteriordb::infer_posterior_dimensions(code, data, backend = "rstan")
+      }
     }, error = function(e) e)
 
     assign(key, inferred, envir = inference_cache)
@@ -228,6 +235,11 @@ for (posterior_file in posterior_files) {
       reason = conditionMessage(inferred),
       stringsAsFactors = FALSE
     )
+    next
+  }
+  if (is.null(inferred)) {
+    records[[basename(posterior_file)]]$skip_reason <- "PyMC-only model; Stan dimension audit not applicable."
+    message("Skipping ", posterior_name, ": PyMC-only model.")
     next
   }
   records[[basename(posterior_file)]]$inferred <- inferred
@@ -290,11 +302,13 @@ posterior_check <- do.call(rbind, lapply(records, function(record) {
   rows <- dimension_check[dimension_check$posterior == (po$name %||% basename(record$file)), ]
   data.frame(posterior = po$name %||% basename(record$file),
     model = po$model_name %||% NA_character_, data = po$data_name %||% NA_character_,
-    status = if (!is.null(record$error)) "inference_error" else
+    status = if (!is.null(record$skip_reason)) "skipped_pymc_only" else
+      if (!is.null(record$error)) "inference_error" else
       if (any(rows$status != "match")) "dimension_mismatch" else "match",
     mismatches = sum(rows$status != "match"),
     total_unconstrained = if (is.null(record$inferred)) NA_integer_ else sum(unlist(record$inferred)),
-    error = record$error %||% "", stringsAsFactors = FALSE)
+    error = record$error %||% "", skip_reason = record$skip_reason %||% "",
+    stringsAsFactors = FALSE)
 }))
 audit <- list(database = db, backend = "rstan", started = started, finished = Sys.time(),
   fork_commit = system2("git", c("-C", shQuote(repo_root), "rev-parse", "HEAD"), stdout = TRUE),
@@ -323,6 +337,10 @@ cat("\nPosteriors that could not be inferred:", nrow(inference_errors), "\n")
 if (nrow(inference_errors)) {
   print(inference_errors, row.names = FALSE)
 }
+skipped <- subset(posterior_check, status == "skipped_pymc_only",
+  select = c(posterior, model, skip_reason))
+cat("\nPyMC-only posteriors skipped:", nrow(skipped), "\n")
+if (nrow(skipped)) print(skipped, row.names = FALSE)
 if (update_dimensions) {
   update_posterior_dimensions(audit, file.path(output, "original_posteriors"))
 } else {
