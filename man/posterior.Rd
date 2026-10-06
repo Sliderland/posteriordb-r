@@ -42,6 +42,11 @@ and data are used to infer them, which can require compilation.
 Construction does not write files. `pdb_posterior()` is the lookup alias;
 `as.pdb_posterior()` is the construction alias.
 
+Saved records may contain legacy dimension vectors describing output shapes.
+Lookup preserves that metadata for reading data, model code, and reference
+draws. Construction, writing, and count-based inference require scalar
+unconstrained parameter counts; legacy vectors are not converted to counts.
+
 Posteriors returned by [create_pdb_bundle()] embed their data, model
 code, and reference draws. Their normal getters work without a database.
 A NULL connection is valid only with all three embedded objects; embedded
