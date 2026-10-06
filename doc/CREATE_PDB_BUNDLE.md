@@ -285,7 +285,7 @@ Use the citation keys, such as `references = "my-study"` or
 `references = c("my-study", "my-software")`, in `data_info`,
 `model_info`, or `posterior_info`; these fields do not add BibTeX
 entries themselves. Inspect the available keys with
-`names(bibliography(pdbl))`.
+`bibliography_keys(pdbl)`.
 
 ## End-to-end example: eight schools
 
@@ -311,7 +311,7 @@ library(rstan)
 # 1. Connect to your local PosteriorDB checkout explicitly.
 database_path <- "/path/to/posteriordb/posterior_database"
 pdbl <- pdb_local(database_path)
-stopifnot("rubin1981estimation" %in% names(bibliography(pdbl)))
+stopifnot("rubin1981estimation" %in% bibliography_keys(pdbl))
 
 # 2. Keep the exact input list used for sampling.
 source(system.file("test_files/eight_schools.R", package = "posteriordb"))

@@ -3,6 +3,9 @@
 #' @param pdb a posterior database connection
 #' @param ... further arguments passed to [bibtex::read.bib]
 #'
+#' @return `bibliography()` returns a `bibentry` object;
+#'   `bibliography_keys()` returns its citation keys, equivalent to
+#'   `names(bibliography(pdb, ...))`.
 #' @export
 bibliography <- function(pdb, ...) {
   checkmate::assert_class(pdb, "pdb")
@@ -10,6 +13,10 @@ bibliography <- function(pdb, ...) {
   pfn <- pdb_cached_local_file_path(pdb, path = fp)
   bibtex::read.bib(pfn, ...)
 }
+
+#' @rdname bibliography
+#' @export
+bibliography_keys <- function(pdb, ...) names(bibliography(pdb, ...))
 
 #' Append references to a posterior database bibliography
 #'

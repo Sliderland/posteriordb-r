@@ -19,6 +19,7 @@ test_that("bibliography works as expected", {
   fixture <- local_bibliography_fixture("@misc{one, title={One}}")
   on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
   expect_length(bibliography(fixture$pdb), 1L)
+  expect_identical(posteriordb::bibliography_keys(fixture$pdb), "one")
 })
 
 test_that("append_reference accepts strings and bibentry objects", {
@@ -94,6 +95,8 @@ test_that("append_reference imports multiple entries from a .bib file", {
   expect_true(append_reference(input, fixture$pdb))
   expect_false(file.exists(cache_path))
   expect_length(bibliography(fixture$pdb), 3L)
+  expect_identical(posteriordb::bibliography_keys(fixture$pdb),
+    c("original", "second", "third"))
 })
 
 test_that("append_reference rejects invalid files and entries without writing", {
