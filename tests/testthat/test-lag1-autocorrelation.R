@@ -1,26 +1,41 @@
-test_that("mean_lag1_ac averages absolute per-chain lag-1 autocorrelation", {
+test_that("lag-1 autocorrelation agrees with posterior for 40,000 draws", {
   set.seed(123)
   draws <- array(
-    stats::rnorm(100L * 4L * 2L),
-    dim = c(100L, 4L, 2L),
+    stats::rnorm(10000L * 4L * 2L),
+    dim = c(10000L, 4L, 2L),
     dimnames = list(
       iteration = NULL,
       chain = NULL,
       variable = c("alpha", "beta")
     )
   )
+  # Alpha is independent; beta has positive and negative AR(1) chains.
+  coefficients <- c(0.9, 0.9, -0.9, -0.9)
+  for (chain_index in seq_along(coefficients)) {
+    draws[, chain_index, "beta"] <- stats::filter(
+      draws[, chain_index, "beta"], coefficients[chain_index],
+      method = "recursive"
+    )
+  }
 
   expected <- vapply(seq_len(dim(draws)[3L]), function(variable_index) {
     mean(vapply(seq_len(dim(draws)[2L]), function(chain_index) {
-      abs(posterior::autocorrelation(
+      lag1 <- posterior::autocorrelation(
         draws[, chain_index, variable_index]
-      )[2L])
+      )[2L]
+      expect_equal(
+        unname(posteriordb:::mean_lag1_ac(
+          draws[, chain_index, variable_index, drop = FALSE]
+        )),
+        abs(lag1), tolerance = 1e-12
+      )
+      abs(lag1)
     }, numeric(1)))
   }, numeric(1))
 
   expect_equal(
     posteriordb:::mean_lag1_ac(draws),
-    stats::setNames(expected, c("alpha", "beta"))
+    stats::setNames(expected, c("alpha", "beta")), tolerance = 1e-12
   )
 })
 
