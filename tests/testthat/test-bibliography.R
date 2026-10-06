@@ -16,10 +16,17 @@ local_bibliography_fixture <- function(contents = character()) {
 }
 
 test_that("bibliography works as expected", {
-  fixture <- local_bibliography_fixture("@misc{one, title={One}}")
+  fixture <- local_bibliography_fixture(c("@misc{one, title={One}}",
+    "@misc{two, title={Two}}"))
   on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
-  expect_length(bibliography(fixture$pdb), 1L)
-  expect_identical(posteriordb::bibliography_keys(fixture$pdb), "one")
+  expect_length(bibliography(fixture$pdb), 2L)
+  expect_identical(posteriordb::bibliography_keys(fixture$pdb), c("one", "two"))
+  entry <- posteriordb::bibliography_entry("one", pdb = fixture$pdb)
+  expect_s3_class(entry, "bibentry")
+  expect_identical(names(entry), "one")
+  expect_match(paste(as.character(utils::toBibtex(entry)), collapse = "\n"),
+    "@Misc{one,", fixed = TRUE)
+  expect_error(posteriordb::bibliography_entry("missing", pdb = fixture$pdb), "key")
 })
 
 test_that("append_reference accepts strings and bibentry objects", {

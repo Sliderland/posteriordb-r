@@ -287,6 +287,14 @@ Use the citation keys, such as `references = "my-study"` or
 entries themselves. Inspect the available keys with
 `bibliography_keys(pdbl)`.
 
+Retrieve an entry by key with `bibliography_entry()` and display its
+BibTeX with `utils::toBibtex()`:
+
+``` r
+entry <- bibliography_entry("my-study", pdb = pdbl)
+utils::toBibtex(entry)
+```
+
 ## End-to-end example: eight schools
 
 This is a continuous version of the eight-schools contribution in

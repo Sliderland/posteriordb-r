@@ -1,11 +1,13 @@
 #' Get the bibliography of a posterior database
 #'
 #' @param pdb a posterior database connection
+#' @param key a single citation key to retrieve
 #' @param ... further arguments passed to [bibtex::read.bib]
 #'
 #' @return `bibliography()` returns a `bibentry` object;
 #'   `bibliography_keys()` returns its citation keys, equivalent to
-#'   `names(bibliography(pdb, ...))`.
+#'   `names(bibliography(pdb, ...))`. `bibliography_entry()` returns the
+#'   selected entry as a `bibentry` object and errors if the key is absent.
 #' @export
 bibliography <- function(pdb, ...) {
   checkmate::assert_class(pdb, "pdb")
@@ -17,6 +19,14 @@ bibliography <- function(pdb, ...) {
 #' @rdname bibliography
 #' @export
 bibliography_keys <- function(pdb, ...) names(bibliography(pdb, ...))
+
+#' @rdname bibliography
+#' @export
+bibliography_entry <- function(key, pdb = pdb_default(), ...) {
+  refs <- bibliography(pdb, ...)
+  checkmate::assert_choice(key, choices = names(refs))
+  refs[key]
+}
 
 #' Append references to a posterior database bibliography
 #'
