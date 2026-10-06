@@ -5,6 +5,7 @@
       posterior](#import-a-fit-for-an-existing-posterior)
     - [Reuse existing bundle
       components](#reuse-existing-bundle-components)
+  - [Add BibTeX references](#add-bibtex-references)
   - [End-to-end example: eight
     schools](#end-to-end-example-eight-schools)
   - [Create a new bundle: eight
@@ -248,6 +249,44 @@ reference link is empty or differs from the candidate reference name.
 The importer can fill an empty link, but rejects a different existing
 link.
 
+## Add BibTeX references
+
+Before checking a bundle that cites a new reference, add the entry to
+your local checkout’s `bibliography/references.bib` with
+`append_reference()`. It accepts three input forms:
+
+``` r
+pdbl <- pdb_local("/path/to/posteriordb/posterior_database")
+
+# 1. Pasted BibTeX text: exactly one entry with a citation key.
+append_reference(
+  "@misc{my-study, title={My study}, year={2026}}", pdb = pdbl
+)
+
+# 2. A .bib file: one or more entries.
+append_reference("new-references.bib", pdb = pdbl)
+
+# 3. An R bibentry object: one or more entries.
+ref <- utils::bibentry(
+  "Misc", key = "my-software", title = "My model implementation",
+  year = "2026"
+)
+append_reference(ref, pdb = pdbl)
+```
+
+You can also obtain a `bibentry` object with
+`bibtex::read.bib("new-references.bib")` and pass it to
+`append_reference()`. Choose the form that matches what you already
+have. Duplicate citation keys (ignoring case) and duplicate entries are
+rejected before changing the bibliography. A successful append
+invalidates the cached bibliography.
+
+Use the citation keys, such as `references = "my-study"` or
+`references = c("my-study", "my-software")`, in `data_info`,
+`model_info`, or `posterior_info`; these fields do not add BibTeX
+entries themselves. Inspect the available keys with
+`names(bibliography(pdbl))`.
+
 ## End-to-end example: eight schools
 
 This is a continuous version of the eight-schools contribution in
@@ -263,7 +302,7 @@ for a new contribution. If these records already exist, use the
 existing-record workflow above rather than assuming `overwrite = TRUE`
 is appropriate. As in the original guide, the citation key
 `rubin1981estimation` must already exist in the database bibliography;
-add a missing reference before proceeding.
+[add a missing reference](#add-bibtex-references) before proceeding.
 
 ``` r
 library(posteriordb)
