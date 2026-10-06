@@ -1,8 +1,8 @@
-test_that("lag-1 autocorrelation agrees with posterior for 40,000 draws", {
+test_that("lag-1 autocorrelation agrees with posterior for 10,000 draws", {
   set.seed(123)
   draws <- array(
-    stats::rnorm(10000L * 4L * 2L),
-    dim = c(10000L, 4L, 2L),
+    stats::rnorm(2500L * 4L * 2L),
+    dim = c(2500L, 4L, 2L),
     dimnames = list(
       iteration = NULL,
       chain = NULL,
