@@ -15,11 +15,6 @@
 #' Construction does not write files. `pdb_posterior()` is the lookup alias;
 #' `as.pdb_posterior()` is the construction alias.
 #'
-#' Saved records may contain legacy dimension vectors describing output shapes.
-#' Lookup preserves that metadata for reading data, model code, and reference
-#' draws. Construction, writing, and count-based inference require scalar
-#' unconstrained parameter counts; legacy vectors are not converted to counts.
-#'
 #' Posteriors returned by [create_pdb_bundle()] embed their data, model
 #' code, and reference draws. Their normal getters work without a database.
 #' A NULL connection is valid only with all three embedded objects; embedded
@@ -54,7 +49,7 @@ posterior.character <- function(x, pdb = pdb_default(), ...) {
   class(po) <- "pdb_posterior"
   po$model_info <- read_model_info(po)
   po$data_info <- read_data_info(po)
-  assert_pdb_posterior(po, allow_legacy_dimensions = TRUE)
+  assert_pdb_posterior(po)
   po
 }
 
@@ -136,7 +131,7 @@ pdb_posterior_must_include <- function(){
   )
 }
 
-assert_pdb_posterior <- function(x, allow_legacy_dimensions = FALSE) {
+assert_pdb_posterior <- function(x) {
   checkmate::assert_class(x, "pdb_posterior")
   checkmate::assert_list(x)
   checkmate::assert_names(names(x), must.include = pdb_posterior_must_include())
@@ -144,15 +139,9 @@ assert_pdb_posterior <- function(x, allow_legacy_dimensions = FALSE) {
     assert_pdb_resource_name(x[[field]])
   if (!is.null(x$reference_posterior_name))
     assert_pdb_resource_name(x$reference_posterior_name)
-  checkmate::assert_list(x$dimensions, min.len = 1L)
-  checkmate::assert_named(x$dimensions, type = "unique")
-  if (allow_legacy_dimensions) {
-    for (dimension in x$dimensions)
-      checkmate::assert_integerish(dimension, lower = 1L, min.len = 1L,
-                                  any.missing = FALSE, tol = 0)
-  } else {
-    x$dimensions <- validate_posterior_dimension_counts(x$dimensions)
-  }
+  checkmate::assert_list(x$dimensions)
+  checkmate::assert_named(x$dimensions)
+  x$dimensions <- validate_posterior_dimension_counts(x$dimensions)
   checkmate::assert_class(x$added_date, "Date")
   checkmate::assert_class(x$data_info$added_date, "Date")
   checkmate::assert_class(x$model_info$added_date, "Date")
