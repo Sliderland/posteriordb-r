@@ -5,19 +5,25 @@
 #'   `mean_squared_value`.
 #'
 #' @export
-compute_reference_posterior_summary_statistic <- function(rpd, summary_statistic = "mean_value"){
+compute_reference_posterior_summary_statistic <- function(
+  rpd,
+  summary_statistic = "mean_value"
+) {
   checkmate::assert_class(rpd, classes = "pdb_reference_posterior_draws")
   rpi <- info(rpd)
   checkmate::assert_class(rpi, classes = "pdb_reference_posterior_info")
-  checkmate::assert_choice(summary_statistic, supported_summary_statistic_types())
+  checkmate::assert_choice(
+    summary_statistic,
+    supported_summary_statistic_types()
+  )
   assert_checked_summary_statistics_draws(rpd)
 
-  if(summary_statistic == "mean_value"){
+  if (summary_statistic == "mean_value") {
     res <- posterior::summarise_draws(rpd, "mean", "mcse_mean")
     res <- as.list(res)
     names(res)[1] <- "names"
     names(res)[2] <- "mean_value"
-  } else if (summary_statistic == "mean_squared_value"){
+  } else if (summary_statistic == "mean_squared_value") {
     squared_draws <- posterior::as_draws_array(rpd)
     squared_draws[] <- squared_draws^2
     res <- posterior::summarise_draws(squared_draws, "mean", "mcse_mean")
@@ -45,7 +51,8 @@ summary_statistics_from_checked_reference_draws <- function(rpd) {
   assert_checked_reference_posterior_draws(rpd)
   reference_checks <- info(rpd)$checks_made
   shared_checks <- setdiff(
-    required_reference_draw_checks(info(rpd)$inference$method), "ndraws_is_10k"
+    required_reference_draw_checks(info(rpd)$inference$method),
+    "ndraws_is_10k"
   )
   summary_draws <- rpd
   summary_info <- info(rpd)

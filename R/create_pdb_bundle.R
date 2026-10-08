@@ -183,8 +183,11 @@ create_pdb_bundle.stanfit <- function(
     # Resolve saved names before validating and assembling the standalone bundle.
     data <- if (is.null(pdb)) pdb_data(data) else pdb_data(data, pdb = pdb)
   }
-  if (is.character(model_code) && length(model_code) == 1L &&
-      !inherits(model_code, "pdb_model_code")) {
+  if (
+    is.character(model_code) &&
+      length(model_code) == 1L &&
+      !inherits(model_code, "pdb_model_code")
+  ) {
     model_code <- if (is.null(pdb)) {
       pdb_model_code(model_code, framework = "stan")
     } else {
@@ -192,14 +195,26 @@ create_pdb_bundle.stanfit <- function(
     }
   }
   if (is.character(posterior) && length(posterior) == 1L) {
-    posterior <- if (is.null(pdb)) pdb_posterior(posterior) else pdb_posterior(posterior, pdb = pdb)
+    posterior <- if (is.null(pdb)) {
+      pdb_posterior(posterior)
+    } else {
+      pdb_posterior(posterior, pdb = pdb)
+    }
   }
-  if (!is.null(model_code)) checkmate::assert_class(model_code, "pdb_model_code")
-  if (!is.null(posterior)) checkmate::assert_class(posterior, "pdb_posterior")
+  if (!is.null(model_code)) {
+    checkmate::assert_class(model_code, "pdb_model_code")
+  }
+  if (!is.null(posterior)) {
+    checkmate::assert_class(posterior, "pdb_posterior")
+  }
   if (!is.null(posterior)) {
     # A supplied posterior can fill in its linked data and Stan source.
-    if (is.null(data)) data <- get_data(posterior)
-    if (is.null(model_code)) model_code <- model_code(posterior, framework = "stan")
+    if (is.null(data)) {
+      data <- get_data(posterior)
+    }
+    if (is.null(model_code)) {
+      model_code <- model_code(posterior, framework = "stan")
+    }
   }
   resolved_data <- resolve_standalone_fit_data(data)
   data <- resolved_data$data
@@ -220,7 +235,9 @@ create_pdb_bundle.stanfit <- function(
         call. = FALSE
       )
     }
-    if (!identical(framework(model_code), "stan")) stop("`model_code` must contain Stan source.", call. = FALSE)
+    if (!identical(framework(model_code), "stan")) {
+      stop("`model_code` must contain Stan source.", call. = FALSE)
+    }
     model_info <- unclass(info(model_code))
   }
   if (!is.null(posterior)) {
@@ -230,9 +247,22 @@ create_pdb_bundle.stanfit <- function(
         call. = FALSE
       )
     }
-    posterior_fields <- c("name", "model_name", "data_name", "reference_posterior_name",
-      "dimensions", "added_by", "added_date", "urls", "references", "keywords")
-    posterior_info <- unclass(posterior)[intersect(names(unclass(posterior)), posterior_fields)]
+    posterior_fields <- c(
+      "name",
+      "model_name",
+      "data_name",
+      "reference_posterior_name",
+      "dimensions",
+      "added_by",
+      "added_date",
+      "urls",
+      "references",
+      "keywords"
+    )
+    posterior_info <- unclass(posterior)[intersect(
+      names(unclass(posterior)),
+      posterior_fields
+    )]
   }
   validate_stan_input_data(data, "data")
   data_info <- validate_bundle_metadata(
@@ -322,10 +352,12 @@ create_pdb_bundle.stanfit <- function(
       must.include = "model_code",
       subset.of = c("model_code", "stan_version")
     )
-    if (!identical(
-      stan_implementation$model_code,
-      expected_impl$stan$model_code
-    )) {
+    if (
+      !identical(
+        stan_implementation$model_code,
+        expected_impl$stan$model_code
+      )
+    ) {
       stop(
         "`model_info$model_implementations$stan$model_code` conflicts with the inferred Stan model path.",
         call. = FALSE
@@ -394,7 +426,10 @@ assemble_standalone_fit_bundle <- function(
   }
   dimensions <- extracted$dimensions
   if (!length(dimensions)) {
-    stop("The selected draws contain no unconstrained model parameters; posterior dimensions cannot be inferred from derived quantities alone.", call. = FALSE)
+    stop(
+      "The selected draws contain no unconstrained model parameters; posterior dimensions cannot be inferred from derived quantities alone.",
+      call. = FALSE
+    )
   }
   draws <- posterior::as_draws_list(draws_array)
 
@@ -416,21 +451,35 @@ assemble_standalone_fit_bundle <- function(
   model_info$framework <- NULL
   model_info$model_implementations <- NULL
   # Keep supplied data as a normal pdb_data object for both memory and writing.
-  dat <- existing_data %||% as.pdb_data(data, info = as.pdb_data_info(data_info))
+  dat <- existing_data %||%
+    as.pdb_data(data, info = as.pdb_data_info(data_info))
   mi <- as.pdb_model_info(c(model_info, list(framework = "stan")))
   mi$model_implementations$stan["stan_version"] <- list(stan_version)
   code <- extracted$source
-  if (!is.null(existing_model_code) &&
+  if (
+    !is.null(existing_model_code) &&
       !identical(
         normalize_stan_model_code(existing_model_code),
         normalize_stan_model_code(code)
-      )) {
-    stop("The supplied model code does not match the source embedded in `fit`.", call. = FALSE)
+      )
+  ) {
+    stop(
+      "The supplied model code does not match the source embedded in `fit`.",
+      call. = FALSE
+    )
   }
-  mc <- existing_model_code %||% as.pdb_model_code(code, info = mi, framework = "stan")
-  if (!identical(info(mc)$name, model_info$name)) stop("The supplied model-code name conflicts with the resolved model metadata.", call. = FALSE)
+  mc <- existing_model_code %||%
+    as.pdb_model_code(code, info = mi, framework = "stan")
+  if (!identical(info(mc)$name, model_info$name)) {
+    stop(
+      "The supplied model-code name conflicts with the resolved model metadata.",
+      call. = FALSE
+    )
+  }
   if (!is.null(pdb)) {
-    if (is.null(existing_data)) pdb(dat) <- pdb
+    if (is.null(existing_data)) {
+      pdb(dat) <- pdb
+    }
     if (is.null(existing_model_code)) pdb(mc) <- pdb
   }
 
@@ -447,8 +496,10 @@ assemble_standalone_fit_bundle <- function(
   )
   for (key in intersect(names(posterior_info), names(structural))) {
     expected <- structural[[key]]
-    if (!is.null(posterior_info[[key]]) &&
-        !identical(posterior_info[[key]], expected)) {
+    if (
+      !is.null(posterior_info[[key]]) &&
+        !identical(posterior_info[[key]], expected)
+    ) {
       stop(
         "`posterior_info$",
         key,
@@ -459,15 +510,31 @@ assemble_standalone_fit_bundle <- function(
   }
   if (!is.null(existing_posterior)) {
     expected_fields <- c(
-      name = "name", model_name = "model_name", data_name = "data_name",
+      name = "name",
+      model_name = "model_name",
+      data_name = "data_name",
       reference_posterior_name = "reference_posterior_name"
     )
-    conflicts <- expected_fields[vapply(names(expected_fields), function(key) {
-      !is.null(existing_posterior[[key]]) &&
-        !identical(existing_posterior[[key]], structural[[key]])
-    }, logical(1))]
-    if (length(conflicts)) stop("The supplied posterior does not link to the resolved data and model objects.", call. = FALSE)
-    if (!identical(existing_posterior$dimensions, dimensions)) stop("The supplied posterior's unconstrained dimensions do not match the fitted model and selected variables.", call. = FALSE)
+    conflicts <- expected_fields[vapply(
+      names(expected_fields),
+      function(key) {
+        !is.null(existing_posterior[[key]]) &&
+          !identical(existing_posterior[[key]], structural[[key]])
+      },
+      logical(1)
+    )]
+    if (length(conflicts)) {
+      stop(
+        "The supplied posterior does not link to the resolved data and model objects.",
+        call. = FALSE
+      )
+    }
+    if (!identical(existing_posterior$dimensions, dimensions)) {
+      stop(
+        "The supplied posterior's unconstrained dimensions do not match the fitted model and selected variables.",
+        call. = FALSE
+      )
+    }
   }
   po_fields <- posterior_info[setdiff(
     names(posterior_info),
@@ -531,21 +598,22 @@ assemble_standalone_fit_bundle <- function(
     existing_posterior$embedded_reference_draws <- rpd
     assert_pdb_posterior(existing_posterior)
   }
-  po <- existing_posterior %||% as.pdb_posterior(
-    c(
-      structural,
-      list(pdb_data = dat, pdb_model_code = mc),
-      po_fields,
-      list(
-        added_by = posterior_info$added_by %||% added_by,
-        added_date = posterior_info$added_date %||% added_date,
-        embedded_data = dat,
-        embedded_model_code = mc,
-        embedded_reference_draws = rpd
-      )
-    ),
-    pdb = pdb
-  )
+  po <- existing_posterior %||%
+    as.pdb_posterior(
+      c(
+        structural,
+        list(pdb_data = dat, pdb_model_code = mc),
+        po_fields,
+        list(
+          added_by = posterior_info$added_by %||% added_by,
+          added_date = posterior_info$added_date %||% added_date,
+          embedded_data = dat,
+          embedded_model_code = mc,
+          embedded_reference_draws = rpd
+        )
+      ),
+      pdb = pdb
+    )
   if (!is.null(pdb) && is.null(existing_posterior)) {
     pdb(po) <- pdb
   }
@@ -581,8 +649,10 @@ bundle_component_is_database_backed <- function(x) {
 #' @exportS3Method
 check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
   if (length(list(...))) {
-    stop("`check_reference_posterior_draws()` does not accept extra arguments for a bundle.",
-         call. = FALSE)
+    stop(
+      "`check_reference_posterior_draws()` does not accept extra arguments for a bundle.",
+      call. = FALSE
+    )
   }
   draws <- x$reference_draws
   extracted <- list(
@@ -592,8 +662,10 @@ check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
     fit_class = x$provenance$fit_class
   )
   if (is.null(extracted$metadata)) {
-    stop("The bundle has no saved sampling metadata needed for diagnostics.",
-         call. = FALSE)
+    stop(
+      "The bundle has no saved sampling metadata needed for diagnostics.",
+      call. = FALSE
+    )
   }
   report <- bundle_full_diagnostic_report(
     extracted
@@ -614,10 +686,18 @@ check_reference_posterior_draws.pdb_reference_bundle <- function(x, ...) {
 # summaries, and use the existing summary-statistic constructors and writers.
 bundle_summary_statistics <- function(draws) {
   draw_checks <- info(draws)$checks_made
-  required_draw_checks <- required_reference_draw_checks(info(draws)$inference$method)
-  if (!all(vapply(required_draw_checks, function(key) {
-    isTRUE(draw_checks[[key]])
-  }, logical(1)))) {
+  required_draw_checks <- required_reference_draw_checks(
+    info(draws)$inference$method
+  )
+  if (
+    !all(vapply(
+      required_draw_checks,
+      function(key) {
+        isTRUE(draw_checks[[key]])
+      },
+      logical(1)
+    ))
+  ) {
     return(NULL)
   }
   summary_statistics_from_checked_reference_draws(draws)
@@ -629,8 +709,14 @@ bundle_full_diagnostic_report <- function(extracted) {
     extracted,
     checks = "all"
   )
-  report$metrics$effective_sample_size_bulk <- reference_variable_diagnostic(draws, posterior::ess_bulk)
-  report$metrics$effective_sample_size_tail <- reference_variable_diagnostic(draws, posterior::ess_tail)
+  report$metrics$effective_sample_size_bulk <- reference_variable_diagnostic(
+    draws,
+    posterior::ess_bulk
+  )
+  report$metrics$effective_sample_size_tail <- reference_variable_diagnostic(
+    draws,
+    posterior::ess_tail
+  )
   sampler_vars <- if (is.null(extracted$sampler_diagnostics)) {
     character()
   } else {
@@ -745,10 +831,11 @@ print.pdb_reference_bundle <- function(x, ...) {
     "\n",
     sep = ""
   )
-  metrics <- x$diagnostics$metrics %||% list(
-    ndraws = x$provenance$sampling_metadata$ndraws,
-    nchains = x$provenance$sampling_metadata$nchains
-  )
+  metrics <- x$diagnostics$metrics %||%
+    list(
+      ndraws = x$provenance$sampling_metadata$ndraws,
+      nchains = x$provenance$sampling_metadata$nchains
+    )
   cat(
     "Draws: ",
     metrics$ndraws,
@@ -774,8 +861,10 @@ print.pdb_reference_bundle <- function(x, ...) {
 # metadata list. Saved array variables are scalar names like theta[1,2].
 resolve_standalone_fit_data <- function(data) {
   if (is.null(data)) {
-    stop("`data` is required. Pass the actual named Stan input list; fit-data recovery is not supported.",
-         call. = FALSE)
+    stop(
+      "`data` is required. Pass the actual named Stan input list; fit-data recovery is not supported.",
+      call. = FALSE
+    )
   }
   object <- NULL
   if (inherits(data, "pdb_data")) {
@@ -944,44 +1033,78 @@ validate_variable_selection <- function(x, arg) {
     )
   }
   x <- unname(x)
-  if (identical(x, "none")) return(character())
-  if (arg == "include" && identical(x, "all")) return(NULL)
+  if (identical(x, "none")) {
+    return(character())
+  }
+  if (arg == "include" && identical(x, "all")) {
+    return(NULL)
+  }
   x
 }
 
 validate_variable_selections <- function(include, exclude) {
   include <- validate_variable_selection(include, "include")
   exclude <- validate_variable_selection(exclude, "exclude")
-  if ("lp__" %in% include)
+  if ("lp__" %in% include) {
     stop("`lp__` cannot be included in model-output selections.", call. = FALSE)
-  overlap <- if (identical(exclude, "all")) character() else intersect(include, exclude)
-  if (length(overlap))
-    stop("Variable(s) appear in both `include` and `exclude`: ",
-         paste(overlap, collapse = ", "), call. = FALSE)
+  }
+  overlap <- if (identical(exclude, "all")) {
+    character()
+  } else {
+    intersect(include, exclude)
+  }
+  if (length(overlap)) {
+    stop(
+      "Variable(s) appear in both `include` and `exclude`: ",
+      paste(overlap, collapse = ", "),
+      call. = FALSE
+    )
+  }
   list(include = include, exclude = exclude)
 }
 
 # Workflows provide their available names and any mandatory variables.
-resolve_variable_selection <- function(available, required = character(),
-                                       include = NULL, exclude = NULL) {
+resolve_variable_selection <- function(
+  available,
+  required = character(),
+  include = NULL,
+  exclude = NULL
+) {
   selection <- validate_variable_selections(include, exclude)
   include <- selection$include
   exclude <- selection$exclude
   available <- setdiff(unique(available), "lp__")
   for (argument in c("include", "exclude")) {
     values <- if (argument == "include") include else exclude
-    if (argument == "exclude" && identical(values, "all")) next
+    if (argument == "exclude" && identical(values, "all")) {
+      next
+    }
     unknown <- setdiff(values, c(available, if (argument == "exclude") "lp__"))
-    if (length(unknown))
-      stop("Unknown base variable(s) in `", argument, "`: ",
-           paste(unknown, collapse = ", "), call. = FALSE)
+    if (length(unknown)) {
+      stop(
+        "Unknown base variable(s) in `",
+        argument,
+        "`: ",
+        paste(unknown, collapse = ", "),
+        call. = FALSE
+      )
+    }
   }
-  if (identical(exclude, "all")) return(required)
+  if (identical(exclude, "all")) {
+    return(required)
+  }
   protected <- intersect(required, exclude)
-  if (length(protected))
-    stop("Cannot exclude required posterior dimensions or parameter-block variables: ",
-         paste(protected, collapse = ", "), call. = FALSE)
-  setdiff(union(required, if (is.null(include)) available else include), exclude)
+  if (length(protected)) {
+    stop(
+      "Cannot exclude required posterior dimensions or parameter-block variables: ",
+      paste(protected, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  setdiff(
+    union(required, if (is.null(include)) available else include),
+    exclude
+  )
 }
 
 new_bundle_reference_info <- function(
@@ -1009,7 +1132,12 @@ new_bundle_reference_info <- function(
   as.pdb_reference_posterior_info(info)
 }
 
-bundle_reference_diagnostic_info <- function(metrics, ndraws, nchains, variables) {
+bundle_reference_diagnostic_info <- function(
+  metrics,
+  ndraws,
+  nchains,
+  variables
+) {
   get_metric <- function(key, default) {
     value <- metrics[[key]]
     if (is.null(value) || identical(value, "unavailable")) default else value

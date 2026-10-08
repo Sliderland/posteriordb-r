@@ -60,7 +60,7 @@
 #'   and summary statistics were written, and any diagnostic error or skip
 #'   reason.
 #' @export
-write_pdb <- function(x, pdb, overwrite = FALSE, ...){
+write_pdb <- function(x, pdb, overwrite = FALSE, ...) {
   checkmate::assert_class(pdb, "pdb_local")
   UseMethod("write_pdb")
 }
@@ -68,11 +68,17 @@ write_pdb <- function(x, pdb, overwrite = FALSE, ...){
 #' @rdname write_pdb
 #' @export
 write_pdb.pdb_reference_bundle <- function(
-  x, pdb, overwrite = FALSE, write_summary_statistics = TRUE, ...
+  x,
+  pdb,
+  overwrite = FALSE,
+  write_summary_statistics = TRUE,
+  ...
 ) {
   if (length(list(...))) {
-    stop("`write_pdb()` does not accept extra arguments for a bundle.",
-         call. = FALSE)
+    stop(
+      "`write_pdb()` does not accept extra arguments for a bundle.",
+      call. = FALSE
+    )
   }
   checkmate::assert_class(x, "pdb_reference_bundle")
   checkmate::assert_flag(overwrite)
@@ -98,10 +104,13 @@ write_pdb.pdb_reference_bundle <- function(
   draws_accepted <- FALSE
   draw_skip_reason <- diagnostic_error
   if (is.null(draw_skip_reason)) {
-    acceptance <- tryCatch({
-      assert_checked_reference_posterior_draws(bundle$reference_draws)
-      NULL
-    }, error = identity)
+    acceptance <- tryCatch(
+      {
+        assert_checked_reference_posterior_draws(bundle$reference_draws)
+        NULL
+      },
+      error = identity
+    )
     if (is.null(acceptance)) {
       draws_accepted <- TRUE
     } else {
@@ -126,31 +135,53 @@ write_pdb.pdb_reference_bundle <- function(
 
   written <- character()
   write_complete <- FALSE
-  on.exit({
-    if (!write_complete) message(
-      "Bundle write did not complete. Completed components: ",
-      if (length(written)) paste(written, collapse = ", ") else "none",
-      ". Files already written are retained; the failing component may have partial files. ",
-      "Inspect local changes before retrying."
-    )
-  }, add = TRUE)
+  on.exit(
+    {
+      if (!write_complete) {
+        message(
+          "Bundle write did not complete. Completed components: ",
+          if (length(written)) paste(written, collapse = ", ") else "none",
+          ". Files already written are retained; the failing component may have partial files. ",
+          "Inspect local changes before retrying."
+        )
+      }
+    },
+    add = TRUE
+  )
   for (component in c("data", "model_code", "posterior")) {
     if (component %in% write_plan$write) {
       object <- bundle[[component]]
       if (component == "posterior" && !draws_accepted) {
-        posterior_path <- pdb_file_path(pdb, "posteriors", paste0(object$name, ".json"))
+        posterior_path <- pdb_file_path(
+          pdb,
+          "posteriors",
+          paste0(object$name, ".json")
+        )
         reference <- if (file.exists(posterior_path)) {
           jsonlite::read_json(posterior_path)$reference_posterior_name
         } else {
           object$reference_posterior_name
         }
-        reference_exists <- !is.null(reference) && all(file.exists(c(
-          pdb_file_path(pdb, "reference_posteriors", "draws", "info",
-                        paste0(reference, ".info.json")),
-          pdb_file_path(pdb, "reference_posteriors", "draws", "draws",
-                        paste0(reference, ".json.zip"))
-        )))
-        object["reference_posterior_name"] <- list(if (reference_exists) reference else NULL)
+        reference_exists <- !is.null(reference) &&
+          all(file.exists(c(
+            pdb_file_path(
+              pdb,
+              "reference_posteriors",
+              "draws",
+              "info",
+              paste0(reference, ".info.json")
+            ),
+            pdb_file_path(
+              pdb,
+              "reference_posteriors",
+              "draws",
+              "draws",
+              paste0(reference, ".json.zip")
+            )
+          )))
+        object["reference_posterior_name"] <- list(
+          if (reference_exists) reference else NULL
+        )
         object$embedded_reference_draws <- NULL
       }
       component_overwrite <- if (component %in% write_plan$reused_to_copy) {
@@ -159,7 +190,9 @@ write_pdb.pdb_reference_bundle <- function(
         overwrite
       }
       write_pdb(
-        object, pdb = pdb, overwrite = component_overwrite
+        object,
+        pdb = pdb,
+        overwrite = component_overwrite
       )
       written <- c(written, component)
     }
@@ -200,7 +233,11 @@ write_pdb.pdb_reference_bundle <- function(
 }
 
 preflight_pdb_bundle_write <- function(
-  bundle, pdb, include_reference_draws, write_summary_statistics, overwrite
+  bundle,
+  pdb,
+  include_reference_draws,
+  write_summary_statistics,
+  overwrite
 ) {
   checkmate::assert_flag(include_reference_draws)
   checkmate::assert_flag(write_summary_statistics)
@@ -216,7 +253,12 @@ preflight_pdb_bundle_write <- function(
       paths = c(
         pdb_write_output_path(pdb, "data/info", "json", data_name),
         pdb_write_output_path(
-          pdb, "data/data", "json", data_name, zip = TRUE, info = FALSE
+          pdb,
+          "data/data",
+          "json",
+          data_name,
+          zip = TRUE,
+          info = FALSE
         )
       )
     ),
@@ -226,7 +268,11 @@ preflight_pdb_bundle_write <- function(
       paths = c(
         pdb_write_output_path(pdb, "models/info", "json", model_name),
         pdb_write_output_path(
-          pdb, "models/stan", "stan", model_name, info = FALSE
+          pdb,
+          "models/stan",
+          "stan",
+          model_name,
+          info = FALSE
         )
       )
     ),
@@ -234,7 +280,11 @@ preflight_pdb_bundle_write <- function(
       object = bundle$posterior,
       reused = isTRUE(reused["posterior"]),
       paths = pdb_write_output_path(
-        pdb, "posteriors", "json", bundle$posterior$name, info = FALSE
+        pdb,
+        "posteriors",
+        "json",
+        bundle$posterior$name,
+        info = FALSE
       )
     )
   )
@@ -242,8 +292,13 @@ preflight_pdb_bundle_write <- function(
   if (include_reference_draws) {
     draw_name <- info(bundle$reference_draws)$name
     draw_paths <- pdb_reference_output_paths(
-      pdb, draw_name,
-      if (write_summary_statistics) supported_summary_statistic_types() else character()
+      pdb,
+      draw_name,
+      if (write_summary_statistics) {
+        supported_summary_statistic_types()
+      } else {
+        character()
+      }
     )
     specs$reference_draws <- list(
       object = bundle$reference_draws,
@@ -276,24 +331,36 @@ preflight_pdb_bundle_write <- function(
     if (spec$reused && all(existing)) {
       source_pdb <- tryCatch(pdb(spec$object), error = function(error) NULL)
       if (is.null(source_pdb) || !same_local_pdb(source_pdb, pdb)) {
-        blocking_issues <- c(blocking_issues, paste0(
-          "The reused ", component,
-          " object has files with the same destination name, but it is not ",
-          "confirmed to come from this database: ",
-          paste(spec$paths, collapse = ", "),
-          ". The bundle writer will not replace or silently reuse them."
-        ))
+        blocking_issues <- c(
+          blocking_issues,
+          paste0(
+            "The reused ",
+            component,
+            " object has files with the same destination name, but it is not ",
+            "confirmed to come from this database: ",
+            paste(spec$paths, collapse = ", "),
+            ". The bundle writer will not replace or silently reuse them."
+          )
+        )
         next
       }
-      if (component == "posterior" && include_reference_draws &&
-          !identical(jsonlite::read_json(spec$paths)$reference_posterior_name,
-                     info(bundle$reference_draws)$name)) {
-        blocking_issues <- c(blocking_issues, paste0(
-          "The reused posterior does not have the matching persisted reference link: ",
-          spec$paths,
-          ". Use import_reference_posterior_draws(..., write = TRUE) to fill an empty link; ",
-          "a different existing link cannot be replaced."
-        ))
+      if (
+        component == "posterior" &&
+          include_reference_draws &&
+          !identical(
+            jsonlite::read_json(spec$paths)$reference_posterior_name,
+            info(bundle$reference_draws)$name
+          )
+      ) {
+        blocking_issues <- c(
+          blocking_issues,
+          paste0(
+            "The reused posterior does not have the matching persisted reference link: ",
+            spec$paths,
+            ". Use import_reference_posterior_draws(..., write = TRUE) to fill an empty link; ",
+            "a different existing link cannot be replaced."
+          )
+        )
         next
       }
       reused_in_target <- c(reused_in_target, component)
@@ -301,18 +368,24 @@ preflight_pdb_bundle_write <- function(
     }
 
     if (spec$reused && any(existing)) {
-      blocking_issues <- c(blocking_issues, paste0(
-        "The reused ", component,
-        " object has only some of its expected files in the destination: ",
-        paste(spec$paths[existing], collapse = ", "),
-        ". Reused objects are never overwritten."
-      ))
+      blocking_issues <- c(
+        blocking_issues,
+        paste0(
+          "The reused ",
+          component,
+          " object has only some of its expected files in the destination: ",
+          paste(spec$paths[existing], collapse = ", "),
+          ". Reused objects are never overwritten."
+        )
+      )
       next
     }
 
     if (any(existing)) {
       collision_paths <- c(collision_paths, spec$paths[existing])
-      if (!overwrite) next
+      if (!overwrite) {
+        next
+      }
       overwritten <- c(overwritten, component)
     } else if (spec$reused) {
       reused_to_copy <- c(reused_to_copy, component)
@@ -360,16 +433,35 @@ preflight_pdb_bundle_write <- function(
 pdb_reference_output_paths <- function(pdb, name, summary_types = character()) {
   paths <- c(
     pdb_write_output_path(pdb, "reference_posteriors/draws/info", "json", name),
-    pdb_write_output_path(pdb, "reference_posteriors/draws/draws", "json", name,
-                          zip = TRUE, info = FALSE)
+    pdb_write_output_path(
+      pdb,
+      "reference_posteriors/draws/draws",
+      "json",
+      name,
+      zip = TRUE,
+      info = FALSE
+    )
   )
-  summaries <- unlist(lapply(summary_types, function(type) c(
-    pdb_write_output_path(pdb,
-      paste0("reference_posteriors/summary_statistics/", type, "/info"), "json", name),
-    pdb_write_output_path(pdb,
-      paste0("reference_posteriors/summary_statistics/", type, "/", type),
-      "json", name, info = FALSE)
-  )), use.names = FALSE)
+  summaries <- unlist(
+    lapply(summary_types, function(type) {
+      c(
+        pdb_write_output_path(
+          pdb,
+          paste0("reference_posteriors/summary_statistics/", type, "/info"),
+          "json",
+          name
+        ),
+        pdb_write_output_path(
+          pdb,
+          paste0("reference_posteriors/summary_statistics/", type, "/", type),
+          "json",
+          name,
+          info = FALSE
+        )
+      )
+    }),
+    use.names = FALSE
+  )
   c(paths, summaries)
 }
 
@@ -383,31 +475,59 @@ same_local_pdb <- function(left, right) {
   }
   left_endpoint <- endpoint(left)
   right_endpoint <- endpoint(right)
-  !is.null(left_endpoint) && !is.null(right_endpoint) &&
+  !is.null(left_endpoint) &&
+    !is.null(right_endpoint) &&
     identical(left_endpoint, right_endpoint)
 }
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_reference_posterior_info <- function(x, pdb, overwrite = FALSE, type, ...){
-  checkmate::assert_choice(type, choices = supported_reference_posterior_types())
+write_pdb.pdb_reference_posterior_info <- function(
+  x,
+  pdb,
+  overwrite = FALSE,
+  type,
+  ...
+) {
+  checkmate::assert_choice(
+    type,
+    choices = supported_reference_posterior_types()
+  )
   assert_reference_posterior_info(x)
   class(x) <- c(class(x), "list")
   type_path <- reference_posterior_type_path(type)
-  write_json_to_path(x, paste("reference_posteriors", type_path, "info", sep = "/"), pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
+  write_json_to_path(
+    x,
+    paste("reference_posteriors", type_path, "info", sep = "/"),
+    pdb,
+    zip = FALSE,
+    info = TRUE,
+    overwrite = overwrite
+  )
 }
 
 #' @rdname write_pdb
 #' @export
 write_pdb.pdb_reference_posterior_draws <- function(
-  x, pdb, overwrite = FALSE, write_summary_statistics = TRUE, ...
-){
+  x,
+  pdb,
+  overwrite = FALSE,
+  write_summary_statistics = TRUE,
+  ...
+) {
   checkmate::assert_flag(write_summary_statistics)
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
   reference_posterior_name <- info(x)$name
-  pdb_reference_output_paths(pdb, reference_posterior_name,
-    if (write_summary_statistics) supported_summary_statistic_types() else character())
+  pdb_reference_output_paths(
+    pdb,
+    reference_posterior_name,
+    if (write_summary_statistics) {
+      supported_summary_statistic_types()
+    } else {
+      character()
+    }
+  )
   assert_reference_posterior_exists(pdb, reference_posterior_name)
   summary_statistics <- if (write_summary_statistics) {
     summary_statistics_from_checked_reference_draws(x)
@@ -415,7 +535,14 @@ write_pdb.pdb_reference_posterior_draws <- function(
     list()
   }
   write_pdb(info(x), pdb = pdb, overwrite = overwrite, type = "draws")
-  write_json_to_path(x, "reference_posteriors/draws/draws", pdb, zip = TRUE, info = FALSE, overwrite = overwrite)
+  write_json_to_path(
+    x,
+    "reference_posteriors/draws/draws",
+    pdb,
+    zip = TRUE,
+    info = FALSE,
+    overwrite = overwrite
+  )
   for (summary_statistic in summary_statistics) {
     write_pdb(summary_statistic, pdb = pdb, overwrite = overwrite)
   }
@@ -428,17 +555,27 @@ assert_reference_posterior_exists <- function(pdb, reference_posterior_name) {
   } else {
     character()
   }
-  linked <- vapply(posterior_files, function(path) {
-    tryCatch({
-      posterior_info <- jsonlite::read_json(path, simplifyVector = TRUE)
-      identical(posterior_info$reference_posterior_name,
-                reference_posterior_name)
-    }, error = function(error) FALSE)
-  }, logical(1))
+  linked <- vapply(
+    posterior_files,
+    function(path) {
+      tryCatch(
+        {
+          posterior_info <- jsonlite::read_json(path, simplifyVector = TRUE)
+          identical(
+            posterior_info$reference_posterior_name,
+            reference_posterior_name
+          )
+        },
+        error = function(error) FALSE
+      )
+    },
+    logical(1)
+  )
   if (!any(linked)) {
     stop(
       "Cannot write reference-posterior draws: no posterior in this database ",
-      "points to reference posterior '", reference_posterior_name,
+      "points to reference posterior '",
+      reference_posterior_name,
       "'. Write or link the associated posterior first.",
       call. = FALSE
     )
@@ -448,69 +585,155 @@ assert_reference_posterior_exists <- function(pdb, reference_posterior_name) {
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_reference_posterior_summary_statistic <- function(x, pdb, overwrite = FALSE, ...){
+write_pdb.pdb_reference_posterior_summary_statistic <- function(
+  x,
+  pdb,
+  overwrite = FALSE,
+  ...
+) {
   assert_reference_posterior_summary_statistic(x)
   assert_checked_summary_statistics_draws(x)
   sstype <- summary_statistic_type(x)
-  pdb_write_output_path(pdb,
+  pdb_write_output_path(
+    pdb,
     paste0("reference_posteriors/summary_statistics/", sstype, "/", sstype),
-    "json", info(x)$name, info = FALSE)
+    "json",
+    info(x)$name,
+    info = FALSE
+  )
   write_pdb(info(x), pdb = pdb, overwrite = overwrite, type = sstype)
-  write_json_to_path(x, path = paste0("reference_posteriors/summary_statistics/", sstype, "/", sstype), pdb, zip = FALSE, info = FALSE, overwrite = overwrite, name = info(x)$name)
+  write_json_to_path(
+    x,
+    path = paste0(
+      "reference_posteriors/summary_statistics/",
+      sstype,
+      "/",
+      sstype
+    ),
+    pdb,
+    zip = FALSE,
+    info = FALSE,
+    overwrite = overwrite,
+    name = info(x)$name
+  )
 }
 
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_data <- function(x, pdb, overwrite = FALSE, ...){
+write_pdb.pdb_data <- function(x, pdb, overwrite = FALSE, ...) {
   assert_data(x)
-  pdb_write_output_path(pdb, "data/data", "json", info(x)$name,
-                        zip = TRUE, info = FALSE)
+  pdb_write_output_path(
+    pdb,
+    "data/data",
+    "json",
+    info(x)$name,
+    zip = TRUE,
+    info = FALSE
+  )
   write_pdb(info(x), pdb = pdb, overwrite = overwrite)
-  write_json_to_path(x, "data/data", pdb, name = info(x)$name, zip = TRUE, info = FALSE, overwrite = overwrite)
+  write_json_to_path(
+    x,
+    "data/data",
+    pdb,
+    name = info(x)$name,
+    zip = TRUE,
+    info = FALSE,
+    overwrite = overwrite
+  )
 }
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_data_info <- function(x, pdb,  overwrite = FALSE, ...){
+write_pdb.pdb_data_info <- function(x, pdb, overwrite = FALSE, ...) {
   assert_data_info(x)
-  x <- complete_info_fields(x, c(
-    "name", "data_file", "title", "added_by", "added_date",
-    "references", "description", "urls", "keywords"
-  ))
+  x <- complete_info_fields(
+    x,
+    c(
+      "name",
+      "data_file",
+      "title",
+      "added_by",
+      "added_date",
+      "references",
+      "description",
+      "urls",
+      "keywords"
+    )
+  )
   class(x) <- c(class(x), "list")
-  write_json_to_path(x, "data/info", pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
+  write_json_to_path(
+    x,
+    "data/info",
+    pdb,
+    zip = FALSE,
+    info = TRUE,
+    overwrite = overwrite
+  )
 }
 
 #' @rdname write_pdb
 #' @export
-write_pdb.stanmodel <- function(x, pdb, overwrite = FALSE, ...){
-  write_stan_to_path(x = x@model_code, "models/stan", pdb, name = x@model_name, zip = FALSE, info = FALSE, overwrite = overwrite)
+write_pdb.stanmodel <- function(x, pdb, overwrite = FALSE, ...) {
+  write_stan_to_path(
+    x = x@model_code,
+    "models/stan",
+    pdb,
+    name = x@model_name,
+    zip = FALSE,
+    info = FALSE,
+    overwrite = overwrite
+  )
 }
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_model_code <- function(x, pdb,  overwrite = FALSE, ...){
+write_pdb.pdb_model_code <- function(x, pdb, overwrite = FALSE, ...) {
   assert_model_code(x)
-  pdb_write_output_path(pdb, paste0("models/", framework(x)), framework(x),
-                        info(x)$name, info = FALSE)
+  pdb_write_output_path(
+    pdb,
+    paste0("models/", framework(x)),
+    framework(x),
+    info(x)$name,
+    info = FALSE
+  )
   write_pdb(info(x), pdb, overwrite = overwrite)
-  write_model_code_to_path(x, path = "models/", pdb = pdb, name = info(x)$name, framework = framework(x), zip = FALSE, info = FALSE, overwrite = overwrite)
+  write_model_code_to_path(
+    x,
+    path = "models/",
+    pdb = pdb,
+    name = info(x)$name,
+    framework = framework(x),
+    zip = FALSE,
+    info = FALSE,
+    overwrite = overwrite
+  )
 }
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_model_info <- function(x, pdb,  overwrite = FALSE, ...){
+write_pdb.pdb_model_info <- function(x, pdb, overwrite = FALSE, ...) {
   assert_model_info(x)
-  if (!"keywords" %in% names(x)) x["keywords"] <- list(NULL)
+  if (!"keywords" %in% names(x)) {
+    x["keywords"] <- list(NULL)
+  }
   class(x) <- c(class(x), "list")
-  write_json_to_path(x, "models/info", pdb, zip = FALSE, info = TRUE, overwrite = overwrite)
+  write_json_to_path(
+    x,
+    "models/info",
+    pdb,
+    zip = FALSE,
+    info = TRUE,
+    overwrite = overwrite
+  )
 }
 
 complete_info_fields <- function(x, fields) {
   original_class <- class(x)
   missing <- setdiff(fields, names(x))
-  if (length(missing)) x[missing] <- rep(list(NULL), length(missing))
+  if (length(missing)) {
+    x[missing] <- rep(list(NULL), length(missing))
+  }
   out <- x[fields]
   class(out) <- original_class
   out
@@ -518,9 +741,11 @@ complete_info_fields <- function(x, fields) {
 
 #' @rdname write_pdb
 #' @export
-write_pdb.pdb_posterior <- function(x, pdb,  overwrite = FALSE, ...){
+write_pdb.pdb_posterior <- function(x, pdb, overwrite = FALSE, ...) {
   assert_pdb_posterior(x)
-  if (!"keywords" %in% names(x)) x["keywords"] <- list(NULL)
+  if (!"keywords" %in% names(x)) {
+    x["keywords"] <- list(NULL)
+  }
   pdb(x) <- NULL
   x$model_info <- NULL
   x$data_info <- NULL
@@ -531,5 +756,12 @@ write_pdb.pdb_posterior <- function(x, pdb,  overwrite = FALSE, ...){
   x$embedded_model_code <- NULL
   x$embedded_reference_draws <- NULL
   class(x) <- c(class(x), "list")
-  write_json_to_path(x, "posteriors", pdb, zip = FALSE, info = FALSE, overwrite = overwrite)
+  write_json_to_path(
+    x,
+    "posteriors",
+    pdb,
+    zip = FALSE,
+    info = FALSE,
+    overwrite = overwrite
+  )
 }
