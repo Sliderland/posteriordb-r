@@ -5,7 +5,6 @@
 \alias{data_names.pdb_local}
 \alias{data_names.pdb_github}
 \alias{model_names.pdb_github}
-\alias{reference_posterior_names.pdb_github}
 \title{Get all existing data names from a posterior database}
 \usage{
 data_names(pdb = pdb_default(), ...)
@@ -15,8 +14,6 @@ data_names(pdb = pdb_default(), ...)
 \method{data_names}{pdb_github}(pdb, ...)
 
 \method{model_names}{pdb_github}(pdb, ...)
-
-\method{reference_posterior_names}{pdb_github}(pdb, ...)
 }
 \arguments{
 \item{pdb}{a \code{pdb} object.}

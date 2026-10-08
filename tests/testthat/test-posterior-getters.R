@@ -1,6 +1,7 @@
 context("test-posterior-getters")
 
 test_that("Check that all posteriors can access stan_data and stan_code", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
 
@@ -54,6 +55,7 @@ test_that("Check that all posteriors can access stan_data and stan_code", {
 
 
 test_that("Check access only with posterior name", {
+  local_test_database()
   expect_silent(pdb_test <- pdb_local())
 
   # Test stan_data_file_path
@@ -86,6 +88,7 @@ test_that("Check access only with posterior name", {
 
 
 test_that("Check access only with posterior name and default pdb", {
+  local_test_database()
   skip_if(is.null(github_pat()))
 
   # Test stan_data_file_path
@@ -114,6 +117,7 @@ test_that("Check access only with posterior name and default pdb", {
 
 
 test_that("Check that model_code, data and reference_posteriors contain a pdb attr", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
 
@@ -133,6 +137,7 @@ test_that("Check that model_code, data and reference_posteriors contain a pdb at
 
 
 test_that("a posterior object can be created from a list", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
 
