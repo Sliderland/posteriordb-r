@@ -11,7 +11,11 @@
 #'   When `x` is a `pdb_reference_bundle`, `write_pdb()` checks unchecked
 #'   draws, writes the data, model, and posterior, and writes reference draws
 #'   only if all acceptance checks pass. The returned write report includes
-#'   the checked bundle and any skipped components. Posterior JSON includes a
+#'   the checked bundle and any skipped components. Bundle writes reuse attached
+#'   summaries, computing them only when \code{summary_statistics} is \code{NULL}.
+#'   Attached summaries are validated before writing. After editing a bundle's
+#'   draws, call \code{\link{check_reference_posterior_draws}()} to refresh its summaries.
+#'   Posterior JSON includes a
 #'   `keywords` field set to `null` when no keywords were supplied.
 #'   The individual reference-draw writer does not rerun diagnostic checks;
 #'   ESS and treedepth are informational, not acceptance gates. The bundle
@@ -133,6 +137,32 @@ write_pdb.pdb_reference_bundle <- function(
     )
   }
 
+  if (draws_accepted && write_summary_statistics) {
+    bundle$summary_statistics <- bundle$summary_statistics %||%
+      summary_statistics_from_checked_reference_draws(bundle$reference_draws)
+    checkmate::assert_list(bundle$summary_statistics)
+    checkmate::assert_names(
+      names(bundle$summary_statistics), type = "unique",
+      permutation.of = supported_summary_statistic_types()
+    )
+    draw_info <- info(bundle$reference_draws)
+    for (type in names(bundle$summary_statistics)) {
+      summary <- bundle$summary_statistics[[type]]
+      assert_reference_posterior_summary_statistic(summary)
+      assert_checked_summary_statistics_draws(summary)
+      checkmate::assert_true(identical(summary_statistic_type(summary), type))
+      checkmate::assert_set_equal(
+        summary[["names"]], posterior::variables(bundle$reference_draws)
+      )
+      for (field in c("name", "inference", "diagnostics")) {
+        checkmate::assert_true(
+          identical(info(summary)[[field]], draw_info[[field]]),
+          .var.name = paste0("bundle$summary_statistics$", type, "$info$", field)
+        )
+      }
+    }
+  }
+
   written <- character()
   write_complete <- FALSE
   on.exit(
@@ -203,10 +233,15 @@ write_pdb.pdb_reference_bundle <- function(
       bundle$reference_draws,
       pdb = pdb,
       overwrite = overwrite,
-      write_summary_statistics = write_summary_statistics
+      write_summary_statistics = FALSE
     )
     written <- c(written, "reference_draws")
-    if (write_summary_statistics) written <- c(written, "summary_statistics")
+    if (write_summary_statistics) {
+      for (summary in bundle$summary_statistics) {
+        write_pdb(summary, pdb = pdb, overwrite = overwrite)
+      }
+      written <- c(written, "summary_statistics")
+    }
   } else {
     message(paste0(
       "The data, model, and posterior components are available. Reference draws and ",

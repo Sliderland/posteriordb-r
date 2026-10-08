@@ -223,3 +223,34 @@ test_that("failed JSON cleanup reports the saved archive and retains both files"
   expect_true(file.exists(archive))
   expect_identical(utils::unzip(archive, list = TRUE)$Name, "cleanup-failure.json")
 })
+
+test_that("bundle writes reuse and validate summaries without recomputing them", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(structure(list(), class = "stanfit"), data = list(),
+    data_info = list(name = "summary-data", title = "Inputs"),
+    model_info = list(name = "summary-model", title = "Model"), pdb = database)
+  compute <- summary_statistics_from_checked_reference_draws
+  calls <- 0L
+  testthat::local_mocked_bindings(summary_statistics_from_checked_reference_draws = function(x) {
+    calls <<- calls + 1L
+    compute(x)
+  })
+  malformed <- bundle
+  metadata <- info(malformed$summary_statistics$mean_value)
+  metadata$name <- "wrong-reference"
+  info(malformed$summary_statistics$mean_value) <- metadata
+  before <- bundle_integrity_snapshot(database)
+  expect_error(write_pdb(malformed, database), "info\\$name")
+  expect_identical(bundle_integrity_snapshot(database), before)
+
+  result <- suppressMessages(write_pdb(bundle, database))
+  expect_true(result$summary_statistics_written)
+  expect_identical(result$bundle$summary_statistics, bundle$summary_statistics)
+  expect_identical(calls, 0L)
+  bundle$summary_statistics <- NULL
+  result <- suppressMessages(write_pdb(bundle, database, overwrite = TRUE))
+  expect_true(result$summary_statistics_written)
+  expect_identical(calls, 1L)
+})

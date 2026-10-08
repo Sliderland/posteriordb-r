@@ -73,7 +73,11 @@ Writing reference draws requires all applicable reference acceptance
   When `x` is a `pdb_reference_bundle`, `write_pdb()` checks unchecked
   draws, writes the data, model, and posterior, and writes reference draws
   only if all acceptance checks pass. The returned write report includes
-  the checked bundle and any skipped components. Posterior JSON includes a
+  the checked bundle and any skipped components. Bundle writes reuse attached
+  summaries, computing them only when \code{summary_statistics} is \code{NULL}.
+  Attached summaries are validated before writing. After editing a bundle's
+  draws, call \code{\link{check_reference_posterior_draws}()} to refresh its summaries.
+  Posterior JSON includes a
   `keywords` field set to `null` when no keywords were supplied.
   The individual reference-draw writer does not rerun diagnostic checks;
   ESS and treedepth are informational, not acceptance gates. The bundle
