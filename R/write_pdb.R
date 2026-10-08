@@ -4,8 +4,13 @@
 #'
 #' @details Writing reference draws requires all applicable reference acceptance
 #'   flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
-#'   Unchecked or failed reference draws, or draws without a saved posterior,
-#'   are rejected before files are written. A successful reference-draw write
+#'   The saved posterior must already link to the reference name, or have an
+#'   empty reference link and the same name as the draws (or `posterior_name`).
+#'   Unchecked or failed
+#'   reference draws, or draws without a saved posterior, are rejected before
+#'   files are written. Saving the draws fills an empty matching posterior
+#'   link before writing any requested summaries, then clears
+#'   the database cache. A successful reference-draw write
 #'   also computes and writes each supported summary statistic by default;
 #'   set `write_summary_statistics = FALSE` to write those objects separately.
 #'   When `x` is a `pdb_reference_bundle`, `write_pdb()` checks unchecked
@@ -24,14 +29,15 @@
 #'   for new components cause an error when `overwrite = FALSE`; with
 #'   `overwrite = TRUE`, the complete set is detected before any replacement
 #'   begins. Components reused from the target database are skipped and are
-#'   never overwritten by the bundle writer. Reused objects retain their
+#'   never replaced by the bundle writer; an empty posterior reference link
+#'   is filled after a successful draw write. Reused objects retain their
 #'   source connections; same-name files in another database are rejected.
-#'   A reused posterior must already have the matching persisted reference
-#'   link before accepted bundle draws can be written. To fill an empty link,
-#'   use [import_reference_posterior_draws()] with `write = TRUE`.
-#'   When checks fail, newly written posteriors omit the candidate reference
-#'   link unless its files already exist. Existing links to stored reference
-#'   files are preserved. The in-memory bundle still contains the candidate.
+#'   A reused posterior must have an empty or matching persisted reference
+#'   link before accepted bundle draws can be written.
+#'   Posterior writes save a `null` reference link unless both the reference
+#'   info and draw archive already exist. When bundle checks fail, existing
+#'   links to stored reference files are preserved. The in-memory bundle still
+#'   contains the candidate.
 #'   Resource names must be nonempty single path components: separators,
 #'   `.` and `..`, and control characters are rejected. Dots within names
 #'   and hyphens are allowed. Local destinations are checked before writing,
@@ -54,6 +60,9 @@
 #' @param write_summary_statistics When writing reference draws, also compute
 #'   and write all supported summary statistics. Defaults to `TRUE`; set to
 #'   `FALSE` to write summary-statistic objects separately.
+#' @param posterior_name When writing reference draws, the saved posterior to
+#'   link. Supply this when an unlinked posterior has a different name from the
+#'   draws. Defaults to finding existing links or an unlinked same-name posterior.
 #' @param type supported reference posterior types.
 #' @param ... further arguments supplied to methods.
 #' @return Existing object writers invisibly return `TRUE`. Writing a
@@ -192,26 +201,7 @@ write_pdb.pdb_reference_bundle <- function(
         } else {
           object$reference_posterior_name
         }
-        reference_exists <- !is.null(reference) &&
-          all(file.exists(c(
-            pdb_file_path(
-              pdb,
-              "reference_posteriors",
-              "draws",
-              "info",
-              paste0(reference, ".info.json")
-            ),
-            pdb_file_path(
-              pdb,
-              "reference_posteriors",
-              "draws",
-              "draws",
-              paste0(reference, ".json.zip")
-            )
-          )))
-        object["reference_posterior_name"] <- list(
-          if (reference_exists) reference else NULL
-        )
+        object["reference_posterior_name"] <- list(reference)
         object$embedded_reference_draws <- NULL
       }
       component_overwrite <- if (component %in% write_plan$reused_to_copy) {
@@ -382,6 +372,7 @@ preflight_pdb_bundle_write <- function(
       if (
         component == "posterior" &&
           include_reference_draws &&
+          !is.null(jsonlite::read_json(spec$paths)$reference_posterior_name) &&
           !identical(
             jsonlite::read_json(spec$paths)$reference_posterior_name,
             info(bundle$reference_draws)$name
@@ -392,8 +383,7 @@ preflight_pdb_bundle_write <- function(
           paste0(
             "The reused posterior does not have the matching persisted reference link: ",
             spec$paths,
-            ". Use import_reference_posterior_draws(..., write = TRUE) to fill an empty link; ",
-            "a different existing link cannot be replaced."
+            ". A different existing link cannot be replaced."
           )
         )
         next
@@ -548,9 +538,11 @@ write_pdb.pdb_reference_posterior_draws <- function(
   pdb,
   overwrite = FALSE,
   write_summary_statistics = TRUE,
+  posterior_name = NULL,
   ...
 ) {
   checkmate::assert_flag(write_summary_statistics)
+  if (!is.null(posterior_name)) assert_pdb_resource_name(posterior_name)
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
   reference_posterior_name <- info(x)$name
@@ -563,7 +555,8 @@ write_pdb.pdb_reference_posterior_draws <- function(
       character()
     }
   )
-  assert_reference_posterior_exists(pdb, reference_posterior_name)
+  posterior_paths <- reference_draw_posterior_paths(pdb, reference_posterior_name,
+    posterior_name)
   summary_statistics <- if (write_summary_statistics) {
     summary_statistics_from_checked_reference_draws(x)
   } else {
@@ -578,12 +571,24 @@ write_pdb.pdb_reference_posterior_draws <- function(
     info = FALSE,
     overwrite = overwrite
   )
+  for (path in posterior_paths) {
+    posterior_info <- jsonlite::read_json(path, simplifyVector = FALSE)
+    if (is.null(posterior_info$reference_posterior_name)) {
+      posterior_info$reference_posterior_name <- reference_posterior_name
+      class(posterior_info) <- c("pdb_posterior", "list")
+      write_json_to_path(posterior_info, "posteriors", pdb,
+        name = posterior_info$name, info = FALSE, overwrite = TRUE)
+    }
+  }
+  pdb_clear_cache(pdb)
   for (summary_statistic in summary_statistics) {
     write_pdb(summary_statistic, pdb = pdb, overwrite = overwrite)
   }
+  invisible(TRUE)
 }
 
-assert_reference_posterior_exists <- function(pdb, reference_posterior_name) {
+reference_draw_posterior_paths <- function(pdb, reference_posterior_name,
+                                         posterior_name = NULL) {
   posterior_dir <- pdb_file_path(pdb, "posteriors")
   posterior_files <- if (dir.exists(posterior_dir)) {
     list.files(posterior_dir, pattern = "\\.json$", full.names = TRUE)
@@ -596,10 +601,21 @@ assert_reference_posterior_exists <- function(pdb, reference_posterior_name) {
       tryCatch(
         {
           posterior_info <- jsonlite::read_json(path, simplifyVector = TRUE)
-          identical(
+          if (!is.null(posterior_name) && !identical(posterior_info$name, posterior_name)) {
+            return(FALSE)
+          }
+          matches <- identical(
             posterior_info$reference_posterior_name,
             reference_posterior_name
+          ) || (
+            is.null(posterior_info$reference_posterior_name) &&
+              identical(posterior_info$name, posterior_name %||% reference_posterior_name)
           )
+          if (matches && is.null(posterior_info$reference_posterior_name)) {
+            pdb_write_output_path(pdb, "posteriors", "json",
+              posterior_info$name, info = FALSE)
+          }
+          matches
         },
         error = function(error) FALSE
       )
@@ -609,13 +625,14 @@ assert_reference_posterior_exists <- function(pdb, reference_posterior_name) {
   if (!any(linked)) {
     stop(
       "Cannot write reference-posterior draws: no posterior in this database ",
-      "points to reference posterior '",
+      "is linked to or can be linked to reference posterior '",
       reference_posterior_name,
-      "'. Write or link the associated posterior first.",
+      "'. Write the associated posterior first and supply `posterior_name` if its name differs; ",
+      "a different existing link cannot be replaced.",
       call. = FALSE
     )
   }
-  invisible(TRUE)
+  posterior_files[linked]
 }
 
 #' @rdname write_pdb
@@ -790,6 +807,11 @@ write_pdb.pdb_posterior <- function(x, pdb, overwrite = FALSE, ...) {
   x$embedded_data <- NULL
   x$embedded_model_code <- NULL
   x$embedded_reference_draws <- NULL
+  reference <- x$reference_posterior_name
+  if (!is.null(reference) &&
+      !all(file.exists(pdb_reference_output_paths(pdb, reference)))) {
+    x["reference_posterior_name"] <- list(NULL)
+  }
   class(x) <- c(class(x), "list")
   write_json_to_path(
     x,

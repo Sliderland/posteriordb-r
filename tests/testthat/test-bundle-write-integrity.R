@@ -80,7 +80,7 @@ test_that("public bundle reuse preserves origins and rejects cross-database coll
   }
 })
 
-test_that("accepted reused posteriors require a matching link on disk before writes", {
+test_that("accepted reused posteriors fill empty links and reject different links", {
   extracted <- bundle_integrity_extraction()
   testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
   fit <- structure(list(), class = "stanfit")
@@ -99,7 +99,11 @@ test_that("accepted reused posteriors require a matching link on disk before wri
   expect_true(all(unlist(reused$diagnostics$status)))
   posterior_path <- pdb_file_path(database, "posteriors", paste0(unlinked$name, ".json"))
 
-  for (link in list(NULL, "different-reference")) {
+  suppressMessages(write_pdb(reused, database, write_summary_statistics = FALSE))
+  expect_identical(jsonlite::read_json(posterior_path)$reference_posterior_name,
+                   info(reused$reference_draws)$name)
+
+  for (link in list("different-reference")) {
     stored <- jsonlite::read_json(posterior_path)
     stored["reference_posterior_name"] <- list(link)
     jsonlite::write_json(stored, posterior_path, auto_unbox = TRUE, null = "null")
@@ -146,12 +150,15 @@ test_that("failed bundle writes omit missing reference links and preserve stored
   stored <- accepted$posterior
   stored$reference_posterior_name <- "older-reference"
   stored$embedded_reference_draws <- NULL
-  write_pdb(stored, database, overwrite = TRUE)
   older_draws <- accepted$reference_draws
   metadata <- info(older_draws)
   metadata$name <- "older-reference"
   info(older_draws) <- metadata
-  write_pdb(older_draws, database, write_summary_statistics = FALSE)
+  write_pdb(metadata, database, type = "draws")
+  write_json_to_path(older_draws, "reference_posteriors/draws/draws", database,
+    zip = TRUE, info = FALSE)
+  write_pdb(stored, database, overwrite = TRUE)
+  write_pdb(older_draws, database, overwrite = TRUE, write_summary_statistics = FALSE)
   reference_before <- bundle_integrity_snapshot(database)
   reference_before <- reference_before[grepl("^reference_posteriors/", names(reference_before))]
   extracted <- bundle_integrity_extraction(divergence = 1L)
@@ -222,6 +229,65 @@ test_that("failed JSON cleanup reports the saved archive and retains both files"
   archive <- pdb_file_path(database, "data/data/cleanup-failure.json.zip")
   expect_true(file.exists(archive))
   expect_identical(utils::unzip(archive, list = TRUE)$Name, "cleanup-failure.json")
+})
+
+test_that("reference links are saved only after successful draw writes", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(structure(list(), class = "stanfit"), data = list(),
+    data_info = list(name = "delayed-data", title = "Inputs"),
+    model_info = list(name = "delayed-model", title = "Model"), pdb = database)
+  path <- pdb_file_path(database, "posteriors", paste0(bundle$posterior$name, ".json"))
+  stored_link <- function() jsonlite::read_json(path)$reference_posterior_name
+  before <- bundle_integrity_snapshot(database)
+  expect_error(write_pdb(bundle$reference_draws, database,
+    write_summary_statistics = FALSE), "no posterior")
+  expect_identical(bundle_integrity_snapshot(database), before)
+  original_zip <- utils::zip
+  fail_zip <- TRUE
+  testthat::local_mocked_bindings(zip = function(files, ...) {
+    if (fail_zip && grepl("reference_posteriors/draws/draws", files, fixed = TRUE)) return(1L)
+    original_zip(files = files, ...)
+  }, .package = "utils")
+
+  expect_error(suppressMessages(write_pdb(bundle, database,
+    write_summary_statistics = FALSE)), "ZIP creation failed")
+  expect_null(stored_link())
+  expect_error(suppressMessages(write_pdb(bundle$reference_draws, database,
+    overwrite = TRUE, write_summary_statistics = FALSE)), "ZIP creation failed")
+  expect_null(stored_link())
+
+  # Populate the cache before the standalone write updates the saved link.
+  expect_null(posterior(bundle$posterior$name, database)$reference_posterior_name)
+  fail_zip <- FALSE
+  expect_silent(write_pdb(bundle$reference_draws, database, overwrite = TRUE,
+    write_summary_statistics = FALSE))
+  expect_identical(stored_link(), info(bundle$reference_draws)$name)
+  expect_identical(posterior(bundle$posterior$name, database)$reference_posterior_name,
+                   info(bundle$reference_draws)$name)
+  expect_identical(bundle$posterior$reference_posterior_name, info(bundle$reference_draws)$name)
+
+  unlinked <- bundle$posterior
+  unlinked["reference_posterior_name"] <- list(NULL)
+  unlinked$embedded_reference_draws <- NULL
+  write_pdb(unlinked, database, overwrite = TRUE)
+  renamed <- bundle$reference_draws
+  info(renamed)$name <- "distinct-reference"
+  expect_silent(write_pdb(renamed, database, posterior_name = unlinked$name,
+    write_summary_statistics = FALSE))
+  expect_identical(stored_link(), "distinct-reference")
+  before <- bundle_integrity_snapshot(database)
+  expect_error(write_pdb(bundle$reference_draws, database, overwrite = TRUE,
+    posterior_name = unlinked$name, write_summary_statistics = FALSE), "different existing link")
+  expect_identical(bundle_integrity_snapshot(database), before)
+
+  write_pdb(unlinked, database, overwrite = TRUE)
+  testthat::local_mocked_bindings(write_pdb.pdb_reference_posterior_summary_statistic =
+    function(...) stop("injected summary failure"))
+  expect_error(write_pdb(bundle$reference_draws, database, overwrite = TRUE),
+    "injected summary failure")
+  expect_identical(stored_link(), info(bundle$reference_draws)$name)
 })
 
 test_that("bundle writes reuse and validate summaries without recomputing them", {

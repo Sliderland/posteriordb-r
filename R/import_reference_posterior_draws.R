@@ -981,7 +981,8 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
     x,
     staged_pdb,
     overwrite = FALSE,
-    write_summary_statistics = write_summary_statistics
+    write_summary_statistics = write_summary_statistics,
+    posterior_name = linked_posterior$name
   )
   verify_imported_reference_posterior(staged_pdb, x)
   if (update_posterior) {

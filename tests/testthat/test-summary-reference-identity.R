@@ -12,11 +12,17 @@ summary_reference_fixture <- function(types = c("mean_value", "mean_squared_valu
   object <- as.posterior(list(pdb_data = data, pdb_model_code = model,
     dimensions = list(theta = 1L), reference_posterior_name = "distinct-reference",
     added_by = "test", added_date = Sys.Date()), pdb = connection)
-  for (component in list(data, model, object)) write_pdb(component, connection)
+  for (component in list(data, model)) write_pdb(component, connection)
   metadata <- as.reference_posterior_info(list(name = "distinct-reference",
     inference = list(method = "analytical", method_arguments = list()), diagnostics = NULL,
     checks_made = NULL, comments = "fixture", added_by = "test", added_date = Sys.Date(),
     versions = list(r_version = "fixture")))
+  write_pdb(metadata, connection, type = "draws")
+  draws <- as.reference_posterior_draws(posterior::as_draws_list(list(list(theta = 1))),
+    info = metadata)
+  write_json_to_path(draws, "reference_posteriors/draws/draws", connection,
+    zip = TRUE, info = FALSE)
+  write_pdb(object, connection)
   for (type in types) {
     write_pdb(metadata, connection, type = type)
     directory <- file.path(root, "reference_posteriors/summary_statistics", type, type)

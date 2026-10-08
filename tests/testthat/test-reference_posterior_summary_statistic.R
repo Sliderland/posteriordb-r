@@ -48,6 +48,9 @@ test_that("compute and write summary_statistics", {
   po$reference_posterior_name <- po$name
   #remove_pdb(po, pdb_test)
   write_pdb(po, pdb_test)
+  expect_silent(rpd <- check_reference_posterior_draws(rpd))
+  info(rpd)$name <- po$name
+  expect_silent(write_pdb(rpd, pdb_test, write_summary_statistics = FALSE))
 
   # Test write summary statistics
   info(rpm)$name <- "test_data-test_model"
@@ -69,9 +72,10 @@ test_that("compute and write summary_statistics", {
   expect_identical(info(rpm), info(rpt$mean_value))
   expect_identical(rpm$names, rpt$mean_value$names)
 
-  # Remove rpd
+  # Remove summaries and the fixture draws
   expect_silent(remove_pdb(rpt$mean_value, pdb = pdb_test))
   expect_silent(remove_pdb(rpt$mean_squared_value, pdb = pdb_test))
+  expect_silent(remove_pdb(rpd, pdb = pdb_test))
   pdb_clear_cache(pdb_test)
   expect_error(pdb_reference_posterior_draws("test_data-test_model", pdb_test))
 

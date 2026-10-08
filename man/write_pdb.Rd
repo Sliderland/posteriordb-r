@@ -20,7 +20,14 @@ write_pdb(x, pdb, overwrite = FALSE, ...)
 
 \method{write_pdb}{pdb_reference_posterior_info}(x, pdb, overwrite = FALSE, type, ...)
 
-\method{write_pdb}{pdb_reference_posterior_draws}(x, pdb, overwrite = FALSE, write_summary_statistics = TRUE, ...)
+\method{write_pdb}{pdb_reference_posterior_draws}(
+  x,
+  pdb,
+  overwrite = FALSE,
+  write_summary_statistics = TRUE,
+  posterior_name = NULL,
+  ...
+)
 
 \method{write_pdb}{pdb_reference_posterior_summary_statistic}(x, pdb, overwrite = FALSE, ...)
 
@@ -50,6 +57,10 @@ and write all supported summary statistics. Defaults to `TRUE`; set to
 `FALSE` to write summary-statistic objects separately.}
 
 \item{type}{supported reference posterior types.}
+
+\item{posterior_name}{When writing reference draws, the saved posterior to
+link. Supply this when an unlinked posterior has a different name from the
+draws. Defaults to finding existing links or an unlinked same-name posterior.}
 }
 \value{
 Existing object writers invisibly return `TRUE`. Writing a
@@ -66,8 +77,13 @@ a function to simplify writing to a local pdb.
 \details{
 Writing reference draws requires all applicable reference acceptance
   flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
-  Unchecked or failed reference draws, or draws without a saved posterior,
-  are rejected before files are written. A successful reference-draw write
+  The saved posterior must already link to the reference name, or have an
+  empty reference link and the same name as the draws (or `posterior_name`).
+  Unchecked or failed
+  reference draws, or draws without a saved posterior, are rejected before
+  files are written. Saving the draws fills an empty matching posterior
+  link before writing any requested summaries, then clears
+  the database cache. A successful reference-draw write
   also computes and writes each supported summary statistic by default;
   set `write_summary_statistics = FALSE` to write those objects separately.
   When `x` is a `pdb_reference_bundle`, `write_pdb()` checks unchecked
@@ -86,14 +102,15 @@ Writing reference draws requires all applicable reference acceptance
   for new components cause an error when `overwrite = FALSE`; with
   `overwrite = TRUE`, the complete set is detected before any replacement
   begins. Components reused from the target database are skipped and are
-  never overwritten by the bundle writer. Reused objects retain their
+  never replaced by the bundle writer; an empty posterior reference link
+  is filled after a successful draw write. Reused objects retain their
   source connections; same-name files in another database are rejected.
-  A reused posterior must already have the matching persisted reference
-  link before accepted bundle draws can be written. To fill an empty link,
-  use [import_reference_posterior_draws()] with `write = TRUE`.
-  When checks fail, newly written posteriors omit the candidate reference
-  link unless its files already exist. Existing links to stored reference
-  files are preserved. The in-memory bundle still contains the candidate.
+  A reused posterior must have an empty or matching persisted reference
+  link before accepted bundle draws can be written.
+  Posterior writes save a `null` reference link unless both the reference
+  info and draw archive already exist. When bundle checks fail, existing
+  links to stored reference files are preserved. The in-memory bundle still
+  contains the candidate.
   Resource names must be nonempty single path components: separators,
   `.` and `..`, and control characters are rejected. Dots within names
   and hyphens are allowed. Local destinations are checked before writing,
