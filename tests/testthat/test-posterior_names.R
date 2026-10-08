@@ -1,6 +1,7 @@
 context("test-posterior_names")
 
 test_that("posterior_names handels list of objects", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(pns <- posterior_names(pdb_test, pdb_test))

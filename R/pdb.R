@@ -2,6 +2,9 @@
 #'
 #' @details
 #' Connect to a posterior database locally or in a github repo.
+#' YAML configuration requires the optional `yaml` package. GitHub connections
+#' require `remotes`; downloading file content also requires `httr`. Local
+#' database access does not require these packages or a Stan backend.
 #'
 #' [pdb_config()] read  [.pdb_config.yml] in [directory] and use that to setup a
 #' pdb connection.
@@ -12,8 +15,9 @@
 #' setup a pdb. If no local pdb is found, [pdb_github()] is used.
 #'
 #'
-#' @param cache_path The path to the pdb cache. Default is R temporary directory.
-#' This is used to store files locally and without affecting the database.
+#' @param cache_path The path to the pdb cache. By default each database uses
+#'   its own directory under the R temporary directory. An explicitly supplied
+#'   path is used as given. Cached files do not affect the database.
 #' @param x an object to access a pdb for, if character this is how to identify the pdb (path for local pdb, repo for github pdb)
 #' @param pdb_type Type of posterior database connection. Either \code{local} or \code{github}.
 #' @param path a local path to a posterior database. Defaults to `pdb_path` option or PDB_PATH environment variable.
@@ -67,20 +71,35 @@ pdb.pdb_model_code <- function(x, ...){
 pdb.character <- function(x, pdb_type = "local", cache_path = tempdir(), ...) {
   checkmate::assert_directory(cache_path, "w")
   checkmate::assert_choice(pdb_type, supported_pdb_types())
-  if(cache_path == tempdir()){
-    # To ensure no duplicate temp file names from R session.
-    cache_path <- file.path(cache_path, "posteriordb_cache")
-  }
-  if(!dir.exists(cache_path)) dir.create(cache_path)
+  default_cache <- identical(cache_path, tempdir())
   pdb <- list(
     pdb_id = x,
     cache_path = cache_path
   )
   class(pdb) <- c(paste0("pdb_", pdb_type), "pdb")
   pdb <- setup_pdb(pdb, ...)
+  if (default_cache) {
+    # Encode the resolved endpoint exactly, so separate databases cannot
+    # return one another's cached files during the same R session.
+    pdb$cache_path <- file.path(
+      tempdir(), "posteriordb_cache", pdb_cache_namespace(pdb)
+    )
+  }
+  if (!dir.exists(pdb$cache_path)) {
+    dir.create(pdb$cache_path, recursive = TRUE)
+  }
   pdb$version <- pdb_version(pdb)
   assert_pdb(pdb)
   pdb
+}
+
+pdb_cache_namespace <- function(pdb) {
+  identity <- paste0(pdb_type(pdb), ":", pdb$pdb_id)
+  encoded <- paste(sprintf("%02x", as.integer(charToRaw(enc2utf8(identity)))),
+                   collapse = "")
+  starts <- seq.int(1L, nchar(encoded), by = 100L)
+  chunks <- substring(encoded, starts, pmin(starts + 99L, nchar(encoded)))
+  do.call(file.path, as.list(chunks))
 }
 
 assert_pdb <- function(x){
@@ -120,8 +139,11 @@ pdb_default <- function(cache_path = tempdir()){
 #' @rdname pdb_local
 #' @export
 pdb_config <- function(directory = getwd()){
-  obj <- yaml::read_yaml(file.path(directory, ".pdb_config.yml"))
-  pdb_fun <- eval(parse(text = paste0("pdb_", obj$type)))
+  if (!requireNamespace("yaml", quietly = TRUE)) stop("The `yaml` package is required for pdb_config().", call. = FALSE)
+  obj <- yaml::read_yaml(file.path(directory, ".pdb_config.yml"), eval.expr = FALSE)
+  checkmate::assert_list(obj)
+  checkmate::assert_choice(obj[["type"]], supported_pdb_types())
+  pdb_fun <- switch(obj[["type"]], local = pdb_local, github = pdb_github)
   args <- obj;args$type <- NULL
   pdbo <- do.call(pdb_fun, args = args)
   pdbo$.pdb_config.yml <- obj
@@ -170,12 +192,15 @@ pdb_version.pdb_local <- function(pdb, ...){
 
 #' Get all existing posterior names from a posterior database or posterior objects.
 #'
-#' @param x a \code{pdb}, \code{pdb_model_code}, \code{pdb_data}, \code{posterior} object or a list of \code{posterior} objects.
+#' @param x a \code{pdb}, \code{pdb_model_code}, \code{pdb_model_info}, \code{pdb_data}, \code{posterior} object or a list of \code{posterior} objects.
 #' @param ... further arguments supplied to specific methods (not in use)
 #'
 #' @details
 #' If a \code{pdb_model_code} or a \code{pdb_data} object is supplied, the
 #' function returns the name of all posteriors that uses the data or the model.
+#' Lookups for data, model code and model information follow the stored
+#' `data_name` or `model_name` links. They require an attached database
+#' connection and return `character(0)` when no stored posterior is linked.
 #'
 #' @export
 posterior_names <- function(x = pdb_default(), ...) {
@@ -192,29 +217,33 @@ pn <- function(x, ...) {
 
 #' @export
 pn.pdb_local <- function(x, ...) {
-  pns <- dir(pdb_file_path(x, "posteriors"))
-  remove_file_extension(pns)
+  pns <- list.files(pdb_file_path(x, "posteriors"), pattern = "\\.json$", full.names = TRUE)
+  basename(remove_file_extension(pns[!dir.exists(pns)]))
 }
 
 #' @export
 pn.pdb_model_code <- function(x, ...) {
-  all_pn <- pn(pdb(x))
-  mn <- info(x)$name
-  all_mn <- unlist(lapply(strsplit(all_pn, "-"), function(x) x[2]))
-  all_pn[all_mn == mn]
+  linked_posterior_names(pdb(x), info(x)$name, "model_name")
 }
 
 #' @export
 pn.pdb_data <- function(x, ...) {
-  all_pn <- pn(pdb(x))
-  dn <- info(x)$name
-  all_dn <- unlist(lapply(strsplit(all_pn, "-"), function(x) x[1]))
-  all_pn[all_dn == dn]
+  linked_posterior_names(pdb(x), info(x)$name, "data_name")
 }
 
 #' @export
 pn.pdb_model_info <- function(x, ...) {
-  all_names <- pn(pdb(x))
+  linked_posterior_names(pdb(x), x$name, "model_name")
+}
+
+linked_posterior_names <- function(pdb, resource_name, field) {
+  if (is.null(pdb)) stop("Attach a database connection before looking up linked posterior names.", call. = FALSE)
+  resource_name <- unname(resource_name)
+  candidates <- pn(pdb)
+  linked <- vapply(candidates, function(name) {
+    identical(read_info_json(name, path = "posteriors", pdb = pdb)[[field]], resource_name)
+  }, logical(1))
+  candidates[linked]
 }
 
 #' @export
@@ -253,10 +282,9 @@ model_names <- function(pdb = pdb_default(), ...) {
 #' @rdname model_names
 #' @export
 model_names.pdb_local <- function(pdb = pdb_default(), ...) {
-  pns <- dir(pdb_file_path(pdb, "models", "info"),
-             recursive = TRUE, full.names = FALSE)
-  pns <- pns[grepl(pns, pattern = "\\.info\\.json$")]
-  basename(remove_file_extension(pns))
+  pns <- list.files(pdb_file_path(pdb, "models", "info"),
+                    pattern = "\\.info\\.json$", full.names = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[!dir.exists(pns)]))
 }
 
 #' Get all existing data names from a posterior database
@@ -272,17 +300,17 @@ data_names <- function(pdb = pdb_default(), ...) {
 #' @rdname data_names
 #' @export
 data_names.pdb_local <- function(pdb = pdb_default(), ...) {
-  pns <- dir(pdb_file_path(pdb, "data", "info"),
-             recursive = TRUE, full.names = FALSE)
-  pns <- pns[grepl(pns, pattern = "\\.info\\.json$")]
-  basename(remove_file_extension(pns))
+  pns <- list.files(pdb_file_path(pdb, "data", "info"),
+                    pattern = "\\.info\\.json$", full.names = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[!dir.exists(pns)]))
 }
 
 #' Get all existing reference posterior names from a posterior database
 #'
 #' @param pdb a \code{pdb} object.
-#' @param type supported reference posterior types.
+#' @param type One of `draws`, `mean_value`, or `mean_squared_value`.
 #' @param ... Further argument to methods.
+#' @return Names of reference posteriors available for the selected type.
 #'
 #' @export
 reference_posterior_names <- function(pdb = pdb_default(), type, ...) {
@@ -293,15 +321,17 @@ reference_posterior_names <- function(pdb = pdb_default(), type, ...) {
 #' @rdname reference_posterior_names
 #' @export
 reference_posterior_names.pdb_local <- function(pdb = pdb_default(), type, ...) {
-  pns <- dir(pdb_file_path(pdb, "reference_posteriors", type, "info"),
-             recursive = TRUE, full.names = FALSE)
-  pns <- pns[grepl(pns, pattern = "\\.info\\.json$")]
-  basename(remove_file_extension(pns))
+  pns <- list.files(pdb_file_path(pdb, "reference_posteriors", reference_posterior_type_path(type), "info"),
+                    pattern = "\\.info\\.json$", full.names = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[!dir.exists(pns)]))
 }
 
 
 #' @export
 print.pdb <- function(x, ...) {
+  if (!is.null(x$.pdb_config.yml) && !requireNamespace("yaml", quietly = TRUE)) {
+    stop("The `yaml` package is required to print a configured connection.", call. = FALSE)
+  }
   cat0("Posterior Database (", pdb_type(x), ")\n")
   cat0("Path: ", x$pdb_id, "\n")
   cat0("Version:\n")
@@ -321,7 +351,10 @@ print.pdb <- function(x, ...) {
 #' @param a \code{pdb} object.
 #' @keywords internal
 pdb_type <- function(pdb){
-  strsplit(class(pdb)[1], split = "_")[[1]][2]
+  types <- supported_pdb_types()
+  type <- types[paste0("pdb_", types) %in% class(pdb)]
+  checkmate::assert_choice(type, types)
+  type
 }
 
 
@@ -391,10 +424,40 @@ is_pdb_endpoint_local_path <- function(x) {
 }
 
 
+pdb_json_archive_member <- function(path) {
+  members <- utils::unzip(path, list = TRUE)$Name
+  if (length(members) != 1L || !grepl("[.]json$", members[[1L]])) {
+    stop("Expected a single JSON member in ZIP archive '", path, "'.", call. = FALSE)
+  }
+  assert_pdb_resource_name(members[[1L]])
+  if (grepl("^[A-Za-z]:", members[[1L]])) {
+    stop("Archive members must be relative filenames.", call. = FALSE)
+  }
+  members[[1L]]
+}
+
+pdb_extract_json_archive <- function(path, member, directory) {
+  target <- file.path(directory, member)
+  tryCatch({
+    withCallingHandlers(
+      utils::unzip(path, files = member, exdir = directory),
+      warning = function(warning) stop(conditionMessage(warning), call. = FALSE)
+    )
+    checkmate::assert_file_exists(target)
+  }, error = function(error) {
+    unlink(target)
+    stop(error)
+  })
+}
+
 #' Read json file from \code{path}
 #'
 #' @details
-#' Copies the file to the cache and return path
+#' Copies the file to the cache and returns its path. Archives must contain
+#' one safe root JSON member matching the requested filename. Failed
+#' extraction removes incomplete output. Cache destinations remain inside
+#' the configured cache root. Existing cached files still require manual
+#' refresh when the source changes.
 #'
 #' @param pdb a \code{pdb} to read from.
 #' @param path a \code{pdb} to read from.
@@ -416,12 +479,25 @@ pdb_cached_local_file_path <- function(pdb, path, unzip = FALSE){
 
   # Copy (and unzip) file to cache
   if(unzip){
-    cp_zip <- paste0(cp, ".zip")
-    pdb_file_copy(pdb, from = path_zip, to = cp_zip, overwrite = TRUE)
-    utils::unzip(zipfile = cp_zip, exdir = dirname(cp_zip))
-    file.remove(cp_zip)
+    cp_zip <- pdb_cache_path(pdb, path_zip)
+    on.exit(unlink(cp_zip), add = TRUE)
+    checkmate::assert_true(pdb_file_copy(pdb, from = path_zip, to = cp_zip, overwrite = TRUE))
+    member <- pdb_json_archive_member(cp_zip)
+    if (!identical(member, basename(cp))) {
+      stop("Archive member does not match the requested JSON file.", call. = FALSE)
+    }
+    pdb_extract_json_archive(cp_zip, member, dirname(cp_zip))
+    cp <- pdb_cache_path(pdb, path)
+    checkmate::assert_file_exists(cp)
   } else {
-    pdb_file_copy(pdb, from = path, to = cp, overwrite = TRUE)
+    tryCatch({
+      if (!pdb_file_copy(pdb, from = path, to = cp, overwrite = TRUE)) {
+        stop("Could not copy file to cache: ", cp, call. = FALSE)
+      }
+    }, error = function(error) {
+      unlink(cp)
+      stop(error)
+    })
   }
 
   return(cp)
@@ -432,7 +508,13 @@ pdb_cached_local_file_path <- function(pdb, path, unzip = FALSE){
 #' @param pdb a \code{pdb} object.
 #' @param path a \code{pdb} path.
 pdb_cache_path <- function(pdb, path){
-  cp <- file.path(pdb$cache_path, path)
+  checkmate::assert_character(path, any.missing = FALSE)
+  cache <- structure(list(pdb_local_endpoint = pdb$cache_path),
+                     class = c("pdb_local", "pdb"))
+  cp <- vapply(path, function(relative) {
+    if (identical(relative, "")) return(file.path(pdb$cache_path, ""))
+    pdb_local_resource_path(cache, relative)
+  }, character(1), USE.NAMES = FALSE)
   for(i in seq_along(cp)){
     if(!dir.exists(dirname(cp[i]))){
       dir.create(dirname(cp[i]), showWarnings = FALSE, recursive = TRUE)
@@ -457,8 +539,14 @@ pdb_list_files_in_cache <- function(pdb, path, file_ext = TRUE, all.files = FALS
   checkmate::assert_flag(all.files)
   checkmate::assert_flag(full.names)
   checkmate::assert_flag(recursive)
-  fns <- list.files(pdb_cache_path(pdb, path), all.files = all.files, full.names = full.names,  recursive = recursive)
-  if(!file_ext) fns <- remove_file_extension(fns)
+  directory <- pdb_cache_path(pdb, path)
+  fns <- list.files(directory, all.files = all.files, full.names = full.names, recursive = recursive)
+  if (!file_ext) {
+    paths <- if (full.names) fns else file.path(directory, fns)
+    suffix <- if (endsWith(path, "/info")) ".info.json" else ".json"
+    fns <- fns[endsWith(fns, suffix) & !dir.exists(paths)]
+    fns <- substr(fns, 1L, nchar(fns) - nchar(suffix))
+  }
   fns
 }
 
@@ -499,11 +587,35 @@ pdb_assert_file_exist.pdb_local <- function(pdb, path, ...){
 }
 
 #' Clear posterior database cache
+#' @details Removes files in the configured cache. Local database directories
+#'   and their resource directories cannot be used as cache deletion roots.
+#'   Use a dedicated cache directory; unrelated files in that directory are
+#'   also removed by a full clear.
 #' @param pdb a \code{pdb} to clear cache for
 #' @keywords internal
 pdb_clear_cache <- function(pdb = pdb_default()){
-  cached_files <- dir(pdb_cache_path(pdb, ""), recursive = TRUE, full.names = TRUE)
-  file.remove(cached_files)
+  cached_files <- dir(pdb_cache_path(pdb, ""), recursive = TRUE)
+  pdb_remove_cached_files(pdb, cached_files)
+}
+
+pdb_remove_cached_files <- function(pdb, paths) {
+  cache <- normalizePath(pdb$cache_path, winslash = "/", mustWork = TRUE)
+  if (inherits(pdb, "pdb_local")) {
+    root <- normalizePath(pdb_endpoint(pdb), winslash = "/", mustWork = TRUE)
+    resources <- unique(c(pdb_minimum_contents(), "alias",
+      sub("/.*$", "", supported_pdb_paths())))
+    protected <- normalizePath(file.path(root, resources), winslash = "/", mustWork = FALSE)
+    cache_prefix <- paste0(sub("/+$", "", cache), "/")
+    if (identical(cache, root) || startsWith(root, cache_prefix) ||
+        any(cache == protected | startsWith(cache, paste0(sub("/+$", "", protected), "/")) |
+            startsWith(protected, cache_prefix))) {
+      stop("Refusing to remove cache files: the cache overlaps the local database or its resources.",
+           call. = FALSE)
+    }
+  }
+  # Validate every destination before deleting any, including symlink parents.
+  files <- pdb_cache_path(pdb, paths)
+  file.remove(files[file.exists(files)])
 }
 
 #' @rdname pdb_clear_cache
@@ -520,16 +632,18 @@ pdb_cache_rm <- function(x, ...){
 #' @export
 #' @rdname pdb_cache_rm
 pdb_cache_rm.pdb_reference_posterior_draws <- function(x, ...){
+  assert_pdb_resource_name(info(x)$name)
   fp <- file.path("reference_posteriors", "draws", "draws", paste0(info(x)$name, ".json"))
   fpi <- file.path("reference_posteriors", "draws", "info", paste0(info(x)$name, ".info.json"))
-  file.remove(pdb_cache_path(pdb(x), c(fp,fpi)))
+  pdb_remove_cached_files(pdb(x), c(fp, fpi))
 }
 
 #' @export
 #' @rdname pdb_cache_rm
 pdb_cache_rm.pdb_data <- function(x, ...){
+  assert_pdb_resource_name(info(x)$name)
   fp <- file.path("data", "data", paste0(info(x)$name, ".json"))
-  file.remove(pdb_cache_path(pdb(x), fp))
+  pdb_remove_cached_files(pdb(x), fp)
 }
 
 #' Cache a whole directory
@@ -552,10 +666,19 @@ pdb_cache_dir <- function(pdb, path, ...){
 #' @keywords internal
 pdb_cache_dir.pdb_local <- function(pdb, path, ...){
   fns <- dir(pdb_file_path(pdb, path), full.names = FALSE)
+  fns <- fns[!dir.exists(pdb_file_path(pdb, path, fns))]
   froms <- file.path(path, fns)
   tos <- pdb_cache_path(pdb = pdb, path = file.path(path, fns))
   for(i in seq_along(froms)){
-    pdb_file_copy(pdb = pdb, from = froms[i], to = tos[i], overwrite = TRUE)
+    if (file.exists(tos[i]) && identical(
+        normalizePath(pdb_file_path(pdb, froms[i])), normalizePath(tos[i]))) next
+    tryCatch({
+      if (!isTRUE(pdb_file_copy(pdb = pdb, from = froms[i], to = tos[i], overwrite = TRUE)))
+        stop("Could not copy file to cache: ", tos[i], call. = FALSE)
+    }, error = function(error) {
+      unlink(tos[i])
+      stop(error)
+    })
   }
 }
 
@@ -599,6 +722,7 @@ read_json_from_pdb <- function(fn, path, pdb, ...){
 #' @rdname read_info_json
 #' @noRd
 #' @keywords internal
+#' @export
 read_info_json.character <- function(x, path, pdb, ...){
   checkmate::assert_class(pdb, "pdb")
   fn <- x
@@ -609,6 +733,15 @@ read_info_json.character <- function(x, path, pdb, ...){
 
   po <- read_json_from_pdb(fn, path, pdb, simplifyVector = TRUE)
 
+  # jsonlite simplifies non-empty arrays of strings to character vectors, but
+  # represents an empty JSON array as list(). The info schema uses these
+  # optional fields as string arrays, so normalize the empty case on read.
+  for (field in c("references", "urls", "keywords")) {
+    if (is.list(po[[field]]) && length(po[[field]]) == 0L) {
+      po[[field]] <- character()
+    }
+  }
+
   po$added_date <- as.Date(po$added_date)
   class(po) <- paste0("pdb_", gsub(x = path, pattern = "/", "_"))
   po
@@ -617,6 +750,7 @@ read_info_json.character <- function(x, path, pdb, ...){
 #' @rdname read_info_json
 #' @noRd
 #' @keywords internal
+#' @export
 read_info_json.pdb_posterior <- function(x, path, pdb = NULL, ...){
   if(path == "posteriors"){
     nm <- x$name
@@ -641,7 +775,7 @@ read_info_json.pdb_posterior <- function(x, path, pdb = NULL, ...){
 #' @param pdb a local posteriordb object to write to
 #' @keywords internal
 write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = TRUE, overwrite = FALSE){
-  checkmate::assert_subset(class(x)[1], choices = c("character", "pdb_posterior", "pdb_model_info", "pdb_data_info", "pdb_data", "pdb_model_code", "pdb_reference_posterior_draws", "pdb_reference_posterior_info", supported_summary_statistic_classes()))
+  checkmate::assert_true(any(class(x) %in% c("character", "pdb_posterior", "pdb_model_info", "pdb_data_info", "pdb_data", "pdb_model_code", "pdb_reference_posterior_draws", "pdb_reference_posterior_info", supported_summary_statistic_classes())))
   checkmate::assert_string(path)
   checkmate::assert_class(pdb, "pdb_local")
   checkmate::assert_choice(type, c("json", "txt", supported_frameworks()))
@@ -658,22 +792,20 @@ write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = T
     nm <- name
   }
 
-  if(info) {
-    nm <- paste0(nm, ".info.", type)
-  } else {
-    nm <- paste0(nm, ".", type)
-  }
-
-  path <- strsplit(path, "/")[[1]]
-  dp <- file.path(pdb_endpoint(pdb), do.call(file.path, as.list(path)))
-  fp <- file.path(dp, nm)
-  zfp <- paste0(fp, ".zip")
+  output_path <- pdb_write_output_path(
+    pdb, path, type, nm, zip = zip, info = info
+  )
+  fp <- if (zip) sub("[.]zip$", "", output_path) else output_path
+  dp <- dirname(fp)
   if(!checkmate::test_directory_exists(dp)) dir.create(dp, recursive = TRUE)
-  if(zip){
-    checkmate::assert_path_for_output(zfp, overwrite = overwrite)
-  } else {
-    checkmate::assert_path_for_output(fp, overwrite = overwrite)
-  }
+  write_complete <- FALSE
+  on.exit({
+    if (!write_complete) message(
+      "Write did not complete for '", output_path,
+      "'. Files already written are retained. Inspect local changes before retrying."
+    )
+  }, add = TRUE)
+  checkmate::assert_path_for_output(output_path, overwrite = overwrite)
 
   if(type == "json"){
     out <- jsonlite::toJSON(x, pretty = TRUE, auto_unbox = TRUE, null = "null", digits = NA, encoding = "UTF-8")
@@ -689,21 +821,77 @@ write_to_path <- function(x, path, type, pdb, name = NULL, zip = FALSE, info = T
   writeLines(text = out, con = fp, useBytes = TRUE)
 
   if(zip){
-    zip(files = fp, zipfile = zfp, flags = "-jq")
-    file.remove(fp)
+    status <- utils::zip(files = fp, zipfile = output_path, flags = "-jq")
+    if (status != 0L || !file.exists(output_path)) {
+      stop("ZIP creation failed; the JSON payload is retained at: ", fp, call. = FALSE)
+    }
+    if (!file.remove(fp)) {
+      stop("Archive written, but JSON cleanup failed at: ", fp, call. = FALSE)
+    }
   }
+  write_complete <- TRUE
   return(invisible(TRUE))
+}
+
+# Return the final file path used by `write_to_path()`. Keeping path
+# construction here lets bundle preflight inspect the same destinations as
+# the existing S3 writers without creating directories or files.
+pdb_write_output_path <- function(pdb, path, type, name, zip = FALSE,
+                                 info = TRUE) {
+  checkmate::assert_class(pdb, "pdb_local")
+  checkmate::assert_string(path)
+  assert_pdb_resource_name(type)
+  assert_pdb_resource_name(name)
+  checkmate::assert_flag(zip)
+  checkmate::assert_flag(info)
+  filename <- if (info) {
+    paste0(name, ".info.", type)
+  } else {
+    paste0(name, ".", type)
+  }
+  relative <- file.path(path, filename)
+  filepath <- pdb_local_resource_path(pdb, relative)
+  # ZIP writes also create and remove the uncompressed JSON beside the archive.
+  if (zip) pdb_local_resource_path(pdb, paste0(relative, ".zip")) else filepath
+}
+
+# Resolve existing ancestors so missing directories cannot hide an escaping
+# symlink. This checks the filesystem before mutation; it does not lock it.
+pdb_local_resource_path <- function(pdb, path) {
+  checkmate::assert_class(pdb, "pdb_local")
+  checkmate::assert_string(path, min.chars = 1)
+  if (grepl("^/|^[A-Za-z]:|\\\\|[[:cntrl:]]", path) ||
+      any(strsplit(path, "/", fixed = TRUE)[[1L]] %in% c(".", ".."))) {
+    stop("PosteriorDB paths must be relative and cannot contain '.' or '..' components, backslashes, or control characters.",
+         call. = FALSE)
+  }
+  endpoint <- pdb_endpoint(pdb)
+  root <- normalizePath(endpoint, winslash = "/", mustWork = TRUE)
+  destination <- file.path(endpoint, path)
+  # A file can point back inside while its parent directory points outside;
+  # replacement still mutates that parent, so check both independently.
+  for (ancestor in c(destination, dirname(destination))) {
+    while (!file.exists(ancestor)) {
+      link <- Sys.readlink(ancestor)
+      if (!is.na(link) && nzchar(link)) {
+        stop("PosteriorDB paths cannot use dangling symlinks: ", destination,
+             call. = FALSE)
+      }
+      ancestor <- dirname(ancestor)
+    }
+    resolved <- normalizePath(ancestor, winslash = "/", mustWork = TRUE)
+    if (!identical(resolved, root) && !startsWith(resolved, paste0(root, "/"))) {
+      stop("PosteriorDB path resolves outside the database: ", destination,
+           call. = FALSE)
+    }
+  }
+  destination
 }
 
 #' @rdname write_to_path
 #' @keywords internal
 write_json_to_path <- function(x, path, pdb, type, name = NULL, zip = FALSE, info = TRUE, overwrite = FALSE){
   write_to_path(x, path, pdb, type = "json", name, zip, info, overwrite)
-}
-#' @rdname write_to_path
-#' @keywords internal
-write_txt_to_path <- function(x, path, pdb, type, name = NULL, zip = FALSE, info = TRUE, overwrite = FALSE){
-  write_to_path(x, path, pdb, type = "txt", name, zip, info, overwrite)
 }
 #' @rdname write_to_path
 #' @keywords internal

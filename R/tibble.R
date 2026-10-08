@@ -10,14 +10,6 @@ posteriors_tbl_df <- function(pdb = pdb_default(), ...){
   pdb_tibble(pdb, path = "posteriors")
 }
 
-models_tbl_df <- function(pdb = pdb_default(), ...){
-  pdb_tibble(pdb, path = "models/info")
-}
-
-data_tbl_df <- function(pdb = pdb_default(), ...){
-  pdb_tibble(pdb, path = "data/info")
-}
-
 #' @noRd
 #' @keywords internal
 pdb_tibble <- function(pdb, path, ...){
@@ -33,7 +25,7 @@ pdb_tibble <- function(pdb, path, ...){
     obj_list[[i]] <- as.data.frame(x)
   }
   dat <- do.call(rbind, obj_list)
-  dplyr::as_tibble(dat)
+  tibble::as_tibble(dat)
 }
 
 

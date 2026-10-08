@@ -17,5 +17,9 @@ check_pdb_posterior(po, run_stan_code_checks = TRUE, verbose = TRUE)
 Test a posterior
 }
 \details{
-The function checks that a posterior is consistent.
+Checks the supplied posterior and the content returned by its getters,
+including unsaved edits and embedded standalone content. It does not reload
+the posterior record. Use [check_pdb()] to load and check saved records.
+Citation checks require an attached database when any posterior, model, or
+data references are supplied; no bibliography is needed without citations.
 }
