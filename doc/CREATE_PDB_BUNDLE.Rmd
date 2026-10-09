@@ -186,7 +186,7 @@ the draws pass their checks; otherwise it is `NULL`.
 become file names, so they cannot contain slashes. Use underscores
 between words, as in `eight_schools_noncentered`, to match the rest of
 the database. Avoid hyphens: a posterior is named
-`<data name>-<model name>`, so a hyphen inside a data or model name
+`data_name-model_name`, so a hyphen inside a data or model name
 makes the posterior name ambiguous.
 
 | Argument | Required fields | Optional fields |
