@@ -58,6 +58,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_equal(bundle$posterior$embedded_data, bundle$data)
   expect_equal(bundle$posterior$embedded_model_code, bundle$model_code)
   expect_equal(bundle$posterior$embedded_reference_draws, bundle$reference_draws)
+  expect_true(check_pdb_posterior(bundle$posterior, run_stan_code_checks = TRUE, verbose = FALSE))
   expect_equal(get_data(bundle$posterior), bundle$data)
   expect_equal(model_code(bundle$posterior, framework = "stan"), bundle$model_code)
   expect_equal(reference_posterior_draws(bundle$posterior), bundle$reference_draws)
