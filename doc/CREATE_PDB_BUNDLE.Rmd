@@ -72,7 +72,11 @@ pdbl <- pdb_local(database_path)
 stopifnot("rubin1981estimation" %in% bibliography_keys(pdbl))
 
 # 2. Sample, keeping the exact input list used for sampling.
-source(system.file("test_files/eight_schools.R", package = "posteriordb"))
+eight_schools <- list(
+  J = 8L,
+  y = c(28L, 8L, -3L, 7L, -1L, 1L, 18L, 12L),
+  sigma = c(15L, 10L, 16L, 11L, 9L, 11L, 10L, 18L)
+)
 stan_file <- system.file(
   "test_files/eight_schools_noncentered.stan", package = "posteriordb"
 )
