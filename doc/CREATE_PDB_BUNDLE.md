@@ -408,6 +408,16 @@ existing script may return more variables, and may fail a check because
 of one of them. Use `include = "none"` to keep only the parameters and
 the variables listed in `dimensions`.
 
+Be careful when narrowing the selection for a reparameterized model. The
+checks only cover the variables you keep, and the quantity you care
+about is often not in the `parameters` block. In the non-centered
+eight-schools model the sampled parameter is `theta_trans`, while the
+school effects `theta` are a transformed parameter. `theta_trans` can
+pass every check while `theta` does not. With `include = "none"`,
+`theta` is neither checked nor saved, so acceptance would say nothing
+about it. Keep the transformed quantities you intend to report so that
+they are checked too.
+
 After construction you can still narrow or thin reference draws with
 `subset(draws, variable = ...)` and `posterior::thin_draws()`. Both
 clear the recorded check results, so check the draws again before
