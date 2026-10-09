@@ -5,7 +5,10 @@
 \alias{pdb_stan_sampling_versions}
 \title{Extract relevant stan versions}
 \usage{
-pdb_stan_sampling_versions()
+pdb_stan_sampling_versions(include_rstan = TRUE)
+}
+\arguments{
+\item{include_rstan}{Whether to include the installed RStan version when available.}
 }
 \description{
 Extract relevant stan versions
