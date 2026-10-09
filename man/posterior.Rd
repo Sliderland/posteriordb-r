@@ -22,18 +22,33 @@ pdb_posterior(x, pdb = pdb_default(), ...)
 as.pdb_posterior(x, pdb = pdb_default(), ...)
 }
 \arguments{
-\item{x}{a posterior name that exist in the posterior database or a
-list used to construct a posterior object.}
+\item{x}{For `posterior()`, a saved posterior name. For `as.posterior()`,
+a named list used to construct a posterior object.}
 
 \item{pdb}{a \code{pdb} posterior database object.}
 
-\item{...}{currently not in use.}
+\item{...}{currently unused; posterior name lookups warn when extra arguments
+are supplied and continue the lookup.}
 }
 \description{
 Access a posterior in the posterior database
 }
 \details{
-To setup a posterior object from a list, a minimum och a `pdb_model`,
-`pdb_data`, and a `dimension` element need to be included. See
-`posterior("eight_schools")$dimensions` for an example.
+Use `posterior(name, pdb)` to look up a saved record. Use `as.posterior()`
+for list construction: provide `pdb_model_code`, `pdb_data`, and
+`dimensions` (named unconstrained parameter counts), or the complete
+posterior metadata fields. If dimensions are omitted, supplied Stan code
+and data are used to infer them, which can require compilation.
+Construction does not write files. `pdb_posterior()` is the lookup alias;
+`as.pdb_posterior()` is the construction alias.
+
+Posteriors returned by [create_pdb_bundle()] embed their data, model
+code, and reference draws. Their normal getters work without a database.
+A NULL connection is valid only with all three embedded objects; embedded
+names are checked even when a connection is attached. `dimensions` stores
+one unconstrained parameter count per parameter, not output shapes.
+
+List-based posterior construction preserves the optional character fields
+`urls`, `references`, and `keywords` when they are supplied. When writing a
+posterior, an omitted `keywords` field is serialized as `null`.
 }
