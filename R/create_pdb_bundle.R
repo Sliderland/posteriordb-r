@@ -107,10 +107,9 @@
 #' and the existing object's metadata takes precedence.
 #' Reused objects keep their source database connections. The bundle writer
 #' rejects same-name files in another destination database, even with
-#' `overwrite = TRUE`. A reused posterior must have the matching reference
-#' link on disk before accepted bundle draws can be written; use
-#' [import_reference_posterior_draws()] with `write = TRUE` to fill an empty
-#' link together with the accepted reference files.
+#' `overwrite = TRUE`. When accepted bundle draws are written, a reused
+#' posterior with no reference link is linked to them; a reused posterior
+#' already linked to different reference draws is rejected.
 #'
 #' The bundle embeds its content in memory and remains usable before database
 #' persistence. Supplied data is recorded as caller-supplied; this function

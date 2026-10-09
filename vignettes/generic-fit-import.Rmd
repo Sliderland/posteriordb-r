@@ -12,9 +12,13 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
 This guide starts with an already sampled `rstan::stanfit`, the exact Stan
-input list used for that fit, and human labels for the data and model. Bundle
-construction does not compile or sample the model, access a database, or write
-files.
+input list used for that fit, and a name and title for the data and the model.
+Building a bundle does not sample the model or write any files.
+
+It is a short introduction. The
+[bundle guide](../doc/CREATE_PDB_BUNDLE.md) in the package repository has a
+complete worked example and covers reusing existing database records,
+choosing variables, and importing CmdStanR fits.
 
 ## Construct the bundle
 
@@ -57,10 +61,9 @@ or acceptance flags.
 The returned `pdb_reference_bundle` contains the data, model code, posterior,
 reference draws, diagnostic report, and provenance. Its posterior embeds the
 content needed by `get_data()`, `model_code()`, and
-`reference_posterior_draws()`, so those getters work before persistence. A
-`pdb` connection may be attached for later use, but it is not read during
-construction. File-path methods report that embedded objects have not been
-persisted.
+`reference_posterior_draws()`, so those getters work before anything is saved.
+If you supply `pdb`, the connection is attached to the new objects, and it is
+used to look up any data, model or posterior you pass by its saved name.
 
 ## Inspect diagnostics
 
@@ -111,35 +114,42 @@ alone does not establish full reference acceptance.
 
 ## Data provenance and limits
 
-Supply the exact named Stan input list after preprocessing. Explicit `list()`
-declares that the model had no data inputs; omitted or `NULL` data currently
-errors because automatic recovery is not implemented. The package records
-whether data was caller-supplied but cannot prove that it produced the fit.
-Structural checks preserve the supplied R values and dimensions but cannot
-establish scientific equivalence.
+Supply the exact named Stan input list after preprocessing. Use `list()` for
+a model with no data. `data` is required: it cannot be recovered from the fit,
+and the package cannot confirm that the list you supply produced the fit.
 Data must contain ordinary finite numeric, integer, or logical Stan inputs,
 including vectors and arrays; preprocess raw data frames before calling.
 
 Saved array elements are checked against the fit's declared dimensions,
 including singleton and non-square axes. Partially saved variables cannot be
 included. Zero-sized selected variables and source code with unresolved
-`#include` directives produce clear errors. The first bundle backend supports
-completed RStan HMC fits; other inference algorithms are rejected. Current
-package versions describe the import operation in `provenance$import_versions`,
-separately from fit-derived `provenance$sampling_metadata`. An unavailable
-original sampling version is left unknown.
+`#include` directives produce errors. Bundles are built from completed RStan
+HMC fits; other inference algorithms are rejected.
+`provenance$import_versions` records the package versions used to build the
+bundle, and `provenance$sampling_metadata` records what the fit itself reports
+about sampling. Neither proves which versions were used for sampling.
 
 Pass one completed fit. The constructor does not combine sampling runs or
 merge database objects. `fit_timestamp`, when available, is the fit's recorded
 date, which is not necessarily its original sampling date.
 
-## Explicit persistence
+## Write to a database
 
-Creating a bundle creates R objects and their metadata in memory, even if
-`pdb` is supplied or those names already exist in the database. It does not
-create, merge, or replace files. Attaching `pdb` does not authorize writes.
+Creating a bundle only creates R objects, even if `pdb` is supplied or those
+names already exist in the database. To save it, write the whole bundle:
 
-If you choose to persist new objects, use the existing writers explicitly:
+```{r, eval=FALSE}
+result <- write_pdb(bundle, my_pdb, overwrite = FALSE)
+result$written
+result$reference_draws_written
+```
+
+New data, model and posterior records are written. Reference draws and their
+summary statistics are written only if every check passed; if a check failed,
+the other records are still written and `result$skipped_reason` says why.
+Records reused from the database are left as they are.
+
+You can also write the objects one at a time:
 
 ```{r, eval=FALSE}
 write_pdb(bundle$data, pdb = my_pdb, overwrite = FALSE)
@@ -149,13 +159,8 @@ write_pdb(bundle$posterior, pdb = my_pdb, overwrite = FALSE)
 write_pdb(bundle$reference_draws, pdb = my_pdb, overwrite = FALSE)
 ```
 
-The data and model writers also write their respective info files. The
-posterior writer writes its metadata and links, without the embedded payloads.
-These separate writes are not an atomic all-object import. Review the target
-names first and reload persisted posteriors to obtain database-backed paths.
+Each write is separate, so if a later one fails the earlier files remain.
 
-Existing destination files are protected by the default `overwrite = FALSE`.
-Use new names for new contributions; only use `overwrite = TRUE` when you
-intend and are authorized to replace those specific existing objects.
-Contributor metadata such as `added_by` records attribution; the existing
-writers do not implement an ownership or access-control system.
+With the default `overwrite = FALSE`, an existing file with the same name is
+an error. Use new names for new contributions, and set `overwrite = TRUE` only
+when you mean to replace those existing files.

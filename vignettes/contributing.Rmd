@@ -300,9 +300,9 @@ not change unconstrained counts.
 These aliases are consistent across bundle, compute, import, diagnostics,
 and count helpers. Standalone diagnostic/count helpers have no mandatory
 selection, so `include = "none"` or `exclude = "all"` raises an empty-selection
-error. Compute/import previously defaulted to required variables only; use
-`include = "none"` to preserve that selection in existing scripts. See the
-[workflow comparison](../doc/CREATE_PDB_BUNDLE.md#choose-variables) for examples and compatibility details.
+error. Earlier versions of the package kept only the required variables
+when computing or importing draws; use `include = "none"` to get that
+selection. See [Choose variables](../doc/CREATE_PDB_BUNDLE.md#choose-variables) for examples.
 
 We can now write the reference posterior draws to the posteriordb, just as the other objects.
 
