@@ -29,6 +29,22 @@ test_that("local lookup and metadata tables do not require optional workflow pac
   expect_output(print(connection), "Posterior Database")
 })
 
+test_that("posterior name lookups warn about extras without changing their result", {
+  connection <- optional_dependency_database()
+  expect_silent(expected <- posterior("inputs-model", connection))
+  expect_warning(actual <- posterior("inputs-model", connection, typo = TRUE), "disregarded")
+  expect_identical(actual, expected)
+  expect_warning(actual <- pdb_posterior("inputs-model", connection, TRUE), "disregarded")
+  expect_identical(actual, expected)
+  expect_warning(actual <- posterior("inputs-model", connection,
+    ignored = stop("Unused arguments must not be evaluated")), "disregarded")
+  expect_identical(actual, expected)
+  expect_warning(actual <- posterior("inputs-model", connection,
+    allowed = stop("Unused arguments must not be evaluated"),
+    which.call = stop("Unused arguments must not be evaluated")), "disregarded")
+  expect_identical(actual, expected)
+})
+
 test_that("optional workflows report missing dependencies before network work", {
   connection <- optional_dependency_database()
   original <- base::requireNamespace
