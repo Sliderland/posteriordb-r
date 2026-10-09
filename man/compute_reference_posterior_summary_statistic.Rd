@@ -5,14 +5,18 @@
 \alias{compute_summary_statistic}
 \title{Compute Summary statistics from a reference posterior}
 \usage{
-compute_reference_posterior_summary_statistic(rpd, summary_statistic = "mean")
+compute_reference_posterior_summary_statistic(
+  rpd,
+  summary_statistic = "mean_value"
+)
 
-compute_summary_statistic(rpd, summary_statistic = "mean")
+compute_summary_statistic(rpd, summary_statistic = "mean_value")
 }
 \arguments{
 \item{rpd}{a [reference_posterior_summary_statistic] object}
 
-\item{summary_statistic}{summary statistic to compute}
+\item{summary_statistic}{summary statistic to compute: `mean_value` or
+`mean_squared_value`.}
 }
 \description{
 Compute Summary statistics from a reference posterior
