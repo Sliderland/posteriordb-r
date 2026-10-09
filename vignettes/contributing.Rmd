@@ -300,9 +300,10 @@ not change unconstrained counts.
 These aliases are consistent across bundle, compute, import, diagnostics,
 and count helpers. Standalone diagnostic/count helpers have no mandatory
 selection, so `include = "none"` or `exclude = "all"` raises an empty-selection
-error. Earlier versions of the package kept only the required variables
-when computing or importing draws; use `include = "none"` to get that
-selection. See [Choose variables](../doc/CREATE_PDB_BUNDLE.md#choose-variables) for examples.
+error. In earlier versions of the package, `compute_reference_posterior_draws()`
+kept only the variables listed in the posterior's `dimensions`; use
+`include = "none"` to keep only the parameters and those variables. See
+[Choose variables](../doc/CREATE_PDB_BUNDLE.md#choose-variables) for examples.
 
 We can now write the reference posterior draws to the posteriordb, just as the other objects.
 

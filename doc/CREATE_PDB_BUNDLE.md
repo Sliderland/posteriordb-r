@@ -401,10 +401,12 @@ listed in the posterior’s `dimensions` are also always kept. The
 diagnostic and dimension functions have no mandatory variables, so a
 selection that leaves nothing is an error there.
 
-Earlier versions of the package kept only the required variables when
-computing or importing draws. They now keep every saved output, so an
+In earlier versions of the package,
+`compute_reference_posterior_draws()` kept only the variables listed in
+the posterior’s `dimensions`. It now keeps every saved output, so an
 existing script may return more variables, and may fail a check because
-of one of them. Use `include = "none"` to get the earlier selection.
+of one of them. Use `include = "none"` to keep only the parameters and
+the variables listed in `dimensions`.
 
 After construction you can still narrow or thin reference draws with
 `subset(draws, variable = ...)` and `posterior::thin_draws()`. Both
