@@ -44,6 +44,17 @@ resource_path_snapshot <- function(parent) {
   }), paths)
 }
 
+test_that("rename preflight checks all paths before staging", {
+  fixture <- resource_path_fixture()
+  bundle <- resource_path_objects(fixture$pdb)
+  write_pdb(bundle$data, fixture$pdb)
+  destination <- file.path(fixture$root, "data/info/renamed.info.json")
+  skip_if_not(file.symlink(file.path(fixture$outside, "sentinel"), destination))
+  before <- resource_path_snapshot(fixture$parent)
+  expect_error(rename_pdb(info(bundle$data), "renamed", pdb = fixture$pdb), "outside the database")
+  expect_identical(resource_path_snapshot(fixture$parent), before)
+})
+
 test_that("bibliography append rejects escaping paths before replacement", {
   fixture <- resource_path_fixture()
   dir.create(file.path(fixture$root, "bibliography"))

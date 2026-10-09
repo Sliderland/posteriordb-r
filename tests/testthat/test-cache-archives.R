@@ -46,6 +46,29 @@ test_that("cache extraction validates archive members before extracting", {
   }
 })
 
+test_that("damaged ZIP extraction cannot leave reusable partial output", {
+  fixture <- cache_archive_fixture("value.json",
+    paste0('{"value":"', strrep("A", 10000), '"}'))
+  bytes <- readBin(fixture$archive, "raw", n = file.info(fixture$archive)$size)
+  # First local ZIP header: filename and extra-field lengths locate deflate data.
+  filename_length <- sum(as.integer(bytes[27:28]) * c(1, 256))
+  extra_length <- sum(as.integer(bytes[29:30]) * c(1, 256))
+  bytes[31L + filename_length + extra_length] <- as.raw(255L)
+  writeBin(bytes, fixture$archive)
+  expect_identical(pdb_json_archive_member(fixture$archive), "value.json")
+  expect_error(pdb_cached_local_file_path(fixture$pdb, "data/data/value.json", unzip = TRUE),
+               "extracting|unzip")
+  path <- file.path(fixture$cache, "data/data/value.json")
+  expect_false(file.exists(path))
+  expect_false(file.exists(paste0(path, ".zip")))
+  expect_true(file.exists(fixture$archive))
+  destination <- file.path(fixture$cache, "renamed")
+  expect_error(rename_pdb_stage_zip(fixture$archive, destination, "renamed.json"),
+               "extracting|unzip")
+  expect_false(file.exists(destination))
+  expect_false(file.exists(paste0(destination, ".zip")))
+})
+
 test_that("cache paths reject traversal and escaping symlinks before mutation", {
   fixture <- cache_archive_fixture("value.json")
   before <- list.files(fixture$cache, recursive = TRUE)
