@@ -183,8 +183,11 @@ the draws pass their checks; otherwise it is `NULL`.
 ## Supply metadata
 
 `data_info` and `model_info` each need a `name` and a `title`. Names
-become file names, so they must be a single path component: dots and
-hyphens are fine, slashes are not.
+become file names, so they cannot contain slashes. Use underscores
+between words, as in `eight_schools_noncentered`, to match the rest of
+the database. Avoid hyphens: a posterior is named
+`<data name>-<model name>`, so a hyphen inside a data or model name
+makes the posterior name ambiguous.
 
 | Argument | Required fields | Optional fields |
 |------------------------|------------------------|------------------------|

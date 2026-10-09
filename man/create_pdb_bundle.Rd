@@ -59,9 +59,10 @@ Its linked data/model and unconstrained dimensions must match the bundle.}
 
 \item{data_info}{Named data metadata. `name` and `title` are required;
 names must be nonempty single path components without separators,
-control characters, or the special names `.` and `..`. Dots within names
-and hyphens are allowed; the same rules apply to model names.
-supported descriptive fields are `description`, `references`, `urls`,
+control characters, or the special names `.` and `..`. By convention,
+separate words with underscores and avoid hyphens, because posteriors
+are named `<data name>-<model name>`. The same rules apply to model
+names. Supported descriptive fields are `description`, `references`, `urls`,
 and `keywords`.}
 
 \item{model_info}{Named model metadata. `name` and `title` are required;
