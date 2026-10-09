@@ -2,6 +2,13 @@
 #' Remove objects from local pdb
 #'
 #' @description a function to simplify removing object from a local pdb.
+#' @details Model-code removal follows the selected implementation's declared
+#'   path, with the conventional framework extension as a legacy fallback.
+#'   `remove_info = TRUE` also removes the model's info JSON; use `FALSE` to
+#'   retain metadata for other implementations. Refresh the connection or
+#'   clear its cache before reading after removal.
+#'   A failed removal raises an error identifying the file. Metadata is removed
+#'   only after its payload has been removed successfully.
 #'
 #' @param x an object to remove to the pdb.
 #' @param pdb the pdb to remove from. Currently only a local pdb.
@@ -19,7 +26,8 @@ remove_pdb <- function(x, pdb, ...){
 #' @export
 remove_pdb.character <- function(x, pdb, ...){
   checkmate::assert_file_exists(x)
-  file.remove(x)
+  if (!file.remove(x)) stop("Could not remove file: ", x, call. = FALSE)
+  TRUE
 }
 
 #' @rdname remove_pdb
@@ -42,9 +50,7 @@ remove_pdb.pdb_data_info <- function(x, pdb, ...){
 #' @rdname remove_pdb
 #' @export
 remove_pdb.pdb_model_code <- function(x, pdb, remove_info = TRUE, ...){
-  fw <- framework(x)
-  fn <- paste0(info(x)$name, ".", fw)
-  fp <- pdb_file_path(pdb, "models", fw, fn)
+  fp <- pdb_local_resource_path(pdb, model_implementation_file_path(info(x), framework(x)))
   remove_pdb(fp, pdb)
   if(remove_info) remove_pdb(info(x), pdb)
 }
@@ -79,8 +85,7 @@ remove_pdb.pdb_reference_posterior_draws <- function(x, pdb, remove_info = TRUE,
 remove_pdb.pdb_reference_posterior_info <- function(x, pdb, type, ...){
   checkmate::assert_choice(type, choices = supported_reference_posterior_types())
   fn <- paste0(x$name, ".info.json")
-  type_path <- type
-  if(type %in% supported_summary_statistic_types()) type_path <- paste("summary_statistics", type, sep = "/")
+  type_path <- reference_posterior_type_path(type)
   fp <- pdb_file_path(pdb, "reference_posteriors", type_path, "info", fn)
   remove_pdb(fp, pdb)
 }
