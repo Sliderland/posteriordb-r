@@ -625,5 +625,10 @@ reconstructed$draws
 ```
 
 Deterministic outputs are reproduced to numerical precision when the
-model and data match. Random generated quantities are drawn again, not
-recovered.
+model and data match.
+
+Random generated quantities (those using `_rng` functions) are drawn
+again, not recovered, even with the seed used for sampling. Setting
+`seed` only makes a reconstruction repeatable. The values from the
+original run cannot be recreated afterwards, so if you need them, keep
+those quantities in the reference draws.
