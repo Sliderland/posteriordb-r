@@ -6,7 +6,7 @@
 \usage{
 passes_reference_draw_checks(
   fit,
-  checks = "mean_lag1_ac",
+  checks = "all",
   include = NULL,
   exclude = NULL
 )
@@ -29,10 +29,10 @@ leaving nothing to check is an error.}
 A single `TRUE` or `FALSE`.
 }
 \description{
-Returns `TRUE` if the fit passes the selected checks. By default only the
-lag-1 autocorrelation check is run; use `checks = "all"` to test every
-reference-draw requirement. A check whose metric cannot be computed counts
-as failed. See [reference_draw_diagnostics()] for the full report.
+Returns `TRUE` if the fit passes the selected checks. By default every
+reference-draw requirement is tested; name individual checks in `checks`
+to test only those. A check whose metric cannot be computed counts as
+failed. See [reference_draw_diagnostics()] for the full report.
 }
 \examples{
 \dontrun{passes_reference_draw_checks(fit, "mean_lag1_ac")}

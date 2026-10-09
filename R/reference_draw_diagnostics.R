@@ -105,16 +105,16 @@ reference_diagnostic_evaluation <- function(observed, checks, policy = reference
 
 #' Test selected reference-draw checks
 #'
-#' Returns `TRUE` if the fit passes the selected checks. By default only the
-#' lag-1 autocorrelation check is run; use `checks = "all"` to test every
-#' reference-draw requirement. A check whose metric cannot be computed counts
-#' as failed. See [reference_draw_diagnostics()] for the full report.
+#' Returns `TRUE` if the fit passes the selected checks. By default every
+#' reference-draw requirement is tested; name individual checks in `checks`
+#' to test only those. A check whose metric cannot be computed counts as
+#' failed. See [reference_draw_diagnostics()] for the full report.
 #' @inheritParams reference_draw_diagnostics
 #' @return A single `TRUE` or `FALSE`.
 #' @examples
 #' \dontrun{passes_reference_draw_checks(fit, "mean_lag1_ac")}
 #' @export
-passes_reference_draw_checks <- function(fit, checks = "mean_lag1_ac", include = NULL,
+passes_reference_draw_checks <- function(fit, checks = "all", include = NULL,
                                          exclude = NULL) {
   report <- reference_draw_diagnostics(fit, checks, include, exclude)
   isTRUE(all(unlist(report$status, use.names = FALSE)))

@@ -459,6 +459,9 @@ test_that("all-check reports retain metrics when sampler diagnostics are unavail
   expect_identical(report$failures$efmi, "unavailable")
   expect_identical(report$failures$divergent_transitions, "unavailable")
   expect_false(passes_reference_draw_checks(mock$fit, "efmi"))
+  # The default tests every requirement, so one unavailable check fails it.
+  expect_true(passes_reference_draw_checks(mock$fit, "r_hat"))
+  expect_false(passes_reference_draw_checks(mock$fit))
 })
 
 test_that("RStan sampler extraction can be unavailable while draw metrics report", {

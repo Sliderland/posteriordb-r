@@ -163,7 +163,7 @@ test_that("matrix dimensions are explicit and missing declarations fail", {
     "supply `dimensions` explicitly"
   )
   expect_error(
-    as_reference_posterior_draws_from_stanfit(
+    as_reference_posterior_draws(
       fit,
       po,
       pdb = empty_local_pdb(),
@@ -203,7 +203,7 @@ test_that("unsupported import options are rejected before conversion", {
 
 test_that("sampler metadata and diagnostics are retained", {
   fit <- external_fit_fixture()
-  rpd <- as_reference_posterior_draws_from_stanfit(
+  rpd <- as_reference_posterior_draws(
     fit,
     external_posterior_fixture(),
     pdb = empty_local_pdb()
@@ -229,7 +229,7 @@ test_that("sampler metadata and diagnostics are retained", {
 
 test_that("unsupported fit objects fail clearly", {
   expect_error(
-    as_reference_posterior_draws_from_stanfit(
+    as_reference_posterior_draws(
       list(),
       external_posterior_fixture(),
       pdb = empty_local_pdb()
