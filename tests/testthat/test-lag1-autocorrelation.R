@@ -39,6 +39,38 @@ test_that("lag-1 autocorrelation agrees with posterior for 10,000 draws", {
   )
 })
 
+test_that("Stan diagnostics use only retained posterior variables", {
+  set.seed(41)
+  values <- array(
+    stats::rnorm(100L * 4L * 2L),
+    dim = c(100L, 4L, 2L),
+    dimnames = list(NULL, NULL, c("keep", "discard"))
+  )
+  sampler <- array(
+    0,
+    dim = c(100L, 4L, 2L),
+    dimnames = list(NULL, NULL, c("divergent__", "treedepth__"))
+  )
+  sampler[1L, 1L, "divergent__"] <- 1
+  sampler[1L, 1L, "treedepth__"] <- 10
+
+  diagnostics <- posteriordb:::compute_stan_sampling_diagnostics(
+    posterior::as_draws_array(values),
+    keep_dimensions = "keep",
+    sampler_diagnostics = posterior::as_draws_array(sampler),
+    expected_fraction_of_missing_information = rep(0.5, 4L),
+    max_treedepth = 10L
+  )
+
+  expect_equal(diagnostics$diagnostic_information$names, "keep")
+  for (field in c("r_hat", "effective_sample_size_bulk",
+                  "effective_sample_size_tail", "mean_lag1_ac")) {
+    expect_named(diagnostics[[field]], "keep")
+  }
+  expect_equal(diagnostics$divergent_transitions, c(1, 0, 0, 0))
+  expect_equal(diagnostics$max_treedepth_exceeded, c(1, 0, 0, 0))
+})
+
 small_checked_draws <- function() {
   set.seed(308)
   values <- array(

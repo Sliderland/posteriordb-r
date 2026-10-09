@@ -55,6 +55,33 @@ test_that("rename preflight checks all paths before staging", {
   expect_identical(resource_path_snapshot(fixture$parent), before)
 })
 
+test_that("public import and link reject escaping destinations without mutation", {
+  fixture <- resource_path_fixture()
+  bundle <- resource_path_objects(fixture$pdb)
+  write_pdb(bundle$data, fixture$pdb)
+  write_pdb(bundle$model_code, fixture$pdb)
+  unlinked <- bundle$posterior
+  unlinked["reference_posterior_name"] <- list(NULL)
+  write_pdb(unlinked, fixture$pdb)
+  # Populate the read cache before taking the snapshot.
+  posterior(unlinked$name, fixture$pdb)
+  testthat::local_mocked_bindings(as_reference_posterior_draws = function(...) bundle$reference_draws)
+  dir.create(file.path(fixture$root, "reference_posteriors/draws"), recursive = TRUE)
+  skip_if_not(file.symlink(fixture$outside,
+    file.path(fixture$root, "reference_posteriors/draws/draws")))
+  before <- resource_path_snapshot(fixture$parent)
+  expect_error(import_reference_posterior_draws(NULL, unlinked$name, pdb = fixture$pdb,
+    write = TRUE), "outside the database")
+  expect_identical(resource_path_snapshot(fixture$parent), before)
+
+  path <- file.path(fixture$root, "posteriors", paste0(unlinked$name, ".json"))
+  unlink(path)
+  skip_if_not(file.symlink(file.path(fixture$outside, "sentinel"), path))
+  before <- resource_path_snapshot(fixture$parent)
+  expect_error(link_reference_posterior(unlinked$name, pdb = fixture$pdb), "outside the database")
+  expect_identical(resource_path_snapshot(fixture$parent), before)
+})
+
 test_that("bibliography append rejects escaping paths before replacement", {
   fixture <- resource_path_fixture()
   dir.create(file.path(fixture$root, "bibliography"))

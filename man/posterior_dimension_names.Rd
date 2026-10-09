@@ -3,13 +3,23 @@
 %   R/compute_reference_posterior_draws_stan_sampling.R
 \name{posterior_dimension_names}
 \alias{posterior_dimension_names}
-\title{Construct dimension names from a posterior dimension list}
+\title{Get parameter names from PosteriorDB unconstrained dimension counts}
 \usage{
 posterior_dimension_names(x)
 }
 \arguments{
-\item{x}{a dimensions slot from a [pdb_posterior]}
+\item{x}{A named dimensions list or numeric vector containing
+positive integer unconstrained parameter counts.}
+}
+\value{
+A character vector of base names, in dimensions-list order.
 }
 \description{
-Construct dimension names from a posterior dimension list
+Returns the base parameter names. Each value in the dimensions list must
+be one positive integer unconstrained-coordinate count, not a constrained
+output shape. Names are not expanded into indexed draw columns.
 }
+\seealso{
+\code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}}
+}
+\keyword{internal}
