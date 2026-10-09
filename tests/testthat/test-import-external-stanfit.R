@@ -135,7 +135,7 @@ test_that("matrix dimensions are explicit and missing declarations fail", {
     "supply `dimensions` explicitly"
   )
   expect_error(
-    as_reference_posterior_draws_from_stanfit(
+    as_reference_posterior_draws(
       fit,
       po,
       pdb = empty_local_pdb(),
@@ -170,7 +170,7 @@ test_that("unsupported import options are rejected before conversion", {
 
 test_that("sampler metadata and diagnostics are retained", {
   fit <- external_fit_fixture()
-  rpd <- as_reference_posterior_draws_from_stanfit(
+  rpd <- as_reference_posterior_draws(
     fit,
     external_posterior_fixture(),
     pdb = empty_local_pdb()
@@ -190,7 +190,7 @@ test_that("sampler metadata and diagnostics are retained", {
 
 test_that("unsupported fit objects fail clearly", {
   expect_error(
-    as_reference_posterior_draws_from_stanfit(
+    as_reference_posterior_draws(
       list(),
       external_posterior_fixture(),
       pdb = empty_local_pdb()
@@ -513,7 +513,7 @@ test_that("CmdStanR MCMC fits are imported through their CSV-backed methods", {
   fit <- cmdstanr_fit_fixture()
   posterior <- external_posterior_fixture()
   posterior$dimensions <- list(alpha = 1L)
-  rpd <- as_reference_posterior_draws_from_cmdstanr(
+  rpd <- as_reference_posterior_draws(
     fit, posterior, pdb = empty_local_pdb()
   )
   expect_s3_class(rpd, "pdb_reference_posterior_draws")

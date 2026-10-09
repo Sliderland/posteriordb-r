@@ -95,7 +95,7 @@ write_pdb(bundle$reference_draws, target_pdb)
 
 ```{r, eval=FALSE}
 reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
-passes_reference_draw_checks(fit) # defaults to the lag-1 check only
+passes_reference_draw_checks(fit) # every requirement
 passes_reference_draw_checks(fit, checks = c("mean_lag1_ac", "r_hat"))
 ```
 

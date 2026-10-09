@@ -4,8 +4,6 @@
 \alias{as_reference_posterior_draws}
 \alias{as_reference_posterior_draws.stanfit}
 \alias{as_reference_posterior_draws.CmdStanMCMC}
-\alias{as_reference_posterior_draws_from_stanfit}
-\alias{as_reference_posterior_draws_from_cmdstanr}
 \title{Convert a sampled Stan fit to reference-posterior draws}
 \usage{
 as_reference_posterior_draws(
@@ -29,26 +27,6 @@ as_reference_posterior_draws(
 )
 
 \method{as_reference_posterior_draws}{CmdStanMCMC}(
-  fit,
-  posterior,
-  pdb = pdb_default(),
-  dimensions = NULL,
-  include = NULL,
-  exclude = NULL,
-  ...
-)
-
-as_reference_posterior_draws_from_stanfit(
-  fit,
-  posterior,
-  pdb = pdb_default(),
-  dimensions = NULL,
-  include = NULL,
-  exclude = NULL,
-  ...
-)
-
-as_reference_posterior_draws_from_cmdstanr(
   fit,
   posterior,
   pdb = pdb_default(),
@@ -100,8 +78,6 @@ and data linked to that posterior.
 
 This differs from [as.reference_posterior_draws()] (with dots), which only
 attaches metadata to draws you prepared yourself and runs no checks.
-`as_reference_posterior_draws_from_stanfit()` and
-`as_reference_posterior_draws_from_cmdstanr()` are aliases for this function.
 
 
 For CmdStanR, the draws and sampler diagnostics are read from the fit's CSV

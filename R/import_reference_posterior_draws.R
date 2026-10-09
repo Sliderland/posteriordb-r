@@ -11,8 +11,6 @@
 #'
 #' This differs from [as.reference_posterior_draws()] (with dots), which only
 #' attaches metadata to draws you prepared yourself and runs no checks.
-#' `as_reference_posterior_draws_from_stanfit()` and
-#' `as_reference_posterior_draws_from_cmdstanr()` are aliases for this function.
 #'
 #' @details
 #' For CmdStanR, the draws and sampler diagnostics are read from the fit's CSV
@@ -198,14 +196,6 @@ as_reference_posterior_draws.default <- function(fit, ...) {
     call. = FALSE
   )
 }
-
-#' @rdname as_reference_posterior_draws
-#' @export
-as_reference_posterior_draws_from_stanfit <- as_reference_posterior_draws
-
-#' @rdname as_reference_posterior_draws
-#' @export
-as_reference_posterior_draws_from_cmdstanr <- as_reference_posterior_draws
 
 #' Import a sampled Stan fit as reference draws for an existing posterior
 #'
