@@ -46,7 +46,12 @@ as.pdb_model_info(x, ...)
 \method{as.model_info}{list}(x, pdb = NULL, ...)
 }
 \arguments{
-\item{x}{a object to access information for.}
+\item{x}{An object to access information for, or a named list to convert.
+For list input, `framework = "stan"` creates the Stan entry in
+`model_implementations` using the conventional model-code path and the
+default `stan_version = ">=2.26.0"`. A caller-supplied
+`model_implementations` list is retained as provided; if `framework` is
+also supplied, that implementation must be present in the list.}
 
 \item{...}{further arguments to methods.}
 

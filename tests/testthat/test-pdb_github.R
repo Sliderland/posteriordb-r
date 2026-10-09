@@ -1,6 +1,7 @@
 context("test-pdb_github")
 
 test_that("posteriordb:::check_pdb indicates that github PDB is ok", {
+  skip_github_integration()
   skip_if(is.null(github_pat()))
 
   expect_silent(pdb_github_test1 <- pdb_github("stan-dev/posteriordb/posterior_database"))
@@ -14,6 +15,8 @@ test_that("posteriordb:::check_pdb indicates that github PDB is ok", {
 })
 
 test_that("model_names, data_names and posterior_names work", {
+  skip_github_integration()
+  local_test_database()
   skip_if(is.null(github_pat()))
 
   expect_silent(pdb_test <- pdb_local(Sys.getenv("PDB_PATH")))
@@ -43,6 +46,10 @@ test_that("model_names, data_names and posterior_names work", {
 
 
 test_that("pdb_default is github", {
+  skip_github_integration()
+  withr::local_dir(withr::local_tempdir())
+  withr::local_options(list(pdb_path = NULL))
+  withr::local_envvar(c(PDB_PATH = ""))
   skip_if(is.null(github_pat()))
 
   expect_silent(pdb_default_test <- pdb_default())

@@ -17,6 +17,7 @@ pdb_github <- function(repo = getOption("pdb_repo", "stan-dev/posteriordb"),
 #' @param pat see \code{pdb_github}.
 #' @param host see \code{pdb_github}.
 setup_pdb.pdb_github <- function(pdb, ...){
+  if (!requireNamespace("remotes", quietly = TRUE)) stop("The `remotes` package is required for GitHub connections.", call. = FALSE)
   arg <- list(...)
   pdb$github <- remotes::parse_github_repo_spec(pdb$pdb_id)
   if(!nzchar(pdb$github$ref)) {
@@ -60,12 +61,13 @@ pdb_version.pdb_github <- function(pdb, ...){
 
 #' @export
 pn.pdb_github <- function(x, ...) {
-  pns <- github_dir(gh_path = github_path(x, type = "contents", path = "posteriors"), pdb = x)
-  remove_file_extension(pns)
+  pns <- github_dir(gh_path = github_path(x, type = "contents", path = "posteriors"), pdb = x, files_only = TRUE)
+  remove_file_extension(pns[endsWith(pns, ".json")])
 }
 
 #' @rdname pdb_file_copy
 pdb_file_copy.pdb_github <- function(pdb, from, to, overwrite = FALSE, ...){
+  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "contents", path = from), .token = pat)
 
@@ -82,25 +84,23 @@ pdb_file_copy.pdb_github <- function(pdb, from, to, overwrite = FALSE, ...){
 #' @rdname data_names
 #' @export
 data_names.pdb_github <- function(pdb, ...) {
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "data/info"), pdb = pdb)
-  pns <- pns[grepl(pns, pattern = "\\.json")]
-  basename(remove_file_extension(pns))
+  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "data/info"), pdb = pdb, files_only = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
 #' @rdname data_names
 #' @export
 model_names.pdb_github <- function(pdb, ...) {
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "models/info"), pdb = pdb)
-  pns <- pns[grepl(pns, pattern = "\\.json")]
-  basename(remove_file_extension(pns))
+  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "models/info"), pdb = pdb, files_only = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
-#' @rdname data_names
+#' @rdname reference_posterior_names
 #' @export
-reference_posterior_names.pdb_github <- function(pdb, ...) {
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "reference_posteriors/draws/info"), pdb = pdb)
-  pns <- pns[grepl(pns, pattern = "\\.json")]
-  basename(remove_file_extension(pns))
+reference_posterior_names.pdb_github <- function(pdb, type, ...) {
+  path <- paste("reference_posteriors", reference_posterior_type_path(type), "info", sep = "/")
+  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = path), pdb = pdb, files_only = TRUE)
+  basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
 
@@ -125,12 +125,14 @@ is_pdb_endpoint.pdb_github <- function(pdb, ...) {
   all(pdb_minimum_contents() %in% dir_github)
 }
 
-github_dir <- function(gh_path, pdb, recursive = FALSE, full.names = TRUE, ...){
+github_dir <- function(gh_path, pdb, recursive = FALSE, full.names = TRUE, files_only = FALSE, ...){
   if(recursive) stop("not implemented")
   if(!full.names) stop("not implemented")
   checkmate::assert_class(pdb, c("pdb_github"))
+  checkmate::assert_flag(files_only)
   x <- gh::gh(gh_path, .token = github_pat(pdb), ...)
-  unlist(lapply(x, FUN=function(x) x$name))
+  if (files_only) x <- Filter(function(entry) identical(entry$type, "file"), x)
+  vapply(x, function(entry) entry$name, character(1), USE.NAMES = FALSE)
 }
 
 github_path <- function(pdb, type, path = NULL){
@@ -186,12 +188,13 @@ github_download <- function(download_url, to, pat, overwrite){
 
   if(file.exists(to) & !overwrite) return(TRUE)
 
+  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+
   if(is.null(pat)) {
     ret <- httr::GET(download_url, httr::write_disk(to, overwrite = overwrite))
   } else {
     ret <- httr::GET(download_url, httr::add_headers(c("Authorization" = paste0("token ", pat))), httr::write_disk(to, overwrite = overwrite))
   }
-  httr::http_error(ret)
   httr::status_code(ret) == 200L
 }
 
@@ -200,14 +203,21 @@ github_download <- function(download_url, to, pat, overwrite){
 #' @rdname pdb_cache_dir
 #' @keywords internal
 pdb_cache_dir.pdb_github <- function(pdb, path, ...){
+  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "contents", path = path), .token = pat)
-  download_urls <- unlist(lapply(ghp, FUN = function(x) x$download_url))
-  fns <- unlist(lapply(ghp, FUN = function(x) x$name))
+  ghp <- Filter(function(entry) identical(entry$type, "file"), ghp)
   message("Downloading github content...")
-  for(i in seq_along(download_urls)){
-    to <- pdb_cache_path(pdb = pdb, path = file.path(path, fns[i]))
-    github_download(download_url = download_urls[i], to = to, pat = pat, overwrite = FALSE)
+  for (entry in ghp) {
+    to <- pdb_cache_path(pdb = pdb, path = file.path(path, entry$name))
+    was_cached <- file.exists(to)
+    tryCatch({
+      if (!isTRUE(github_download(entry$download_url, to, pat, overwrite = FALSE)))
+        stop("Could not download file to cache: ", to, call. = FALSE)
+    }, error = function(error) {
+      if (!was_cached) unlink(to)
+      stop(error)
+    })
   }
   message("Done.")
 }

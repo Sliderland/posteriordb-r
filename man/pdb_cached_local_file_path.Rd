@@ -17,5 +17,9 @@ pdb_cached_local_file_path(pdb, path, unzip = FALSE)
 Read json file from \code{path}
 }
 \details{
-Copies the file to the cache and return path
+Copies the file to the cache and returns its path. Archives must contain
+one safe root JSON member matching the requested filename. Failed
+extraction removes incomplete output. Cache destinations remain inside
+the configured cache root. Existing cached files still require manual
+refresh when the source changes.
 }
