@@ -65,7 +65,9 @@ This example samples the non-centered eight-schools model, builds a
 bundle, checks it, writes it to a local database checkout, and reads it
 back. You need RStan and a working C++ toolchain. Replace the database
 path and contributor name, and choose data and model names that are not
-already used in your database.
+already used in your database. If the data, model or posterior is
+already in your database, see [Reuse existing
+records](#reuse-existing-records) instead of creating new ones.
 
 The citation key `rubin1981estimation` must already be in the database
 bibliography; see [Add BibTeX references](#add-bibtex-references) if you
