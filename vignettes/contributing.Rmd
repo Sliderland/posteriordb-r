@@ -16,6 +16,33 @@ knitr::opts_chunk$set(
 
 First, clone the `posteriordb` repository for a local copy you want to update. Then install the posteriordb R package.
 
+For a continuous eight-schools example that constructs, checks, writes, and
+reads back all linked objects with `create_pdb_bundle()`, see the
+[end-to-end bundle workflow](../doc/CREATE_PDB_BUNDLE.md#end-to-end-example-eight-schools).
+The steps below describe the individual-object contribution workflow.
+
+Writes update this local checkout; contributing the files requires a commit
+and pull request for review. Bundle and individual component writes happen
+sequentially. If an I/O or serialization error occurs, the operation stops
+and retains files already written or replaced. The failure message names
+the destination; bundle failures also list completed components. The failing
+component may contain only some of its files, and a failed ZIP command keeps
+the uncompressed JSON. A failed call returns an error rather than a success
+report. Diagnostic rejection is a separate outcome: a bundle can write its
+data, model and posterior while skipping rejected reference draws.
+
+After an I/O failure, inspect `git status`, `git diff`, and any new untracked
+files in the database checkout. Fix the cause, review incomplete files, and
+rerun the workflow. Choose `overwrite = TRUE` only after reviewing the files
+to be replaced; reused bundle components are never overwritten, so resolve
+incomplete reused components first. Refresh the connection or clear its
+cache before checking changed files. Check the completed metadata, links and
+payloads before committing and opening the pull request. Reviewers can then
+assess the proposed files. Automatic rollback for these writes remains an
+open issue for future discussion; the current workflow keeps partial writes
+for inspection. See the [bundle workflow guide](../doc/CREATE_PDB_BUNDLE.md)
+for bundle creation, diagnostic results and write reports.
+
 ```{r, message=FALSE, eval=FALSE}
 remotes::install_github("stan-dev/posteriordb-r")
 ```
@@ -170,6 +197,12 @@ When we have added the data and the model, we can add a posterior object connect
 
 Again, information on the different parts of the metadata can be found in [github.com/stan-dev/posteriordb/doc/DATABASE_CONTENT.md](https://github.com/stan-dev/posteriordb/blob/master/doc/DATABASE_CONTENT.md).
 
+The posterior dimensions list records unconstrained parameter counts keyed
+by parameter name, not the shapes of saved draws. Transformed parameters and
+generated quantities do not contribute independent coordinates. Choose optional
+saved outputs for reference-draw diagnostics with `include` and `exclude` when
+calling `compute_reference_posterior_draws()`, as shown below.
+
 
 ```{r}
 x <- list(pdb_model_code = mc,
@@ -245,6 +278,33 @@ rp <- compute_reference_posterior_draws(rpi, pdbl)
 rp <- check_reference_posterior_draws(x = rp)
 ```
 
+The default `include = NULL` retains and diagnoses all saved model outputs
+except `lp__`, including transformed parameters and generated quantities.
+For example, a saved `vector[10] exp_mu` is retained with all ten elements.
+To retain everything except that optional output, specify only `exclude`:
+
+```{r, eval=FALSE}
+rp <- compute_reference_posterior_draws(rpi, pdbl, exclude = "exp_mu")
+rp <- check_reference_posterior_draws(rp)
+```
+
+Use `include = "all"` as an alias for the default, or `include = "none"` /
+`character(0)` for required parameter-block and dimension-listed variables
+only. `exclude = NULL`, `character(0)`, or `"none"` excludes nothing;
+`exclude = "all"` keeps required variables only. Explicitly excluding required
+variables, or naming the same variable in both selectors, raises an error.
+Every retained variable receives diagnostics; a failing retained output
+prevents acceptance. Omitted outputs are not certified, and selection does
+not change unconstrained counts.
+
+These aliases are consistent across bundle, compute, import, diagnostics,
+and count helpers. Standalone diagnostic/count helpers have no mandatory
+selection, so `include = "none"` or `exclude = "all"` raises an empty-selection
+error. In earlier versions of the package, `compute_reference_posterior_draws()`
+kept only the variables listed in the posterior's `dimensions`; use
+`include = "none"` to keep only the parameters and those variables. See
+[Choose variables](../doc/CREATE_PDB_BUNDLE.md#choose-variables) for examples.
+
 We can now write the reference posterior draws to the posteriordb, just as the other objects.
 
 ```{r, eval = FALSE}
@@ -271,4 +331,3 @@ invisible(remove_pdb(dat, pdbl))
 # po <- pdb_posterior("test_eight_schools_data-test_eight_schools_model", pdbl)
 invisible(remove_pdb(po, pdbl))
 ```
-

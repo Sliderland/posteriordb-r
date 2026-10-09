@@ -1,0 +1,166 @@
+---
+title: "Build a reference-draw bundle from a sampled fit"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Build a reference-draw bundle from a sampled fit}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This guide starts with an already sampled `rstan::stanfit`, the exact Stan
+input list used for that fit, and a name and title for the data and the model.
+Building a bundle does not sample the model or write any files.
+
+It is a short introduction. The
+[bundle guide](../doc/CREATE_PDB_BUNDLE.md) in the package repository has a
+complete worked example and covers reusing existing database records,
+choosing variables, and importing CmdStanR fits.
+
+## Construct the bundle
+
+Pass data and the two required names and titles. Parameter selection uses base
+names, so including an array parameter retains all its saved scalar elements.
+The default also includes saved transformed parameters and generated
+quantities, while excluding `lp__`.
+Use exact, named arguments after `data`; misspellings, duplicate arguments,
+and unnamed metadata are rejected.
+
+```{r, eval=FALSE}
+bundle <- create_pdb_bundle(
+  fit,
+  data = stan_data,
+  data_info = list(name = "experiment_1", title = "Experiment 1 inputs"),
+  model_info = list(name = "normal_model", title = "Normal model"),
+  posterior_info = list(added_by = "Contributor name"),
+  include = c("mu", "sigma")
+)
+
+bundle$data
+bundle$model_code
+bundle$posterior
+bundle$reference_draws
+bundle$diagnostics
+bundle$provenance
+
+info(bundle$data)            # data metadata, including its derived file path
+info(bundle$model_code)      # model metadata and implementation path
+info(bundle$reference_draws) # inference metadata and diagnostic evidence
+```
+
+`posterior_info$added_by` and `$added_date` supply common defaults. Each of
+`data_info`, `model_info`, and `reference_info` can override them for that
+object. The constructor derives posterior names, paths, framework, and
+dimensions; conflicting structural metadata is rejected. `reference_info`
+accepts human comments and contributor information, never diagnostic values
+or acceptance flags.
+
+The returned `pdb_reference_bundle` contains the data, model code, posterior,
+reference draws, diagnostic report, and provenance. Its posterior embeds the
+content needed by `get_data()`, `model_code()`, and
+`reference_posterior_draws()`, so those getters work before anything is saved.
+If you supply `pdb`, the connection is attached to the new objects, and it is
+used to look up any data, model or posterior you pass by its saved name.
+
+## Inspect diagnostics
+
+`create_pdb_bundle()` constructs the in-memory bundle. By default,
+`check = TRUE` computes the reference-draw diagnostic report and records
+whether the candidate meets the package's acceptance checks. A failed
+candidate is returned with its failures; the function does not resample, thin,
+or select a target draw count. Use `check = FALSE` to skip diagnostic and
+acceptance-metric calculations entirely. In that case
+`bundle$diagnostics` is `NULL`, and the reference draws have no acceptance
+flags. The separate `reference_draw_diagnostics()` function calculates a
+report, while `passes_reference_draw_checks()` returns a logical result for
+selected checks. Writing `bundle$reference_draws` with `write_pdb()` requires
+all recorded acceptance flags to be `TRUE`.
+
+To defer the full check, pass the unchecked bundle to
+`check_reference_posterior_draws()`. It returns an updated bundle with the
+report attached and acceptance flags set only if every required check passes.
+Failed candidates keep their failure report and remain unwritable.
+
+```{r, eval=FALSE}
+bundle <- create_pdb_bundle(fit, data = stan_data,
+  data_info = data_info, model_info = model_info, check = FALSE)
+bundle <- check_reference_posterior_draws(bundle)
+bundle$diagnostics$status
+# If every required check passed:
+write_pdb(bundle$reference_draws, target_pdb)
+```
+
+```{r, eval=FALSE}
+reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
+passes_reference_draw_checks(fit) # defaults to the lag-1 check only
+passes_reference_draw_checks(fit, checks = c("mean_lag1_ac", "r_hat"))
+```
+
+The selective calls need only the fit. A lag-only request reads post-warmup
+draws and does not calculate ESS or R-hat or read sampler energy diagnostics.
+The all-check report includes the observed metrics, policy thresholds, each
+check's status, and variables or chains that failed.
+Undefined metrics, including autocorrelation for constant quantities, fail
+their selected checks while the rest of the report remains available.
+
+Full acceptance requires exactly 10,000 retained draws across at least four
+chains, mean absolute per-chain lag-1 autocorrelation at most 0.05 for every
+variable, R-hat at most 1.01, E-FMI at least 0.2 for each chain, and zero
+divergences. ESS and treedepth are informational. Passing a selected check
+alone does not establish full reference acceptance.
+
+## Data provenance and limits
+
+Supply the exact named Stan input list after preprocessing. Use `list()` for
+a model with no data. `data` is required: it cannot be recovered from the fit,
+and the package cannot confirm that the list you supply produced the fit.
+Data must contain ordinary finite numeric, integer, or logical Stan inputs,
+including vectors and arrays; preprocess raw data frames before calling.
+
+Saved array elements are checked against the fit's declared dimensions,
+including singleton and non-square axes. Partially saved variables cannot be
+included. Zero-sized selected variables and source code with unresolved
+`#include` directives produce errors. Bundles are built from completed RStan
+HMC fits; other inference algorithms are rejected.
+`provenance$import_versions` records the package versions used to build the
+bundle, and `provenance$sampling_metadata` records what the fit itself reports
+about sampling. Neither proves which versions were used for sampling.
+
+Pass one completed fit. The constructor does not combine sampling runs or
+merge database objects. `fit_timestamp`, when available, is the fit's recorded
+date, which is not necessarily its original sampling date.
+
+## Write to a database
+
+Creating a bundle only creates R objects, even if `pdb` is supplied or those
+names already exist in the database. To save it, write the whole bundle:
+
+```{r, eval=FALSE}
+result <- write_pdb(bundle, my_pdb, overwrite = FALSE)
+result$written
+result$reference_draws_written
+```
+
+New data, model and posterior records are written. Reference draws and their
+summary statistics are written only if every check passed; if a check failed,
+the other records are still written and `result$skipped_reason` says why.
+Records reused from the database are left as they are.
+
+You can also write the objects one at a time:
+
+```{r, eval=FALSE}
+write_pdb(bundle$data, pdb = my_pdb, overwrite = FALSE)
+write_pdb(bundle$model_code, pdb = my_pdb, overwrite = FALSE)
+write_pdb(bundle$posterior, pdb = my_pdb, overwrite = FALSE)
+# Only checked, passing reference draws may be written:
+write_pdb(bundle$reference_draws, pdb = my_pdb, overwrite = FALSE)
+```
+
+Each write is separate, so if a later one fails the earlier files remain.
+
+With the default `overwrite = FALSE`, an existing file with the same name is
+an error. Use new names for new contributions, and set `overwrite = TRUE` only
+when you mean to replace those existing files.

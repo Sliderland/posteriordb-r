@@ -2,6 +2,7 @@
 % Please edit documentation in R/write_pdb.R
 \name{write_pdb}
 \alias{write_pdb}
+\alias{write_pdb.pdb_reference_bundle}
 \alias{write_pdb.pdb_reference_posterior_info}
 \alias{write_pdb.pdb_reference_posterior_draws}
 \alias{write_pdb.pdb_reference_posterior_summary_statistic}
@@ -14,6 +15,8 @@
 \title{Write objects to pdb}
 \usage{
 write_pdb(x, pdb, overwrite = FALSE, ...)
+
+\method{write_pdb}{pdb_reference_bundle}(x, pdb, overwrite = FALSE, write_summary_statistics = TRUE, ...)
 
 \method{write_pdb}{pdb_reference_posterior_info}(x, pdb, overwrite = FALSE, type, ...)
 
@@ -49,11 +52,11 @@ write_pdb(x, pdb, overwrite = FALSE, ...)
 
 \item{...}{further arguments supplied to methods.}
 
-\item{type}{supported reference posterior types.}
-
 \item{write_summary_statistics}{When writing reference draws, also compute
 and write all supported summary statistics. Defaults to `TRUE`; set to
 `FALSE` to write summary-statistic objects separately.}
+
+\item{type}{supported reference posterior types.}
 
 \item{posterior_name}{When writing reference draws, the saved posterior to
 link. Supply this when an unlinked posterior has a different name from the

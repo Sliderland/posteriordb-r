@@ -6,6 +6,11 @@ Contributing to a posterior database with R
 First clone the posteriordb repository and install the posteriordb R
 package.
 
+For a continuous eight-schools example that constructs, checks, writes, and
+reads back all linked objects with `create_pdb_bundle()`, see the
+[end-to-end bundle workflow](CREATE_PDB_BUNDLE.md#end-to-end-example-eight-schools).
+The steps below describe the individual-object contribution workflow.
+
     remotes::install_github("stan-dev/posteriordb-r")
 
 Then loading the posteriordb R package and create a connection to the
@@ -178,6 +183,31 @@ criteria are fulfilled and add checked diagnostics to the object.
     # Compute the reference posterior
     rp <- compute_reference_posterior_draws(rpi, pdbl)
     rp <- check_reference_posterior_draws(x = rp)
+
+The default `include = NULL` retains and diagnoses all saved model outputs
+except `lp__`, including transformed parameters and generated quantities.
+For example, a saved `vector[10] exp_mu` is retained with all ten elements.
+To retain everything except that optional output, specify only `exclude`:
+
+    rp <- compute_reference_posterior_draws(rpi, pdbl, exclude = "exp_mu")
+    rp <- check_reference_posterior_draws(x = rp)
+
+Use `include = "all"` as an alias for the default, or `include = "none"` /
+`character(0)` for required parameter-block and dimension-listed variables
+only. `exclude = NULL`, `character(0)`, or `"none"` excludes nothing;
+`exclude = "all"` keeps required variables only. Explicitly excluding required
+variables, or naming the same variable in both selectors, raises an error.
+Every retained variable receives diagnostics; a failing retained output
+prevents acceptance. Omitted outputs are not certified, and selection does
+not change unconstrained counts.
+
+These aliases are consistent across bundle, compute, import, diagnostics,
+and count helpers. Standalone diagnostic/count helpers have no mandatory
+selection, so `include = "none"` or `exclude = "all"` raises an empty-selection
+error. In earlier versions of the package, `compute_reference_posterior_draws()`
+kept only the variables listed in the posterior's `dimensions`; use
+`include = "none"` to keep only the parameters and those variables. See
+[Choose variables](CREATE_PDB_BUNDLE.md#choose-variables) for examples.
 
 We can now write the reference posterior draws to the posteriordb.
 

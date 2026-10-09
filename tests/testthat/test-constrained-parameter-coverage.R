@@ -12,6 +12,41 @@ constrained_parameter_fit <- local({
   }
 })
 
+test_that("real constrained parameters separate free counts from complete saved shapes", {
+  fit <- constrained_parameter_fit()
+  counts <- infer_unconstrained_parameter_counts_from_fit(fit)
+  expected <- list(weights = 2L, C = 3L, Sigma = 3L, Lcorr = 3L, Lcov = 6L,
+    M = 6L, singleton = 1L, a = 4L, theta = 1L)
+  expect_identical(counts, expected)
+  expect_identical(sum(unlist(counts)), 29L)
+  extracted <- extract_rstan_fit_for_bundle(fit, compute_diagnostics = FALSE, include = "none")
+  vars <- posterior::variables(extracted$draws)
+  expect_true("fixed[1]" %in% vars)
+  expect_length(vars, 47L)
+  expect_false(any(c("twice_theta", "prediction", "lp__") %in% vars))
+  expect_identical(extracted$dimensions, expected)
+  expect_equal(extracted$output_shapes$fixed, 1L)
+  expect_equal(extracted$output_shapes$M, c(2L, 3L))
+  expect_equal(extracted$output_shapes$a, c(2L, 2L))
+  expect_equal(as.numeric(extracted$draws[, , "fixed[1]"]), rep(1, 12))
+  expect_error(extract_rstan_fit_for_bundle(fit, compute_diagnostics = FALSE,
+    exclude = "fixed"), "Cannot exclude.*parameter-block")
+  bundle <- create_pdb_bundle(fit, data = list(), include = "none", check = FALSE,
+    data_info = list(name = "constrained-data", title = "Inputs"),
+    model_info = list(name = "constrained-model", title = "Model"))
+  expect_identical(posterior::variables(bundle$reference_draws), vars)
+  expect_identical(bundle$posterior$dimensions, expected)
+  expect_error(create_pdb_bundle(fit, data = list(), include = "none", exclude = "fixed",
+    check = FALSE, data_info = list(name = "constrained-data", title = "Inputs"),
+    model_info = list(name = "constrained-model", title = "Model")), "Cannot exclude.*parameter-block")
+  excluded <- create_pdb_bundle(fit, data = list(), exclude = "all", check = FALSE,
+    data_info = list(name = "constrained-data", title = "Inputs"),
+    model_info = list(name = "constrained-model", title = "Model"))
+  expect_equal(excluded$reference_draws, bundle$reference_draws)
+  expect_identical(infer_unconstrained_parameter_counts_from_fit(fit,
+    include = "all", exclude = "none"), counts)
+})
+
 
 test_that("fit import retains zero-free-coordinate parameters without accepting undefined metrics", {
   fit <- constrained_parameter_fit()
