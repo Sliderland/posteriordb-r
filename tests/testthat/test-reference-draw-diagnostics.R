@@ -2,7 +2,7 @@ make_diagnostic_cmdstan_fit <- function(n = 2500L, nchains = 4L, n_var = 1L) {
   testthat::skip_if_not_installed("cmdstanr")
   withr::local_seed(123)
   var_names <- c("theta", "a", "b", "c", "d", "e", "f", "g", "h", "i")
-  testthat::skip_if(n_var > length(var_names))
+  stopifnot(n_var <= length(var_names))
   vals <- array(
     stats::rnorm(n * nchains * n_var),
     c(n, nchains, n_var),
@@ -112,14 +112,16 @@ test_that("selector composition inclusion prevents duplicates", {
       draws,
       include = c("alpha", "alpha")
     ),
-    "unique"
+    "`include` must contain unique, non-empty base names.",
+    fixed = TRUE
   )
   expect_error(
     posteriordb:::select_reference_diagnostic_draws(
       draws,
       include = c("beta", "beta")
     ),
-    "unique"
+    "`include` must contain unique, non-empty base names.",
+    fixed = TRUE
   )
 })
 test_that("select composition prevents non-present parameter selection", {
@@ -173,11 +175,13 @@ test_that("selector composition requires non-empty argument", {
   draws <- create_draws_arr()
   expect_error(
     posteriordb:::select_reference_diagnostic_draws(draws, include = ""),
-    "non.empty"
+    "`include` must contain unique, non-empty base names.",
+    fixed = TRUE
   )
   expect_error(
     posteriordb:::select_reference_diagnostic_draws(draws, exclude = ""),
-    "non.empty"
+    "`exclude` must contain unique, non-empty base names.",
+    fixed = TRUE
   )
 })
 test_that("selector composition aliases work correctly", {
@@ -295,7 +299,7 @@ test_that("all diagnostics aggregate failures and E-FMI is independent of chain 
   )
 })
 
-test_that("exact draw counts and >4 nchains requirement is strictly enforced", {
+test_that("draw count must be exactly 10,000 and chain count at least 4", {
   withr::local_seed(123)
   arr <- array(
     stats::rnorm(2500L * 4L),
@@ -306,45 +310,37 @@ test_that("exact draw counts and >4 nchains requirement is strictly enforced", {
     list(
       draws = posterior::as_draws_array(arr),
       sampler_diagnostics = NULL,
-      metadata = list(expected_fraction_of_missing_information = rep(0.2, 4L))
+      metadata = list()
     ),
-    checks = c("ndraws", "nchains", "efmi")
+    checks = c("ndraws", "nchains")
   )
   expect_true(report$status$ndraws)
   expect_true(report$status$nchains)
   expect_equal(report$metrics$ndraws, 10000L)
-  expect_false(
-    posteriordb:::reference_diagnostic_evaluation(
-      list(ndraws = 10000.5),
-      "ndraws"
-    )$status$ndraws
-  )
+  expect_equal(report$metrics$nchains, 4L)
+
+  evaluate <- posteriordb:::reference_diagnostic_evaluation
+  for (ndraws in list(9999L, 10001L, 10000.5)) {
+    expect_false(evaluate(list(ndraws = ndraws), "ndraws")$status$ndraws)
+  }
+  expect_false(evaluate(list(nchains = 3L), "nchains")$status$nchains)
+  expect_true(evaluate(list(nchains = 5L), "nchains")$status$nchains)
 })
 
-test_that("E-FMI boundaries pass", {
-  withr::local_seed(123)
-  arr <- array(
-    stats::rnorm(2500L * 4L),
-    c(2500L, 4L, 1L),
-    dimnames = list(NULL, NULL, "theta")
-  )
-  report <- posteriordb:::reference_draw_diagnostics_from_extracted(
-    list(
-      draws = posterior::as_draws_array(arr),
-      sampler_diagnostics = NULL,
-      metadata = list(expected_fraction_of_missing_information = rep(0.2, 4L))
-    ),
-    checks = c("ndraws", "nchains", "efmi")
-  )
-  expect_true(report$status$ndraws)
-  expect_true(report$status$nchains)
-  expect_true(report$status$efmi)
-  expect_equal(report$metrics$ndraws, 10000L)
+test_that("values exactly at the limits pass", {
   boundary <- posteriordb:::reference_diagnostic_evaluation(
-    list(mean_lag1_ac = c(theta = 0.05), r_hat = c(theta = 1.01)),
-    c("mean_lag1_ac", "r_hat")
+    list(
+      ndraws = 10000L,
+      nchains = 4L,
+      mean_lag1_ac = c(theta = 0.05),
+      r_hat = c(theta = 1.01),
+      efmi = c(chain1 = 0.2),
+      divergent_transitions = c(chain1 = 0L)
+    ),
+    c("ndraws", "nchains", "mean_lag1_ac", "r_hat", "efmi", "divergent_transitions")
   )
   expect_true(all(unlist(boundary$status)))
+  expect_length(boundary$failures, 0L)
 })
 
 test_that("R-hat is computed per scalar variable and malformed arrays error", {
@@ -364,6 +360,13 @@ test_that("R-hat is computed per scalar variable and malformed arrays error", {
   )
   expect_true(all(is.finite(report$metrics$r_hat)))
   expect_named(report$metrics$r_hat, c("a", "b"))
+  # Each variable's R-hat comes from that variable's own chains.
+  for (variable in c("a", "b")) {
+    expect_equal(
+      report$metrics$r_hat[[variable]],
+      posterior::rhat(arr[, , variable])
+    )
+  }
   expect_error(
     posteriordb:::reference_draw_diagnostics_from_extracted(
       list(
@@ -396,6 +399,7 @@ test_that("policy boundaries collect named variable and chain failures", {
       "divergent_transitions"
     )
   )
+  expect_false(any(unlist(failed$status)))
   expect_identical(failed$failures$mean_lag1_ac, "bad")
   expect_identical(failed$failures$r_hat, "bad")
   expect_identical(failed$failures$efmi, "chain2")
@@ -417,15 +421,29 @@ test_that("diagnostics reject unknown checks and empty selections", {
   mock <- make_diagnostic_cmdstan_fit()
   expect_error(
     reference_draw_diagnostics(mock$fit, "made_up"),
-    "checks must contain unique supported check names"
+    "`checks` must contain unique supported check names",
+    fixed = TRUE
   )
   expect_error(
     reference_draw_diagnostics(mock$fit, "mean_lag1_ac", include = "missing"),
-    "Unknown base variable.*include"
+    "Unknown base variable(s) in `include`: missing",
+    fixed = TRUE
   )
   expect_error(
     reference_draw_diagnostics(mock$fit, "mean_lag1_ac", exclude = "missing"),
-    "Unknown base variable.*exclude"
+    "Unknown base variable(s) in `exclude`: missing",
+    fixed = TRUE
+  )
+  # Diagnostics have no mandatory variables, so these leave nothing to check.
+  expect_error(
+    reference_draw_diagnostics(mock$fit, "mean_lag1_ac", include = "none"),
+    "No posterior variables remain after `include`/`exclude`.",
+    fixed = TRUE
+  )
+  expect_error(
+    reference_draw_diagnostics(mock$fit, "mean_lag1_ac", exclude = "all"),
+    "No posterior variables remain after `include`/`exclude`.",
+    fixed = TRUE
   )
 })
 
@@ -472,6 +490,9 @@ test_that("all-check reports retain metrics when sampler diagnostics are unavail
     )
   )
   expect_true(all(c("mean_lag1_ac", "r_hat") %in% names(report$metrics)))
+  for (check in c("ndraws", "nchains", "mean_lag1_ac", "r_hat")) {
+    expect_true(report$status[[check]], info = check)
+  }
   expect_false(report$status$efmi)
   expect_false(report$status$divergent_transitions)
   expect_identical(report$failures$efmi, "unavailable")
