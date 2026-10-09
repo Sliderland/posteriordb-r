@@ -20,9 +20,7 @@ A thinned [pdb_reference_posterior_draws] object.
 Thin [pdb_reference_posterior_draws] objects to reduce their size and autocorrelation of the chains.
 }
 \details{
-Thinning updates retained counts and clears obsolete diagnostics,
-  acceptance flags, and reports. Retained sampler draws are thinned in
-  lockstep; E-FMI must be recalculated. Connections and descriptive metadata
-  and the class chain are preserved. A thinning period of one leaves the
-  object unchanged.
+Thinning updates the recorded draw counts and clears the
+  recorded diagnostics and check results, so check the draws again before
+  writing them. `thin = 1` leaves the object unchanged.
 }

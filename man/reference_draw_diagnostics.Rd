@@ -2,7 +2,7 @@
 % Please edit documentation in R/reference_draw_diagnostics.R
 \name{reference_draw_diagnostics}
 \alias{reference_draw_diagnostics}
-\title{Inspect reference-draw diagnostics without constructing database objects}
+\title{Report reference-draw diagnostics for a Stan fit}
 \usage{
 reference_draw_diagnostics(fit, checks = "all", include = NULL, exclude = NULL)
 }
@@ -12,28 +12,27 @@ reference_draw_diagnostics(fit, checks = "all", include = NULL, exclude = NULL)
 \item{checks}{character vector of checks: `ndraws`, `nchains`,
 `mean_lag1_ac`, `r_hat`, `efmi`, and `divergent_transitions`; or `"all"`.}
 
-\item{include}{Saved base variable names to diagnose. `NULL` (the default)
-or `"all"` selects all saved model outputs except `lp__`. `"none"` or
-`character(0)` selects nothing and raises an empty-selection error.}
+\item{include}{Base names of saved variables to check. The default
+`NULL` (or `"all"`) checks every saved output except `lp__`. A base name
+selects all of that variable's elements.}
 
-\item{exclude}{Saved base variable names to omit. `NULL`, `character(0)`,
-or `"none"` excludes nothing. `"all"` selects nothing and raises an
-empty-selection error. Names appearing in both selectors are configuration
-errors. `"all"` and `"none"` are reserved when used alone.}
+\item{exclude}{Base names of saved variables to leave out. Naming a
+variable in both `include` and `exclude`, using an unknown name, or
+leaving nothing to check is an error.}
 }
 \value{
-`reference_draw_diagnostics()` returns a list with `metrics`,
-  `thresholds`, named logical `status`, and named `failures`. Metric vectors
-  are named by scalar variable or chain. Unavailable metrics are marked
-  `"unavailable"`; undefined variable metrics are `NA` and fail their check.
-  Failed count checks report observed and required values. `ndraws` requires
-  exactly 10,000 retained draws total.
+A list with the measured `metrics`, the `thresholds` they are
+  compared with, a named logical `status` with one entry per check, and
+  `failures` naming the variables or chains that failed. A metric that
+  cannot be computed, such as the autocorrelation of a constant variable,
+  fails its check. See [check_reference_posterior_draws()] for the
+  requirements.
 }
 \description{
-Intended for callers who have an already sampled RStan or CmdStanR fit and
-want a diagnostic report before importing it. Draws exclude warmup and retain
-chain order. Checks are selected by name; `"all"` collects the complete
-reference acceptance report. The lag-only path reads posterior draws only.
+Computes the reference-draw checks directly on a sampled RStan or CmdStanR
+fit, without building or writing any database objects. Use it to see
+whether a fit is likely to be accepted, or to look at one check while
+tuning sampler settings.
 }
 \examples{
 \dontrun{

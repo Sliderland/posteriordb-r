@@ -19,8 +19,8 @@
 #'
 #' The linked Stan source is compiled with RStan and initialized with the linked
 #' data without MCMC. Random generated quantities are regenerated, not recovered
-#' exactly. Sampling diagnostics are not reconstructed. Database payloads are
-#' not written; normal read caching and compilation may create cache/temp files.
+#' exactly. Sampling diagnostics are not reconstructed. Nothing is written to
+#' the database; reading and compiling may create cache and temporary files.
 #' @examples
 #' \dontrun{
 #' pdbl <- pdb_local("/path/to/posterior_database")

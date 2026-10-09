@@ -1,26 +1,25 @@
-#' Inspect reference-draw diagnostics without constructing database objects
+#' Report reference-draw diagnostics for a Stan fit
 #'
-#' Intended for callers who have an already sampled RStan or CmdStanR fit and
-#' want a diagnostic report before importing it. Draws exclude warmup and retain
-#' chain order. Checks are selected by name; `"all"` collects the complete
-#' reference acceptance report. The lag-only path reads posterior draws only.
+#' Computes the reference-draw checks directly on a sampled RStan or CmdStanR
+#' fit, without building or writing any database objects. Use it to see
+#' whether a fit is likely to be accepted, or to look at one check while
+#' tuning sampler settings.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` fit.
 #' @param checks character vector of checks: `ndraws`, `nchains`,
 #'   `mean_lag1_ac`, `r_hat`, `efmi`, and `divergent_transitions`; or `"all"`.
-#' @param include Saved base variable names to diagnose. `NULL` (the default)
-#'   or `"all"` selects all saved model outputs except `lp__`. `"none"` or
-#'   `character(0)` selects nothing and raises an empty-selection error.
-#' @param exclude Saved base variable names to omit. `NULL`, `character(0)`,
-#'   or `"none"` excludes nothing. `"all"` selects nothing and raises an
-#'   empty-selection error. Names appearing in both selectors are configuration
-#'   errors. `"all"` and `"none"` are reserved when used alone.
-#' @return `reference_draw_diagnostics()` returns a list with `metrics`,
-#'   `thresholds`, named logical `status`, and named `failures`. Metric vectors
-#'   are named by scalar variable or chain. Unavailable metrics are marked
-#'   `"unavailable"`; undefined variable metrics are `NA` and fail their check.
-#'   Failed count checks report observed and required values. `ndraws` requires
-#'   exactly 10,000 retained draws total.
+#' @param include Base names of saved variables to check. The default
+#'   `NULL` (or `"all"`) checks every saved output except `lp__`. A base name
+#'   selects all of that variable's elements.
+#' @param exclude Base names of saved variables to leave out. Naming a
+#'   variable in both `include` and `exclude`, using an unknown name, or
+#'   leaving nothing to check is an error.
+#' @return A list with the measured `metrics`, the `thresholds` they are
+#'   compared with, a named logical `status` with one entry per check, and
+#'   `failures` naming the variables or chains that failed. A metric that
+#'   cannot be computed, such as the autocorrelation of a constant variable,
+#'   fails its check. See [check_reference_posterior_draws()] for the
+#'   requirements.
 #' @examples
 #' \dontrun{
 #' report <- reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
@@ -106,10 +105,10 @@ reference_diagnostic_evaluation <- function(observed, checks, policy = reference
 
 #' Test selected reference-draw checks
 #'
-#' Returns a scalar logical; it does not establish full acceptance unless all
-#' checks are selected. See [reference_draw_diagnostics()] for report details.
-#' Unavailable or undefined required metrics return `FALSE`; malformed objects
-#' and selectors raise informative errors.
+#' Returns `TRUE` if the fit passes the selected checks. By default only the
+#' lag-1 autocorrelation check is run; use `checks = "all"` to test every
+#' reference-draw requirement. A check whose metric cannot be computed counts
+#' as failed. See [reference_draw_diagnostics()] for the full report.
 #' @inheritParams reference_draw_diagnostics
 #' @return A single `TRUE` or `FALSE`.
 #' @examples

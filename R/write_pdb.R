@@ -2,76 +2,59 @@
 #'
 #' @description a function to simplify writing to a local pdb.
 #'
-#' @details Writing reference draws requires all applicable reference acceptance
-#'   flags to be `TRUE` and the associated posterior JSON to exist in `pdb`.
-#'   The saved posterior must already link to the reference name, or have an
-#'   empty reference link and the same name as the draws (or `posterior_name`).
-#'   Unchecked or failed
-#'   reference draws, or draws without a saved posterior, are rejected before
-#'   files are written. Saving the draws fills an empty matching posterior
-#'   link before writing any requested summaries, then clears
-#'   the database cache. A successful reference-draw write
-#'   also computes and writes each supported summary statistic by default;
-#'   set `write_summary_statistics = FALSE` to write those objects separately.
-#'   When `x` is a `pdb_reference_bundle`, `write_pdb()` checks unchecked
-#'   draws, writes the data, model, and posterior, and writes reference draws
-#'   only if all acceptance checks pass. The returned write report includes
-#'   the checked bundle and any skipped components. Bundle writes reuse attached
-#'   summaries, computing them only when \code{summary_statistics} is \code{NULL}.
-#'   Attached summaries are validated before writing. After editing a bundle's
-#'   draws, call \code{\link{check_reference_posterior_draws}()} to refresh its summaries.
-#'   Posterior JSON includes a
-#'   `keywords` field set to `null` when no keywords were supplied.
-#'   The individual reference-draw writer does not rerun diagnostic checks;
-#'   ESS and treedepth are informational, not acceptance gates. The bundle
-#'   writer runs the full checks first when the bundle has not already been
-#'   checked. It preflights every destination before writing. Existing files
-#'   for new components cause an error when `overwrite = FALSE`; with
-#'   `overwrite = TRUE`, the complete set is detected before any replacement
-#'   begins. Components reused from the target database are skipped and are
-#'   never replaced by the bundle writer; an empty posterior reference link
-#'   is filled after a successful draw write. Reused objects retain their
-#'   source connections; same-name files in another database are rejected.
-#'   A reused posterior must have an empty or matching persisted reference
-#'   link before accepted bundle draws can be written.
-#'   Posterior writes save a `null` reference link unless both the reference
-#'   info and draw archive already exist. When bundle checks fail, existing
-#'   links to stored reference files are preserved. The in-memory bundle still
-#'   contains the candidate.
-#'   Resource names must be nonempty single path components: separators,
-#'   `.` and `..`, and control characters are rejected. Dots within names
-#'   and hyphens are allowed. Local destinations are checked before writing,
-#'   including temporary JSON files used for ZIP archives. Paths that resolve
-#'   through symlinks outside the database, or through dangling symlinks,
-#'   are rejected. Individual multi-file writers check their payload paths
-#'   before saving metadata. These checks do not lock the filesystem or make
-#'   ordinary writes transactional.
-#'   Bundle and component writes are sequential. An I/O or serialization
-#'   error stops the operation and retains earlier writes and replacements.
-#'   The failure message identifies the destination; bundle failures also
-#'   list completed components. The failing component may contain partial
-#'   files, and no success report is returned. Inspect the local Git changes,
-#'   fix the cause, and retry; use `overwrite = TRUE` only after reviewing the
-#'   files that will be replaced. ZIP failures retain the uncompressed JSON.
+#' @details
+#' **Reference draws.** Draws can be written only after they have passed
+#' [check_reference_posterior_draws()], and only when their posterior is
+#' already saved in `pdb`. That posterior must either link to the draws
+#' already, or have no reference link and the same name as the draws (or be
+#' named in `posterior_name`), in which case the link is filled in. Both
+#' summary statistics are computed and written too unless
+#' `write_summary_statistics = FALSE`. Writing does not run the checks again.
+#'
+#' **Bundles.** For a `pdb_reference_bundle` from [create_pdb_bundle()], the
+#' draws are checked first if they have not been. New data, model and
+#' posterior objects are written. Reference draws and summary statistics are
+#' written only if every check passed; otherwise the other objects are still
+#' written and the result says what was skipped. Objects reused from `pdb`
+#' are left as they are, except that a reused posterior with no reference
+#' link is linked to the new draws. A reused posterior linked to different
+#' draws is an error. Objects reused from another database are copied if
+#' `pdb` has no files with that name, and are an error otherwise. Summary
+#' statistics already in the bundle are written as they are; after changing a
+#' bundle's draws, call [check_reference_posterior_draws()] to recompute them.
+#'
+#' **Existing files.** Every destination file for a bundle is checked before
+#' anything is written. With `overwrite = FALSE` an existing file is an error
+#' and nothing is written. With `overwrite = TRUE` existing files for new
+#' objects are replaced.
+#'
+#' **Names and paths.** Names must be a single path component: no slashes,
+#' and not `.` or `..`. Use underscores rather than hyphens in data and model
+#' names, because posteriors are named `data_name-model_name`. Destinations
+#' that resolve outside the database through symbolic links are rejected.
+#'
+#' **If a write fails.** Objects are written one after another. A disk or
+#' serialization error stops the write and leaves the files already written
+#' in place. The error names the file and, for a bundle, lists the completed
+#' objects. Check the changes in your database checkout, fix the cause, and
+#' write again, using `overwrite = TRUE` for files left by the first attempt.
 #'
 #' @param x an object to write to the pdb.
 #' @param pdb the pdb to write to. Currently only a local pdb.
 #' @param overwrite overwrite existing file?
-#' @param write_summary_statistics When writing reference draws, also compute
-#'   and write all supported summary statistics. Defaults to `TRUE`; set to
-#'   `FALSE` to write summary-statistic objects separately.
+#' @param write_summary_statistics When writing reference draws or a bundle,
+#'   also write the summary statistics (`mean_value` and
+#'   `mean_squared_value`).
 #' @param posterior_name When writing reference draws, the saved posterior to
-#'   link. Supply this when an unlinked posterior has a different name from the
-#'   draws. Defaults to finding existing links or an unlinked same-name posterior.
+#'   link them to. Only needed when that posterior has no reference link yet
+#'   and a different name from the draws.
 #' @param type supported reference posterior types.
 #' @param ... further arguments supplied to methods.
-#' @return Existing object writers invisibly return `TRUE`. Writing a
-#'   `pdb_reference_bundle` invisibly returns a `pdb_bundle_write_result` list
-#'   with the checked `bundle`, names of successfully `written` components,
-#'   names of reused and overwritten components, the preflight `collisions`
-#'   (destination paths found to exist before writes), whether reference draws
-#'   and summary statistics were written, and any diagnostic error or skip
-#'   reason.
+#' @return Invisibly `TRUE`. For a `pdb_reference_bundle`, invisibly a list
+#'   with the checked `bundle`; the names of the `written`, `reused` and
+#'   `overwritten` objects; `collisions`, the destination files that already
+#'   existed; `reference_draws_written` and `summary_statistics_written`; and
+#'   `skipped_reason` or `diagnostic_error` when the draws were not written.
 #' @export
 write_pdb <- function(x, pdb, overwrite = FALSE, ...) {
   checkmate::assert_class(pdb, "pdb_local")

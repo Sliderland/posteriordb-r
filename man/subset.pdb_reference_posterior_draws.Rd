@@ -17,7 +17,7 @@
 Subset a [pdb_reference_posterior_draws] object
 }
 \details{
-Variable diagnostics follow the selected variables. Changed
-  selections clear acceptance flags and reports; recheck before writing.
-  The class chain and attached connection are preserved.
+The recorded diagnostics are kept for the selected variables.
+  If the selection changes, the recorded check results are cleared, so
+  check the draws again before writing them.
 }

@@ -52,14 +52,9 @@ A [pdb_reference_posterior_summary_statistic] object for singular
 Reference posterior summary statistics
 }
 \details{
-Stored summaries use the posterior's `reference_posterior_name`
-  link for both payload and metadata; that name may differ from the
-  posterior's own name. Plural access omits types without metadata and
-  returns an empty list when there is no reference link. Advertised summaries
-  must be readable: malformed metadata/payloads and read or transport errors
-  propagate rather than being treated as absence.
-  Field order is ignored. Variable names must be unique and nonmissing;
-  summary values and MCSE must each have one numeric entry per variable.
-  Numeric missing and infinite values retain their existing permissive
-  validation behavior.
+Summaries are looked up through the posterior's
+  `reference_posterior_name`, which may differ from the posterior's own
+  name. `reference_posterior_summary_statistics()` returns the types that
+  are stored, and an empty list when the posterior has no reference
+  posterior. A summary that is listed but cannot be read is an error.
 }

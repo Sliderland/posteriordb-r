@@ -2,11 +2,10 @@
 #' are true
 #'
 #' @details
-#' Requires the count flag for the chosen gate and, for Stan sampling,
-#' the chain, autocorrelation, R-hat, E-FMI and divergence flags. Analytical
-#' draws require count evidence only; HMC checks do not apply.
-#' Draw-object assertions also validate variable labels and equal retained
-#' lengths before acceptance flags are used, including for summary computation.
+#' The draws must carry a passed result for the draw-count check and, for
+#' Stan sampling, for the chain, autocorrelation, R-hat, E-FMI and divergence
+#' checks. Analytical draws only need the draw-count result. The variable
+#' names and the number of draws per variable are validated as well.
 #'
 #' See \url{https://github.com/stan-dev/posteriordb/blob/master/doc/REFERENCE_POSTERIOR_DEFINITION.md} for details.
 #'

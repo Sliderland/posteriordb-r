@@ -53,16 +53,16 @@ A `pdb_reference_posterior_draws` object.
 Read or wrap reference posterior draws
 }
 \details{
-`reference_posterior_draws()` reads saved or embedded draws.
-  The dotted `as.reference_posterior_draws()` wraps draws with caller-supplied
-  `info`; it does not infer parameter counts, calculate acceptance checks,
-  or write files. Its draws-list conversion omits `lp__`. Variable names
-  must be unique, nonmissing and nonempty, and identical across chains.
-  Retained variable vectors must have the same length across variables and
-  chains; zero iterations are allowed when wrapping an unchecked object.
-  Use [as_reference_posterior_draws()] (underscores) to import a completed
-  fit for an existing posterior, validate its parameter counts and run
-  reference checks. Use [import_reference_posterior_draws()] for that
-  workflow with optional persistence. The dotted compatibility alias
-  `as.pdb_reference_posterior_draws()` has the same wrapping behavior.
+`reference_posterior_draws()` reads the reference draws of a
+  posterior.
+
+  `as.reference_posterior_draws()` (with dots) attaches the metadata in
+  `info` to draws you prepared yourself. It runs no checks and writes
+  nothing, and it drops `lp__`. Variable names must be unique and the same
+  in every chain, and every variable must have the same number of draws.
+  `as.pdb_reference_posterior_draws()` is an alias.
+
+  To convert a completed Stan fit and check it, use
+  [as_reference_posterior_draws()] (with underscores) or
+  [import_reference_posterior_draws()].
 }

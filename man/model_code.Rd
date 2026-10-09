@@ -75,7 +75,7 @@ A posterior with embedded code returns it for the matching
   `stan`) and requires a matching non-NULL implementation in `info`.
   Construction keeps the code unchanged; it does not compile or translate it.
   Stored code is read from the selected implementation's `model_code`
-  path. Legacy implementation metadata without that path uses the
+  path. Model info that does not record a path uses the
   conventional `models/<framework>/<name>.<extension>` location.
   For posterior or model-info inputs, the supplied object's implementation
   metadata selects the file for both code and file-path access. A posterior

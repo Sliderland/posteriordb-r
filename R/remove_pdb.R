@@ -3,12 +3,12 @@
 #'
 #' @description a function to simplify removing object from a local pdb.
 #' @details Model-code removal follows the selected implementation's declared
-#'   path, with the conventional framework extension as a legacy fallback.
+#'   path, or the conventional location when the model info does not record one.
 #'   `remove_info = TRUE` also removes the model's info JSON; use `FALSE` to
 #'   retain metadata for other implementations. Refresh the connection or
 #'   clear its cache before reading after removal.
-#'   A failed removal raises an error identifying the file. Metadata is removed
-#'   only after its payload has been removed successfully.
+#'   A failed removal raises an error naming the file. The info file is
+#'   removed only after the file it describes has been removed.
 #'
 #' @param x an object to remove to the pdb.
 #' @param pdb the pdb to remove from. Currently only a local pdb.

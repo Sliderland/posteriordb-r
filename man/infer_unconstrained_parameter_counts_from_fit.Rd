@@ -13,15 +13,12 @@ infer_unconstrained_parameter_counts_from_fit(
 \arguments{
 \item{fit}{An \code{rstan::stanfit} or \code{cmdstanr::CmdStanMCMC} object.}
 
-\item{include}{Optional unique base parameter names to retain. \code{NULL}
-(the default) or \code{"all"} retains all nonzero parameter counts. \code{"none"}
-or \code{character(0)} selects nothing and raises an empty-selection error.}
+\item{include}{Names of model parameters to return counts for. The
+default \code{NULL} (or \code{"all"}) returns every parameter.}
 
-\item{exclude}{Unique base parameter names to omit. \code{NULL}, \code{character(0)},
-or \code{"none"} excludes nothing. \code{"all"} selects nothing and raises an
-empty-selection error. A name cannot appear in both selectors. Derived
-outputs are not parameter names for these helpers; \code{lp__} may be excluded
-but cannot be included. \code{"all"} and \code{"none"} are reserved when used alone.}
+\item{exclude}{Names of model parameters to leave out. Naming a parameter
+in both \code{include} and \code{exclude}, using an unknown name, or leaving no
+parameters is an error.}
 }
 \value{
 A named list of positive integer unconstrained parameter counts.
@@ -32,19 +29,17 @@ variable directly from a supported fitted object, without resampling.
 Counts describe independent coordinates rather than constrained output shapes.
 }
 \details{
-RStan requires a usable compiled model instance. If serialization has
-invalidated it, use \code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}} with model source and
-matching data. CmdStanR uses its unconstrain-draws method and may need
-compiled model methods and the fit's supporting files. CSV values must retain
-enough precision for constrained parameters; request
-\code{sig_figs = 18} when sampling with CmdStanR. Rounded values can fail its
-unconstraining checks. The source/data inference helper uses full precision.
-Only parameter-block variables with nonzero unconstrained counts are returned,
-not transformed
-parameters or generated quantities. Parameters with zero free coordinates
-(such as \code{simplex[1]}) have no count entry; fit import and bundles retain
-their saved values using the parameter-block schema. Unknown names and empty
-count selections raise errors.
+Only model parameters are returned, not transformed parameters or
+generated quantities. A parameter with no free value, such as a
+\code{simplex[1]}, has no entry.
+
+A \code{stanfit} that was saved and reloaded in a new R session may have lost
+its compiled model; in that case use \code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}} with
+the model code and data instead.
+
+For CmdStanR fits, the model and output files must still be available,
+and the fit should be sampled with \code{sig_figs = 18}. Values rounded to
+fewer digits can violate parameter constraints and be rejected.
 }
 \seealso{
 \code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}}, \code{\link[=reconstruct_stan_output]{reconstruct_stan_output()}}

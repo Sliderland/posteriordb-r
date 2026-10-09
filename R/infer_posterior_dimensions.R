@@ -1,36 +1,30 @@
 #' Infer unconstrained posterior parameter counts from Stan code and data
 #'
-#' Compile a Stan model and obtain the number of unconstrained coordinates for
-#' each parameter (RStan uses a zero-chain fit; CmdStanR uses a short fit).
-#' These scalar counts are the values stored
-#' in PosteriorDB posterior `dimensions`; they are not the constrained output
-#' shapes of the variables.
+#' Compiles a Stan model and returns the number of unconstrained parameters
+#' for each model parameter. These counts are what a PosteriorDB posterior
+#' stores in `dimensions`; they are not the shapes of the saved variables.
 #'
 #' @param model_code Stan source as a string, a Stan source file path, or a
 #'   `pdb_model_code` object.
 #' @param data A named list of Stan data or a `pdb_data` object.
-#' @param include Optional unique base parameter names to retain. `NULL`
-#'   (the default) or `"all"` retains all nonzero parameter counts. `"none"`
-#'   or `character(0)` selects nothing and raises an empty-selection error.
-#' @param exclude Unique base parameter names to omit. `NULL`, `character(0)`,
-#'   or `"none"` excludes nothing. `"all"` selects nothing and raises an
-#'   empty-selection error. A name cannot appear in both selectors. Derived
-#'   outputs are not parameter names for these helpers; `lp__` may be excluded
-#'   but cannot be included. `"all"` and `"none"` are reserved when used alone.
+#' @param include Names of model parameters to return counts for. The
+#'   default `NULL` (or `"all"`) returns every parameter.
+#' @param exclude Names of model parameters to leave out. Naming a parameter
+#'   in both `include` and `exclude`, using an unknown name, or leaving no
+#'   parameters is an error.
 #' @param backend Stan backend, either `"rstan"` or `"cmdstanr"`.
 #' @param iter Total iterations for the short CmdStanR fit, split between
 #'   warmup and sampling. RStan compiles without sampling.
 #' @return A named list of positive integer unconstrained parameter counts.
 #' @details
-#' Parameter sizes depend on the matching model data. An unconstrained
-#' `matrix[2,3]` contributes six coordinates, while a `simplex[3]` contributes
-#' two, despite having three constrained output elements. Transformed
-#' parameters and generated quantities do not contribute independent coordinates.
-#' Unknown names and selections leaving no parameters raise errors.
+#' An unconstrained `matrix[2,3]` counts as six, while a `simplex[3]` counts
+#' as two even though three values are saved for it. Transformed parameters
+#' and generated quantities have no count. Counts can depend on the data, so
+#' supply the data that goes with the model.
 #'
-#' RStan compiles and initializes a zero-chain fit without MCMC. CmdStanR
-#' currently compiles and runs a short single-chain fit; its draws are used
-#' only to obtain coordinate names, not as reference draws.
+#' With `backend = "rstan"` the model is compiled but not sampled. With
+#' `backend = "cmdstanr"` a very short fit of `iter` iterations is run to
+#' read off the parameter names; its draws are discarded.
 #' @seealso [infer_unconstrained_parameter_counts_from_fit()], [create_pdb_bundle()]
 #' @md
 #' @export
@@ -72,29 +66,20 @@ infer_posterior_dimensions <- function(
 #' Counts describe independent coordinates rather than constrained output shapes.
 #'
 #' @param fit An `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
-#' @param include Optional unique base parameter names to retain. `NULL`
-#'   (the default) or `"all"` retains all nonzero parameter counts. `"none"`
-#'   or `character(0)` selects nothing and raises an empty-selection error.
-#' @param exclude Unique base parameter names to omit. `NULL`, `character(0)`,
-#'   or `"none"` excludes nothing. `"all"` selects nothing and raises an
-#'   empty-selection error. A name cannot appear in both selectors. Derived
-#'   outputs are not parameter names for these helpers; `lp__` may be excluded
-#'   but cannot be included. `"all"` and `"none"` are reserved when used alone.
+#' @inheritParams infer_posterior_dimensions
 #' @return A named list of positive integer unconstrained parameter counts.
 #' @details
-#' RStan requires a usable compiled model instance. If serialization has
-#' invalidated it, use [infer_posterior_dimensions()] with model source and
-#' matching data. CmdStanR uses its unconstrain-draws method and may need
-#' compiled model methods and the fit's supporting files. CSV values must retain
-#' enough precision for constrained parameters; request
-#' `sig_figs = 18` when sampling with CmdStanR. Rounded values can fail its
-#' unconstraining checks. The source/data inference helper uses full precision.
-#' Only parameter-block variables with nonzero unconstrained counts are returned,
-#' not transformed
-#' parameters or generated quantities. Parameters with zero free coordinates
-#' (such as `simplex[1]`) have no count entry; fit import and bundles retain
-#' their saved values using the parameter-block schema. Unknown names and empty
-#' count selections raise errors.
+#' Only model parameters are returned, not transformed parameters or
+#' generated quantities. A parameter with no free value, such as a
+#' `simplex[1]`, has no entry.
+#'
+#' A `stanfit` that was saved and reloaded in a new R session may have lost
+#' its compiled model; in that case use [infer_posterior_dimensions()] with
+#' the model code and data instead.
+#'
+#' For CmdStanR fits, the model and output files must still be available,
+#' and the fit should be sampled with `sig_figs = 18`. Values rounded to
+#' fewer digits can violate parameter constraints and be rejected.
 #' @seealso [infer_posterior_dimensions()], [reconstruct_stan_output()]
 #' @md
 #' @export
