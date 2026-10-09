@@ -18,6 +18,27 @@ alignment_reference_draws <- function() {
   as.reference_posterior_draws(posterior::as_draws_list(values), metadata)
 }
 
+test_that("diagnostic labels must identify the retained variables and chains", {
+  x <- alignment_reference_draws()
+  expect_silent(check_reference_posterior_draws(x))
+  for (field in c("mean_lag1_ac", "r_hat", "expected_fraction_of_missing_information",
+                  "divergent_transitions")) {
+    malformed <- x
+    metadata <- info(x)
+    names(metadata$diagnostics[[field]])[1] <- "unrelated"
+    info(malformed) <- metadata
+    expect_error(check_reference_posterior_draws(malformed), field)
+    expect_error(check_summary_statistics_draws(malformed), field)
+    metadata$checks_made <- bundle_acceptance_flags()
+    info(malformed) <- metadata
+    expect_error(assert_checked_reference_posterior_draws(malformed), field)
+  }
+  metadata <- info(x)
+  metadata$diagnostics$diagnostic_information$names <- c("wrong", "beta")
+  info(x) <- metadata
+  expect_error(check_reference_posterior_draws(x), "diagnostic_information")
+})
+
 test_that("legacy positional metrics and reordered named metrics remain supported", {
   x <- alignment_reference_draws()
   metadata <- info(x)
@@ -34,4 +55,14 @@ test_that("legacy positional metrics and reordered named metrics remain supporte
   info(x) <- metadata
   checked <- check_reference_posterior_draws(x)
   expect_false(info(checked)$checks_made$ess_within_bounds)
+})
+
+test_that("report evaluation rejects malformed metrics and shares count rules", {
+  expect_false(reference_diagnostic_evaluation(list(nchains = c(4, 4)), "nchains")$status$nchains)
+  expect_false(reference_diagnostic_evaluation(list(r_hat = "1"), "r_hat")$status$r_hat)
+  expect_false(reference_diagnostic_evaluation(list(ndraws = 11000L), "ndraws")$status$ndraws)
+  report <- reference_diagnostic_evaluation(list(ndraws = 11000L), "ndraws", summary = TRUE)
+  expect_true(report$status$ndraws)
+  expect_identical(bundle_acceptance_flags(), stats::setNames(
+    rep(list(TRUE), 6), required_reference_draw_checks("stan_sampling")))
 })

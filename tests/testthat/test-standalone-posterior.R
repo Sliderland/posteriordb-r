@@ -55,6 +55,50 @@ test_that("embedded content is validated with and without an attached database",
   expect_identical(model_code(po, "stan"), po$embedded_model_code)
 })
 
+test_that("standalone content survives serialization in a fresh R process", {
+  po <- standalone_posterior_fixture()
+  # Only the extraction boundary is stubbed; construction and all getters use
+  # the public API. The real stanfit extraction is covered separately.
+  extracted <- list(draws = posterior::as_draws_array(po$embedded_reference_draws),
+    sampler_diagnostics = NULL, metadata = list(),
+    source = as.character(po$embedded_model_code), dimensions = po$dimensions,
+    fit_class = "stanfit", import_versions = list())
+  testthat::local_mocked_bindings(extract_rstan_fit = function(...) extracted)
+  bundle <- create_pdb_bundle(structure(list(), class = "stanfit"),
+    data = list(y = get_data(po)$y),
+    data_info = list(name = "standalone-data", title = "Inputs"),
+    model_info = list(name = "standalone-model", title = "Model"), check = FALSE)
+  serialized <- tempfile(fileext = ".rds")
+  script <- tempfile(fileext = ".R")
+  on.exit(unlink(c(serialized, script)), add = TRUE)
+  saveRDS(bundle, serialized)
+  package_path <- getNamespaceInfo(asNamespace("posteriordb"), "path")
+  config <- list(libraries = .libPaths(), package_path = package_path, rds = serialized)
+  config_path <- tempfile(fileext = ".rds")
+  on.exit(unlink(config_path), add = TRUE)
+  saveRDS(config, config_path)
+  writeLines(c(
+    "config <- readRDS(commandArgs(TRUE)[1])",
+    ".libPaths(config$libraries)",
+    "if (file.exists(file.path(config$package_path, 'R', 'posterior.R'))) {",
+    "  pkgload::load_all(config$package_path, quiet = TRUE)",
+    "} else library(posteriordb, lib.loc = dirname(config$package_path))",
+    "bundle <- readRDS(config$rds)",
+    "stopifnot(inherits(bundle, 'pdb_reference_bundle'))",
+    "po <- bundle$posterior",
+    "stopifnot(identical(get_data(po), bundle$data))",
+    "stopifnot(identical(model_code(po, 'stan'), bundle$model_code))",
+    "stopifnot(identical(reference_posterior_draws(po), bundle$reference_draws))",
+    "stopifnot(is.null(pdb(po)), identical(get_data(po)$y, matrix(1:6,2,3)))",
+    "stopifnot(identical(model_code(po, 'stan'), po$embedded_model_code))",
+    "stopifnot(identical(reference_posterior_draws(po), po$embedded_reference_draws))",
+    "stopifnot(identical(reference_posterior_draws_info(po), info(po$embedded_reference_draws)))"
+  ), script)
+  output <- system2(file.path(R.home("bin"), "Rscript"),
+    c("--vanilla", shQuote(script), shQuote(config_path)), stdout = TRUE, stderr = TRUE)
+  expect_equal(attr(output, "status") %||% 0L, 0L, info = paste(output, collapse = "\n"))
+})
+
 test_that("posterior checking uses supplied standalone and connected content", {
   object <- standalone_posterior_fixture()
   expect_identical(check_pdb_posterior(object, run_stan_code_checks = FALSE, verbose = FALSE), TRUE)

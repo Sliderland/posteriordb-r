@@ -1,3 +1,24 @@
+test_that("stored and report diagnostics agree on the same retained arrays", {
+  set.seed(412)
+  draws <- posterior::as_draws_array(array(rnorm(800), c(100, 4, 2),
+    dimnames = list(NULL, NULL, c("alpha", "beta"))))
+  sampler <- posterior::as_draws_array(array(0, c(100, 4, 3),
+    dimnames = list(NULL, NULL, c("energy__", "divergent__", "treedepth__"))))
+  sampler[, , "energy__"] <- matrix(rnorm(400), 100, 4)
+  sampler[1, 2, "divergent__"] <- 1
+  sampler[, , "treedepth__"] <- 5
+  metadata <- list(expected_fraction_of_missing_information = rep(.5, 4), max_treedepth = 10)
+  extracted <- list(draws = draws, sampler_diagnostics = sampler, metadata = metadata)
+  report <- bundle_full_diagnostic_report(extracted)
+  stored <- compute_stan_sampling_diagnostics(draws, c("alpha", "beta"),
+    sampler, metadata$expected_fraction_of_missing_information, metadata$max_treedepth)
+  for (field in c("mean_lag1_ac", "r_hat", "effective_sample_size_bulk", "effective_sample_size_tail"))
+    expect_equal(stored[[field]], report$metrics[[field]])
+  expect_equal(stored$divergent_transitions, unname(report$metrics$divergent_transitions))
+  expect_equal(stored$expected_fraction_of_missing_information, unname(report$metrics$efmi))
+  expect_equal(stored$max_treedepth_exceeded, rep(0, 4))
+  expect_equal(unname(report$metrics$max_treedepth_observed_by_chain), rep(5, 4))
+})
 
 test_that("backend-neutral stored diagnostics do not call RStan for missing metrics", {
   set.seed(412)

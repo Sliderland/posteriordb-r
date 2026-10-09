@@ -38,14 +38,24 @@ cloned and is accessible locally.
 my_pdb <- pdb_local()
 ```
 
-The above code requires that your working directory be the cloned
-repository’s main folder. Otherwise, we can use the `path` argument in
-`pdb_local()` to point to the local posterior database. We can also set
-the environment variable `PBD_PATH` to handle the connection. For more
-details, see `?pdb`.
+Pass the database directory explicitly, or set `PDB_PATH`. The
+`pdb_path` option takes precedence over that environment variable. The
+path must contain the database’s `data`, `models` and `posteriors`
+directories; it may be the `posterior_database` subdirectory of a cloned
+repository.
 
-The most straightforward approach is to use the GitHub repository
-directly to access the database.
+``` r
+my_pdb <- pdb_local("/path/to/posteriordb/posterior_database")
+# Alternatively: Sys.setenv(PDB_PATH = "/path/to/posterior_database")
+```
+
+Local access needs no Stan backend, YAML configuration or GitHub
+packages. `pdb_config()` optionally reads `.pdb_config.yml` using
+`yaml`; its `type` must be `local` or `github`. GitHub connections
+require `remotes`, and content downloads require `httr`. For more
+details, see `?pdb_local`.
+
+To access the database remotely, use a GitHub connection:
 
 ``` r
 my_pdb <- pdb_github()
@@ -54,10 +64,45 @@ my_pdb <- pdb_github()
 When you have a connection to the posterior database of choice, you can
 access the data, models etc., using the same functionality.
 
-## Contributing content using R
+## Choose a workflow
 
-If you want to contribute to a posteriordb, see the vignette
-[vignettes/contributing](https://htmlpreview.github.io/?https://github.com/stan-dev/posteriordb-r/blob/main/vignettes/contributing.html).
+| Task | Entry point |
+|------------------------------------|------------------------------------|
+| Read an existing posterior | `posterior(name, my_pdb)`, then data/model/reference getters |
+| Build a posterior from in-memory components | `as.posterior(list(pdb_model_code = code, pdb_data = data, dimensions = counts), pdb = my_pdb)` |
+| Prepare a contribution from a completed RStan fit | `create_pdb_bundle(fit, data = inputs, ...)`, then inspect and explicitly write the bundle |
+| Import a completed RStan or CmdStanR fit for an existing posterior | `import_reference_posterior_draws(fit, posterior = name, pdb = my_pdb, write = FALSE)` |
+| Run several existing reference workflows sequentially | `sequential_batch_workflow(reference_posteriors, sampling, pdb = my_pdb)` |
+
+The [bundle and fit-import guide](doc/CREATE_PDB_BUNDLE.md) explains
+metadata, variable selection, diagnostics, writing, batch argument forms
+and recovery. `dimensions` records positive unconstrained parameter
+counts, rather than saved array shapes. CmdStanR fit import needs
+supporting files and enough CSV precision for constrained values
+(`sig_figs = 18` when sampling). Bundle construction currently supports
+RStan.
+
+`create_pdb_bundle()` builds in memory. With `check = FALSE` it defers
+diagnostic calculation; structural validation still applies. The
+existing-posterior importer always checks draws and returns failed
+candidates for inspection when `write = FALSE`. Accepted reference draws
+require exactly 10,000 retained draws. Stan reference draws also require
+at least four chains and the documented diagnostic gates. ESS is
+informational.
+
+Explicit bundle/component writes are sequential: an I/O error can leave
+earlier components on disk, and the error identifies the failed
+destination and completed bundle components. Inspect those files before
+retrying and review them in the contribution pull request.
+Existing-posterior fit import stages and verifies its files together and
+attempts rollback on failure. Refresh the connection or clear its cache
+after ordinary component writes/removals.
+
+For contributions, follow the [contribution
+guide](vignettes/contributing.Rmd) and submit a pull request to
+PosteriorDB. Neither preparing nor writing a local bundle publishes it.
+All examples below are illustrative and are not executed when rendering
+this README; available content depends on the selected database.
 
 ## Access content
 
@@ -68,28 +113,16 @@ pos <- posterior_names(my_pdb)
 head(pos)
 ```
 
-    ## [1] "arK-arK"                         "arma-arma11"                    
-    ## [3] "bball_drive_event_0-hmm_drive_0" "bball_drive_event_1-hmm_drive_1"
-    ## [5] "bones_data-bones_model"          "butterfly-multi_occupancy"
-
 In the same fashion, we can list data and models included in the
 database as
 
 ``` r
 mn <- model_names(my_pdb)
 head(mn)
-```
 
-    ## [1] "2pl_latent_reg_irt" "accel_gp"           "accel_splines"     
-    ## [4] "arK"                "arma11"             "blr"
-
-``` r
 dn <- data_names(my_pdb)
 head(dn)
 ```
-
-    ## [1] "arK"                 "arma"                "bball_drive_event_0"
-    ## [4] "bball_drive_event_1" "bones_data"          "butterfly"
 
 We can also get all information on each posterior as a table with
 
@@ -98,19 +131,9 @@ pos <- posteriors_tbl_df(my_pdb)
 head(pos)
 ```
 
-    ## # A tibble: 6 × 7
-    ##   name        model_name reference_poste… data_name added_by added_date keywords
-    ##   <chr>       <chr>      <chr>            <chr>     <chr>    <date>     <chr>   
-    ## 1 arK-arK     arK        arK-arK          arK       Mans Ma… 2019-11-19 stan_be…
-    ## 2 arma-arma11 arma11     arma-arma11      arma      Mans Ma… 2020-01-08 stan_be…
-    ## 3 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_ex…
-    ## 4 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_be…
-    ## 5 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_ex…
-    ## 6 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_be…
-
-The posterior’s name is made up of the data and model fitted to the
-data. Together, these two uniquely define a posterior distribution. To
-access a posterior object, we can use the posterior name.
+A posterior record links its data and model by metadata. Its saved name
+need not be derived from those component names. To access a saved
+posterior, use its name:
 
 ``` r
 po <- posterior("eight_schools-eight_schools_centered", my_pdb)
@@ -122,38 +145,10 @@ code in this case) and other useful information.
 ``` r
 dat <- pdb_data(po)
 dat
-```
 
-    ## $J
-    ## [1] 8
-    ## 
-    ## $y
-    ## [1] 28  8 -3  7 -1  1 18 12
-    ## 
-    ## $sigma
-    ## [1] 15 10 16 11  9 11 10 18
-
-``` r
 code <- stan_code(po)
 code
 ```
-
-    ## data {
-    ##   int <lower=0> J; // number of schools
-    ##   real y[J]; // estimated treatment
-    ##   real<lower=0> sigma[J]; // std of estimated effect
-    ## }
-    ## parameters {
-    ##   real theta[J]; // treatment effect in school j
-    ##   real mu; // hyper-parameter of mean
-    ##   real<lower=0> tau; // hyper-parameter of sdv
-    ## }
-    ## model {
-    ##   tau ~ cauchy(0, 5); // a non-informative prior
-    ##   theta ~ normal(mu, tau);
-    ##   y ~ normal(theta, sigma);
-    ##   mu ~ normal(0, 5);
-    ## }
 
 We can also access the paths to data after they have been unzipped and
 copied to the cache directory set in `pdb` (the R temp directory by
@@ -162,36 +157,20 @@ default).
 ``` r
 dfp <- data_file_path(po)
 dfp
-```
 
-    ## [1] "/var/folders/8x/bgssdq5n6dx1_ydrhq1zgrym0000gn/T//Rtmpwafi9o/posteriordb_cache/data/data/eight_schools.json"
-
-``` r
 scfp <- stan_code_file_path(po)
 scfp
 ```
-
-    ## [1] "/var/folders/8x/bgssdq5n6dx1_ydrhq1zgrym0000gn/T//Rtmpwafi9o/posteriordb_cache/models/stan/eight_schools_centered.stan"
 
 We can also access information regarding the model and the data used to
 compute the posterior.
 
 ``` r
 data_info(po)
-```
-
-    ## Data: eight_schools
-    ## The 8 schools dataset of Rubin (1981)
-
-``` r
 model_info(po)
 ```
 
-    ## Model: eight_schools_centered
-    ## A centered hiearchical model for 8 schools
-    ## Frameworks: 'stan', 'pymc3'
-
-Note that the references reference BibTeX items found in
+Citation keys refer to BibTeX items found in
 `content/references/references.bib`.
 
 We can access most of the posterior information as a `tbl_df` using
@@ -201,44 +180,15 @@ tbl <- posteriors_tbl_df(my_pdb)
 head(tbl)
 ```
 
-    ## # A tibble: 6 × 7
-    ##   name        model_name reference_poste… data_name added_by added_date keywords
-    ##   <chr>       <chr>      <chr>            <chr>     <chr>    <date>     <chr>   
-    ## 1 arK-arK     arK        arK-arK          arK       Mans Ma… 2019-11-19 stan_be…
-    ## 2 arma-arma11 arma11     arma-arma11      arma      Mans Ma… 2020-01-08 stan_be…
-    ## 3 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_ex…
-    ## 4 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_be…
-    ## 5 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_ex…
-    ## 6 bball_driv… hmm_drive… bball_drive_eve… bball_dr… Oliver … 2020-05-10 stan_be…
-
-In addition, we can also access a list of posteriors with
-`filter_posteriors()`. The filtering function follows dplyr filter
-semantics.
+Use `filter_posteriors()` to return matching posterior objects. This
+optional workflow requires `dplyr` and follows its filter syntax;
+listing metadata tables with `posteriors_tbl_df()` does not require
+`dplyr`.
 
 ``` r
 pos <- filter_posteriors(pdb = my_pdb, data_name == "eight_schools")
 pos
 ```
-
-    ## [[1]]
-    ## Posterior (eight_schools-eight_schools_centered)
-    ## 
-    ## Data: eight_schools
-    ## The 8 schools dataset of Rubin (1981)
-    ## 
-    ## Model: eight_schools_centered
-    ## A centered hiearchical model for 8 schools
-    ## Frameworks: 'stan', 'pymc3'
-    ## 
-    ## [[2]]
-    ## Posterior (eight_schools-eight_schools_noncentered)
-    ## 
-    ## Data: eight_schools
-    ## The 8 schools dataset of Rubin (1981)
-    ## 
-    ## Model: eight_schools_noncentered
-    ## A non-centered hiearchical model for 8 schools
-    ## Frameworks: 'stan'
 
 To access reference posterior draws, we use
 `reference_posterior_draws()`.
@@ -247,27 +197,15 @@ To access reference posterior draws, we use
 rpd <- reference_posterior_draws(po)
 ```
 
-The function `reference_posterior_draws()` returns a posterior
-`draws_list` object that can be summarized and transformed using the
-`posterior` package.
+`reference_posterior_draws()` returns a `pdb_reference_posterior_draws`
+object that also inherits from `posterior::draws_list`. The dotted
+`as.reference_posterior_draws()` wraps existing draw arrays/lists; the
+underscore `as_reference_posterior_draws()` converts and checks a
+completed Stan fit. Summarize stored draws with the `posterior` package:
 
 ``` r
 posterior::summarize_draws(rpd)
 ```
-
-    ## # A tibble: 10 × 10
-    ##    variable  mean median    sd   mad     q5   q95  rhat ess_bulk ess_tail
-    ##    <chr>    <dbl>  <dbl> <dbl> <dbl>  <dbl> <dbl> <dbl>    <dbl>    <dbl>
-    ##  1 theta[1]  6.15   5.59  5.62  4.56 -1.68  16.3   1.00   10095.    9732.
-    ##  2 theta[2]  4.94   4.77  4.65  4.14 -2.22  12.8   1.00   10049.   10139.
-    ##  3 theta[3]  3.91   4.11  5.28  4.48 -4.91  11.8   1.00    9533.    9339.
-    ##  4 theta[4]  4.80   4.70  4.77  4.22 -2.67  12.6   1.00   10026.    9666.
-    ##  5 theta[5]  3.61   3.82  4.61  4.15 -4.26  10.6   1.00    9922.   10207.
-    ##  6 theta[6]  4.05   4.16  4.80  4.32 -3.87  11.5   1.00    9783.   10039.
-    ##  7 theta[7]  6.32   5.80  5.00  4.39 -0.855 15.3   1.00   10039.    9690.
-    ##  8 theta[8]  4.88   4.79  5.32  4.47 -3.32  13.5   1.00    9605.    9871.
-    ##  9 mu        4.41   4.36  3.31  3.30 -0.936  9.83  1.00   10041.    9973.
-    ## 10 tau       3.60   2.75  3.20  2.55  0.257  9.73  1.00    9989.    9992.
 
 To access information on the reference posterior we can use
 `reference_posterior_draws_info()` or use `info()` on the reference
@@ -277,28 +215,34 @@ reference posterior was computed.
 ``` r
 rpi <- reference_posterior_draws_info(po)
 rpi
-```
 
-    ## Posterior: eight_schools-eight_schools_noncentered
-    ## Method: stan_sampling (rstan 2.21.1)
-    ## Arguments:
-    ##   chains: 10
-    ##   iter: 20000
-    ##   warmup: 10000
-    ##   thin: 10
-    ##   seed: 4711
-    ##     adapt_delta: 0.95
-
-``` r
 info(rpd)
 ```
 
-    ## Posterior: eight_schools-eight_schools_noncentered
-    ## Method: stan_sampling (rstan 2.21.1)
-    ## Arguments:
-    ##   chains: 10
-    ##   iter: 20000
-    ##   warmup: 10000
-    ##   thin: 10
-    ##   seed: 4711
-    ##     adapt_delta: 0.95
+## Running tests
+
+The standard suite uses local fixtures. It does not clone PosteriorDB or
+run Stan compilation/MCMC or live GitHub requests:
+
+``` r
+pkgload::load_all(".", helpers = FALSE, export_all = FALSE)
+testthat::test_dir("tests/testthat", package = "posteriordb")
+```
+
+Opt in separately with `PDB_TEST_DATABASE=true`, `PDB_TEST_STAN=true`,
+or `PDB_TEST_GITHUB=true`. Corpus tests also need an existing checkout
+in `PDB_PATH` (or `options(pdb_path=...)`, which takes precedence). Each
+corpus test copies that checkout and uses a temporary working directory,
+restoring settings and removing its copy even on failure. This also
+applies to `testthat::test_file()` and `devtools::test()` through the
+safety helper. Keep helper loading enabled. Tests never clone a database
+implicitly.
+
+Real Stan tests require the selected backend and compiler; live GitHub
+tests also require the existing credentials. The older contribution
+integration test runs a substantial sampling job and needs both database
+and Stan flags. Use a chosen PosteriorDB commit when comparing corpus
+results. The manual `Database integration` workflow takes a full commit
+SHA; ordinary check and coverage jobs run the offline suite. External
+corpus compatibility and real backend results are reported separately
+from fixture tests.
