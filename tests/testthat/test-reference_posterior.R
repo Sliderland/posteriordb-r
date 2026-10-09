@@ -1,6 +1,7 @@
 context("test-pdb-reference_posterior")
 
 test_that("Check that reference_posterior works as expected", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))

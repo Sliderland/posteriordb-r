@@ -55,7 +55,8 @@ check_pdb_all_reference_posteriors_have_posterior(pdb)
 \item{po}{a \code{pdb_posterior} object.}
 }
 \value{
-a boolean indicating if the pdb works as it should.
+\code{check_pdb()} invisibly returns integer status \code{0L} if all
+  checks succeed, or \code{1L} if any check fails.
 }
 \description{
 Check the content a posterior database
@@ -71,4 +72,6 @@ Check the content a posterior database
 [check_pdb_all_models_have_posterior()] check that all models belong to a posterior
 [check_pdb_all_data_have_posterior()] check that all datasets belong to a posterior
 [check_pdb_all_reference_posteriors_have_posterior()] check that all reference posteriors belong to a posterior
+Saved posterior records are loaded before [check_pdb_posterior()] validates
+them. Checking an object directly instead inspects its supplied content.
 }
