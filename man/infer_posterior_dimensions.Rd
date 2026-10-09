@@ -19,15 +19,12 @@ infer_posterior_dimensions(
 
 \item{data}{A named list of Stan data or a \code{pdb_data} object.}
 
-\item{include}{Optional unique base parameter names to retain. \code{NULL}
-(the default) or \code{"all"} retains all nonzero parameter counts. \code{"none"}
-or \code{character(0)} selects nothing and raises an empty-selection error.}
+\item{include}{Names of model parameters to return counts for. The
+default \code{NULL} (or \code{"all"}) returns every parameter.}
 
-\item{exclude}{Unique base parameter names to omit. \code{NULL}, \code{character(0)},
-or \code{"none"} excludes nothing. \code{"all"} selects nothing and raises an
-empty-selection error. A name cannot appear in both selectors. Derived
-outputs are not parameter names for these helpers; \code{lp__} may be excluded
-but cannot be included. \code{"all"} and \code{"none"} are reserved when used alone.}
+\item{exclude}{Names of model parameters to leave out. Naming a parameter
+in both \code{include} and \code{exclude}, using an unknown name, or leaving no
+parameters is an error.}
 
 \item{backend}{Stan backend, either \code{"rstan"} or \code{"cmdstanr"}.}
 
@@ -38,22 +35,19 @@ warmup and sampling. RStan compiles without sampling.}
 A named list of positive integer unconstrained parameter counts.
 }
 \description{
-Compile a Stan model and obtain the number of unconstrained coordinates for
-each parameter (RStan uses a zero-chain fit; CmdStanR uses a short fit).
-These scalar counts are the values stored
-in PosteriorDB posterior \code{dimensions}; they are not the constrained output
-shapes of the variables.
+Compiles a Stan model and returns the number of unconstrained parameters
+for each model parameter. These counts are what a PosteriorDB posterior
+stores in \code{dimensions}; they are not the shapes of the saved variables.
 }
 \details{
-Parameter sizes depend on the matching model data. An unconstrained
-\code{matrix[2,3]} contributes six coordinates, while a \code{simplex[3]} contributes
-two, despite having three constrained output elements. Transformed
-parameters and generated quantities do not contribute independent coordinates.
-Unknown names and selections leaving no parameters raise errors.
+An unconstrained \code{matrix[2,3]} counts as six, while a \code{simplex[3]} counts
+as two even though three values are saved for it. Transformed parameters
+and generated quantities have no count. Counts can depend on the data, so
+supply the data that goes with the model.
 
-RStan compiles and initializes a zero-chain fit without MCMC. CmdStanR
-currently compiles and runs a short single-chain fit; its draws are used
-only to obtain coordinate names, not as reference draws.
+With \code{backend = "rstan"} the model is compiled but not sampled. With
+\code{backend = "cmdstanr"} a very short fit of \code{iter} iterations is run to
+read off the parameter names; its draws are discarded.
 }
 \seealso{
 \code{\link[=infer_unconstrained_parameter_counts_from_fit]{infer_unconstrained_parameter_counts_from_fit()}}, \code{\link[=create_pdb_bundle]{create_pdb_bundle()}}

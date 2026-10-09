@@ -1,62 +1,51 @@
-#' Convert an externally sampled Stan fit to reference-posterior draws
+#' Convert a sampled Stan fit to reference-posterior draws
 #'
-#' Sampling is deliberately kept outside this package. This function accepts a
-#' completed post-warmup `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object,
-#' keeps all saved model outputs by default, with the selection controlled by
-#' `include` and `exclude`, computes the
-#' usual reference-posterior diagnostics, and returns the in-memory object
-#' without writing to a database. For CmdStanR, calling this function reads the
-#' draws and sampler diagnostics from the fit's CSV output files.
-#' All saved scalar output columns for each selected base variable are retained.
-#' Selected outputs are diagnosed and included in any written summaries.
-#' All inferred parameter-block variables and variables named in posterior
-#' dimensions are always retained. Declared counts for actual model parameters
-#' must match the fit's unconstrained counts; dimensions naming derived outputs
-#' are permitted when those outputs are saved in the fit. The importer does not verify that the fit used the posterior's
-#' model source code or data.
-#' Version fields for R, its session and Makevars describe the import
-#' environment. Backend package versions describe the installed interface;
-#' RStan's recorded Stan version also comes from its installed library.
-#' A Stan version reported by CmdStan CSV metadata describes the fitted
-#' executable and is retained when available. Environment versions do not
-#' establish an archived fit's original sampling environment.
-#' Unlike the dotted [as.reference_posterior_draws()] wrapper, this function
-#' performs fit import, parameter-count validation and reference checks.
-#' The historical `as_reference_posterior_draws_from_stanfit()` and
-#' `as_reference_posterior_draws_from_cmdstanr()` are aliases for this generic;
-#' dispatch follows the actual fit class, not the alias name.
+#' Takes a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` fit for an
+#' existing posterior, keeps the selected variables, runs the reference-draw
+#' checks, and returns the result in memory. Nothing is sampled and nothing is
+#' written; use [import_reference_posterior_draws()] to also write the draws.
+#'
+#' The fit's unconstrained parameter counts must match the posterior's
+#' `dimensions`. The function cannot confirm that the fit used the model code
+#' and data linked to that posterior.
+#'
+#' This differs from [as.reference_posterior_draws()] (with dots), which only
+#' attaches metadata to draws you prepared yourself and runs no checks.
+#'
+#' @details
+#' For CmdStanR, the draws and sampler diagnostics are read from the fit's CSV
+#' output files, so those files must still exist.
+#'
+#' The version information recorded with the draws describes the R session
+#' doing the conversion. For CmdStanR fits, the Stan version stored in the CSV
+#' files is also kept. None of this proves which versions were used for
+#' sampling.
 #'
 #' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
 #' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
 #' @param pdb a local or remote PosteriorDB connection used to resolve a name.
-#' @param dimensions optional named list of unconstrained parameter counts. When omitted,
-#'   `posterior$dimensions` is authoritative.
-#' @param include Optional character vector of additional saved base variable
-#'   names to retain, diagnose, and summarize. Names in posterior dimensions
-#'   and inferred parameter-block variables are always added. The default
-#'   `NULL`, or `"all"`, retains every saved output except `lp__`.
-#'   `"none"` or `character(0)` retains only required variables.
-#' @param exclude Optional character vector of saved base variable names to
-#'   omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
-#'   removes all optional outputs, retaining required variables. Explicit
-#'   exclusions of dimension or parameter-block variables, or names appearing
-#'   in both selectors, are configuration errors. Unknown names raise errors;
-#'   base names select every indexed column. `"all"` and `"none"` are reserved
-#'   when used alone in either selector.
-#' @param policy Compatibility argument; must be `NULL`. Acceptance uses the
-#'   fixed package checks; caller-supplied policies are rejected.
-#' @param ... optional metadata fields such as `comments`, `added_by`,
+#' @param dimensions optional named list of unconstrained parameter counts.
+#'   Defaults to the posterior's `dimensions`.
+#' @param include Base names of saved variables to keep. The default `NULL`
+#'   (or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+#'   `character(0)`) keeps only the required variables: the model's
+#'   parameters and any variable listed in the posterior's `dimensions`.
+#'   A base name selects all of that variable's elements.
+#' @param exclude Base names of saved variables to drop. The default `NULL`
+#'   (or `"none"`) drops nothing; `"all"` drops everything except the
+#'   required variables. Excluding a required variable, naming a variable in
+#'   both `include` and `exclude`, or using an unknown name is an error.
+#' @param ... optional metadata fields: `comments`, `added_by`,
 #'   `added_date`, and `sampling_timestamp`.
-#' @return A `pdb_reference_posterior_draws` object. If a required check fails,
-#'   the object is returned with the failure recorded in its `checks_made`
-#'   metadata; it is not eligible for writing.
+#' @return A `pdb_reference_posterior_draws` object. If a check fails, the
+#'   object is still returned, with the failure recorded in its `checks_made`
+#'   metadata; it cannot be written.
 #' @export
 as_reference_posterior_draws <- function(
   fit,
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
   include = NULL,
   exclude = NULL,
   ...
@@ -71,13 +60,12 @@ as_reference_posterior_draws.stanfit <- function(
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
   include = NULL,
   exclude = NULL,
   ...
 ) {
   as_reference_posterior_draws_external(
-    fit, posterior, pdb, dimensions, policy,
+    fit, posterior, pdb, dimensions,
     include = include, exclude = exclude, ...
   )
 }
@@ -89,13 +77,12 @@ as_reference_posterior_draws.CmdStanMCMC <- function(
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
   include = NULL,
   exclude = NULL,
   ...
 ) {
   as_reference_posterior_draws_external(
-    fit, posterior, pdb, dimensions, policy,
+    fit, posterior, pdb, dimensions,
     include = include, exclude = exclude, ...
   )
 }
@@ -105,16 +92,12 @@ as_reference_posterior_draws_external <- function(
   posterior,
   pdb,
   dimensions,
-  policy,
   include = NULL,
   exclude = NULL,
   ...
 ) {
   checkmate::assert_class(pdb, "pdb")
   validate_variable_selections(include, exclude)
-  if (!is.null(policy)) {
-    stop("Custom diagnostic policies are not implemented; `policy` must be NULL.", call. = FALSE)
-  }
   dots <- list(...)
   if (length(dots) &&
       (is.null(names(dots)) || anyNA(names(dots)) ||
@@ -214,74 +197,38 @@ as_reference_posterior_draws.default <- function(fit, ...) {
   )
 }
 
-#' @rdname as_reference_posterior_draws
-#' @export
-as_reference_posterior_draws_from_stanfit <- as_reference_posterior_draws
-
-#' @rdname as_reference_posterior_draws
-#' @export
-as_reference_posterior_draws_from_cmdstanr <- as_reference_posterior_draws
-
-#' Import externally sampled Stan draws into a local PosteriorDB
+#' Import a sampled Stan fit as reference draws for an existing posterior
 #'
-#' This is the writing wrapper around
-#' [as_reference_posterior_draws()]. Sampling is never performed
-#' by this function. Conversion runs the complete reference-draw checks
-#' regardless of the `write` setting. With `write = FALSE` (the default), the
-#' checked object is returned in memory, including any failed checks. With
-#' `write = TRUE`, all required checks must pass before writing. The
-#' reference-draw files, summary-statistic files (by default), and any new
-#' posterior link are staged and round-trip verified together. The target
-#' posterior must already exist in the local database. Existing data and model
-#' files are not rewritten.
-#' On failure the importer attempts to remove installed files and restore
-#' originals. If rollback is incomplete, warnings identify remaining installed
-#' files and retained backups with their intended destinations for recovery.
+#' Converts and checks a completed fit with [as_reference_posterior_draws()],
+#' and with `write = TRUE` writes the draws and their summary statistics to a
+#' local database and links them to the posterior. Nothing is sampled.
 #'
-#' The importer selects all saved model outputs by default. Named `include`
-#' values select outputs in addition to the required parameter block and
-#' posterior dimensions. `exclude`
-#' may remove additional outputs, but cannot remove dimension variables or
-#' inferred parameter-block variables, which are always retained.
-#' Diagnostics and summaries use the resulting selection. The importer verifies
-#' declared unconstrained counts for actual parameter-block variables. Dimensions
-#' may also name saved derived outputs; these have no independent unconstrained
-#' counts to compare. Additional outputs may be
-#' transformed parameters or generated quantities. It does not compare
-#' the fit's Stan source code
-#' or sampling data with the source and data linked to that posterior.
+#' With `write = FALSE` (the default) the checked draws are returned and
+#' nothing is written, even if a check failed. With `write = TRUE` every check
+#' must pass, and the posterior must already exist in the database. Its data
+#' and model files are not changed.
 #'
-#' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
-#' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
-#' @param pdb a local PosteriorDB object. Required when `write = TRUE`; when
-#'   `write = FALSE`, it is used to resolve a posterior name.
-#' @param dimensions optional named list of unconstrained parameter counts.
-#' @param include Optional character vector of additional saved base variable
-#'   names to retain, diagnose, and summarize. Names in posterior dimensions
-#'   and inferred parameter-block variables are always added. The default
-#'   `NULL`, or `"all"`, retains every saved output except `lp__`.
-#'   `"none"` or `character(0)` retains only required variables.
-#' @param exclude Optional character vector of saved base variable names to
-#'   omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
-#'   removes all optional outputs, retaining required variables. Explicit
-#'   exclusions of dimension or parameter-block variables, or names appearing
-#'   in both selectors, are configuration errors. Unknown names raise errors;
-#'   base names select every indexed column. `"all"` and `"none"` are reserved
-#'   when used alone in either selector.
-#' @param policy Compatibility argument; must be `NULL`. Acceptance uses the
-#'   fixed package checks; caller-supplied policies are rejected.
-#' @param write whether to write the validated result to `pdb`.
+#' @details
+#' The write is all or nothing: if any step fails, the files already written
+#' are removed and any replaced files are restored. If that cannot be
+#' completed, warnings list the files left behind and the backups to restore.
+#'
+#' A posterior with no linked reference draws is linked to the new draws. A
+#' posterior already linked to different reference draws is rejected.
+#'
+#' @inheritParams as_reference_posterior_draws
+#' @param pdb a local PosteriorDB connection. Required when `write = TRUE`;
+#'   when `write = FALSE`, it is used to resolve a posterior name.
+#' @param write whether to write the checked draws to `pdb`.
 #' @param overwrite whether existing reference-posterior files may be replaced.
-#' @param write_summary_statistics whether to also write the supported summary
+#' @param write_summary_statistics whether to also write the summary
 #'   statistics (`mean_value` and `mean_squared_value`) when `write = TRUE`.
-#'   Defaults to `TRUE`.
-#' @param ... optional metadata fields forwarded to the conversion function.
 #' @return A `pdb_reference_posterior_draws` object.
 #' @examples
 #' \dontrun{
 #' imported <- import_reference_posterior_draws(
 #'   fit,
-#'   posterior = "existing-data-existing-model",
+#'   posterior = "existing_data-existing_model",
 #'   pdb = pdb_local("/path/to/posterior_database"),
 #'   write = TRUE
 #' )
@@ -293,7 +240,6 @@ import_reference_posterior_draws <- function(
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
   write = FALSE,
   overwrite = FALSE,
   write_summary_statistics = TRUE,
@@ -314,7 +260,6 @@ import_reference_posterior_draws <- function(
     posterior = posterior,
     pdb = pdb,
     dimensions = dimensions,
-    policy = policy,
     include = include,
     exclude = exclude,
     ...

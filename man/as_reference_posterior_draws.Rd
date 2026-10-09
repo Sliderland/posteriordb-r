@@ -4,16 +4,13 @@
 \alias{as_reference_posterior_draws}
 \alias{as_reference_posterior_draws.stanfit}
 \alias{as_reference_posterior_draws.CmdStanMCMC}
-\alias{as_reference_posterior_draws_from_stanfit}
-\alias{as_reference_posterior_draws_from_cmdstanr}
-\title{Convert an externally sampled Stan fit to reference-posterior draws}
+\title{Convert a sampled Stan fit to reference-posterior draws}
 \usage{
 as_reference_posterior_draws(
   fit,
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
   include = NULL,
   exclude = NULL,
   ...
@@ -24,7 +21,6 @@ as_reference_posterior_draws(
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
   include = NULL,
   exclude = NULL,
   ...
@@ -35,29 +31,6 @@ as_reference_posterior_draws(
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
-  include = NULL,
-  exclude = NULL,
-  ...
-)
-
-as_reference_posterior_draws_from_stanfit(
-  fit,
-  posterior,
-  pdb = pdb_default(),
-  dimensions = NULL,
-  policy = NULL,
-  include = NULL,
-  exclude = NULL,
-  ...
-)
-
-as_reference_posterior_draws_from_cmdstanr(
-  fit,
-  posterior,
-  pdb = pdb_default(),
-  dimensions = NULL,
-  policy = NULL,
   include = NULL,
   exclude = NULL,
   ...
@@ -70,58 +43,48 @@ as_reference_posterior_draws_from_cmdstanr(
 
 \item{pdb}{a local or remote PosteriorDB connection used to resolve a name.}
 
-\item{dimensions}{optional named list of unconstrained parameter counts. When omitted,
-`posterior$dimensions` is authoritative.}
+\item{dimensions}{optional named list of unconstrained parameter counts.
+Defaults to the posterior's `dimensions`.}
 
-\item{policy}{Compatibility argument; must be `NULL`. Acceptance uses the
-fixed package checks; caller-supplied policies are rejected.}
+\item{include}{Base names of saved variables to keep. The default `NULL`
+(or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+`character(0)`) keeps only the required variables: the model's
+parameters and any variable listed in the posterior's `dimensions`.
+A base name selects all of that variable's elements.}
 
-\item{include}{Optional character vector of additional saved base variable
-names to retain, diagnose, and summarize. Names in posterior dimensions
-and inferred parameter-block variables are always added. The default
-`NULL`, or `"all"`, retains every saved output except `lp__`.
-`"none"` or `character(0)` retains only required variables.}
+\item{exclude}{Base names of saved variables to drop. The default `NULL`
+(or `"none"`) drops nothing; `"all"` drops everything except the
+required variables. Excluding a required variable, naming a variable in
+both `include` and `exclude`, or using an unknown name is an error.}
 
-\item{exclude}{Optional character vector of saved base variable names to
-omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
-removes all optional outputs, retaining required variables. Explicit
-exclusions of dimension or parameter-block variables, or names appearing
-in both selectors, are configuration errors. Unknown names raise errors;
-base names select every indexed column. `"all"` and `"none"` are reserved
-when used alone in either selector.}
-
-\item{...}{optional metadata fields such as `comments`, `added_by`,
+\item{...}{optional metadata fields: `comments`, `added_by`,
 `added_date`, and `sampling_timestamp`.}
 }
 \value{
-A `pdb_reference_posterior_draws` object. If a required check fails,
-  the object is returned with the failure recorded in its `checks_made`
-  metadata; it is not eligible for writing.
+A `pdb_reference_posterior_draws` object. If a check fails, the
+  object is still returned, with the failure recorded in its `checks_made`
+  metadata; it cannot be written.
 }
 \description{
-Sampling is deliberately kept outside this package. This function accepts a
-completed post-warmup `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object,
-keeps all saved model outputs by default, with the selection controlled by
-`include` and `exclude`, computes the
-usual reference-posterior diagnostics, and returns the in-memory object
-without writing to a database. For CmdStanR, calling this function reads the
-draws and sampler diagnostics from the fit's CSV output files.
-All saved scalar output columns for each selected base variable are retained.
-Selected outputs are diagnosed and included in any written summaries.
-All inferred parameter-block variables and variables named in posterior
-dimensions are always retained. Declared counts for actual model parameters
-must match the fit's unconstrained counts; dimensions naming derived outputs
-are permitted when those outputs are saved in the fit. The importer does not verify that the fit used the posterior's
-model source code or data.
-Version fields for R, its session and Makevars describe the import
-environment. Backend package versions describe the installed interface;
-RStan's recorded Stan version also comes from its installed library.
-A Stan version reported by CmdStan CSV metadata describes the fitted
-executable and is retained when available. Environment versions do not
-establish an archived fit's original sampling environment.
-Unlike the dotted [as.reference_posterior_draws()] wrapper, this function
-performs fit import, parameter-count validation and reference checks.
-The historical `as_reference_posterior_draws_from_stanfit()` and
-`as_reference_posterior_draws_from_cmdstanr()` are aliases for this generic;
-dispatch follows the actual fit class, not the alias name.
+Takes a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` fit for an
+existing posterior, keeps the selected variables, runs the reference-draw
+checks, and returns the result in memory. Nothing is sampled and nothing is
+written; use [import_reference_posterior_draws()] to also write the draws.
+}
+\details{
+The fit's unconstrained parameter counts must match the posterior's
+`dimensions`. The function cannot confirm that the fit used the model code
+and data linked to that posterior.
+
+This differs from [as.reference_posterior_draws()] (with dots), which only
+attaches metadata to draws you prepared yourself and runs no checks.
+
+
+For CmdStanR, the draws and sampler diagnostics are read from the fit's CSV
+output files, so those files must still exist.
+
+The version information recorded with the draws describes the R session
+doing the conversion. For CmdStanR fits, the Stan version stored in the CSV
+files is also kept. None of this proves which versions were used for
+sampling.
 }
