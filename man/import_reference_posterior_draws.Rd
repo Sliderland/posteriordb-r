@@ -2,14 +2,13 @@
 % Please edit documentation in R/import_reference_posterior_draws.R
 \name{import_reference_posterior_draws}
 \alias{import_reference_posterior_draws}
-\title{Import externally sampled Stan draws into a local PosteriorDB}
+\title{Import a sampled Stan fit as reference draws for an existing posterior}
 \usage{
 import_reference_posterior_draws(
   fit,
   posterior,
   pdb = pdb_default(),
   dimensions = NULL,
-  policy = NULL,
   write = FALSE,
   overwrite = FALSE,
   write_summary_statistics = TRUE,
@@ -23,75 +22,60 @@ import_reference_posterior_draws(
 
 \item{posterior}{a PosteriorDB posterior name or a `pdb_posterior` object.}
 
-\item{pdb}{a local PosteriorDB object. Required when `write = TRUE`; when
-`write = FALSE`, it is used to resolve a posterior name.}
+\item{pdb}{a local PosteriorDB connection. Required when `write = TRUE`;
+when `write = FALSE`, it is used to resolve a posterior name.}
 
-\item{dimensions}{optional named list of unconstrained parameter counts.}
+\item{dimensions}{optional named list of unconstrained parameter counts.
+Defaults to the posterior's `dimensions`.}
 
-\item{policy}{Compatibility argument; must be `NULL`. Acceptance uses the
-fixed package checks; caller-supplied policies are rejected.}
-
-\item{write}{whether to write the validated result to `pdb`.}
+\item{write}{whether to write the checked draws to `pdb`.}
 
 \item{overwrite}{whether existing reference-posterior files may be replaced.}
 
-\item{write_summary_statistics}{whether to also write the supported summary
-statistics (`mean_value` and `mean_squared_value`) when `write = TRUE`.
-Defaults to `TRUE`.}
+\item{write_summary_statistics}{whether to also write the summary
+statistics (`mean_value` and `mean_squared_value`) when `write = TRUE`.}
 
-\item{include}{Optional character vector of additional saved base variable
-names to retain, diagnose, and summarize. Names in posterior dimensions
-and inferred parameter-block variables are always added. The default
-`NULL`, or `"all"`, retains every saved output except `lp__`.
-`"none"` or `character(0)` retains only required variables.}
+\item{include}{Base names of saved variables to keep. The default `NULL`
+(or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+`character(0)`) keeps only the required variables: the model's
+parameters and any variable listed in the posterior's `dimensions`.
+A base name selects all of that variable's elements.}
 
-\item{exclude}{Optional character vector of saved base variable names to
-omit. `NULL`, `character(0)`, or `"none"` excludes nothing. `"all"`
-removes all optional outputs, retaining required variables. Explicit
-exclusions of dimension or parameter-block variables, or names appearing
-in both selectors, are configuration errors. Unknown names raise errors;
-base names select every indexed column. `"all"` and `"none"` are reserved
-when used alone in either selector.}
+\item{exclude}{Base names of saved variables to drop. The default `NULL`
+(or `"none"`) drops nothing; `"all"` drops everything except the
+required variables. Excluding a required variable, naming a variable in
+both `include` and `exclude`, or using an unknown name is an error.}
 
-\item{...}{optional metadata fields forwarded to the conversion function.}
+\item{...}{optional metadata fields: `comments`, `added_by`,
+`added_date`, and `sampling_timestamp`.}
 }
 \value{
 A `pdb_reference_posterior_draws` object.
 }
 \description{
-This is the writing wrapper around
-[as_reference_posterior_draws()]. Sampling is never performed
-by this function. Conversion runs the complete reference-draw checks
-regardless of the `write` setting. With `write = FALSE` (the default), the
-checked object is returned in memory, including any failed checks. With
-`write = TRUE`, all required checks must pass before writing. The
-reference-draw files, summary-statistic files (by default), and any new
-posterior link are staged and round-trip verified together. The target
-posterior must already exist in the local database. Existing data and model
-files are not rewritten.
-On failure the importer attempts to remove installed files and restore
-originals. If rollback is incomplete, warnings identify remaining installed
-files and retained backups with their intended destinations for recovery.
+Converts and checks a completed fit with [as_reference_posterior_draws()],
+and with `write = TRUE` writes the draws and their summary statistics to a
+local database and links them to the posterior. Nothing is sampled.
 }
 \details{
-The importer selects all saved model outputs by default. Named `include`
-values select outputs in addition to the required parameter block and
-posterior dimensions. `exclude`
-may remove additional outputs, but cannot remove dimension variables or
-inferred parameter-block variables, which are always retained.
-Diagnostics and summaries use the resulting selection. The importer verifies
-declared unconstrained counts for actual parameter-block variables. Dimensions
-may also name saved derived outputs; these have no independent unconstrained
-counts to compare. Additional outputs may be
-transformed parameters or generated quantities. It does not compare
-the fit's Stan source code
-or sampling data with the source and data linked to that posterior.
+With `write = FALSE` (the default) the checked draws are returned and
+nothing is written, even if a check failed. With `write = TRUE` every check
+must pass, and the posterior must already exist in the database. Its data
+and model files are not changed.
+
+
+The write is all or nothing: if any step fails, the files already written
+are removed and any replaced files are restored. If that cannot be
+completed, warnings list the files left behind and the backups to restore.
+
+A posterior with no linked reference draws is linked to the new draws. A
+posterior already linked to different reference draws is rejected.
 }
 \examples{
 \dontrun{
 imported <- import_reference_posterior_draws(
   fit,
-  posterior = "existing-data-existing-model",
+  posterior = "existing_data-existing_model",
   pdb = pdb_local("/path/to/posterior_database"),
   write = TRUE
 )

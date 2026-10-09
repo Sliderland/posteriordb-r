@@ -1,15 +1,9 @@
 #' Check that reference posterior draws follows the
 #' reference posterior summary definition.
 #'
-#' @details Requires at least 10,000 retained draws. For Stan sampling,
-#'   the recorded diagnostics must describe the draws and show at least four
-#'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
-#'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
-#'   chain, and no divergent transitions. ESS bounds are recorded but do not
-#'   determine acceptance. Analytical draws require the stated draw count
-#'   and matching count metadata; Stan sampling checks do not apply. Named
-#'   Stan metrics must identify the retained variables or `chain1`, `chain2`,
-#'   etc. Unnamed legacy metrics retain positional interpretation.
+#' @details The requirements are those of
+#'   [check_reference_posterior_draws()], except that at least 10,000
+#'   retained draws are required rather than exactly 10,000.
 #'
 #' @param x a posterior name, posterior object or reference_posterior_draws object
 #' @param ... currently not used.
@@ -43,22 +37,24 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
 #' Check that reference posterior draws follows the
 #' reference posterior draws definition.
 #'
-#' @details Requires exactly 10,000 retained draws. For Stan sampling,
-#'   the recorded diagnostics must describe the draws and show at least four
-#'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
-#'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
-#'   chain, and no divergent transitions. ESS bounds are recorded but do not
-#'   determine acceptance. Analytical draws require the stated draw count
-#'   and matching count metadata; Stan sampling checks do not apply. Named
-#'   Stan metrics must identify the retained variables or `chain1`, `chain2`,
-#'   etc. Unnamed legacy metrics retain positional interpretation.
+#' @details Reference draws must have exactly 10,000 retained draws. Draws
+#'   from Stan sampling must also have at least four chains, a mean absolute
+#'   lag-1 autocorrelation across chains of at most 0.05 for every variable,
+#'   an R-hat of at most 1.01 for every variable, an E-FMI of at least 0.2
+#'   for every chain, and no divergent transitions. ESS is recorded but does
+#'   not decide the result. Analytical draws only need the draw count.
+#'
+#'   The checks use the diagnostics recorded with the draws. Named
+#'   diagnostics must be named by variable, or `chain1`, `chain2`, and so on
+#'   for per-chain values; unnamed diagnostics are matched by position.
 #'
 #' @param x a posterior name, posterior object, reference-posterior draws, or
 #'   a `pdb_reference_bundle` returned by [create_pdb_bundle()].
 #' @param ... currently not used.
-#' @return For a `pdb_reference_bundle`, the updated bundle with a full
-#'   diagnostic report and acceptance flags attached when all required checks
-#'   pass. Other supported objects retain their existing return behavior.
+#' @return The reference draws, invisibly, with the passed checks recorded;
+#'   an error is raised if a check fails. For a `pdb_reference_bundle`, the
+#'   updated bundle with its diagnostic report. A bundle that fails a check
+#'   is returned with the failures recorded rather than raising an error.
 #'
 #' @export
 check_reference_posterior_draws <- function(x, ...){

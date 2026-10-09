@@ -4,16 +4,20 @@
 #' [pdb_reference_posterior_info] object. Workflows run one after another and
 #' return a result record for each item.
 #'
-#' `sampling` may be one named list of sampler arguments, shared by every
-#' workflow, or a list of named sampler-argument lists. In the latter form,
-#' its length must equal the number of reference-posterior info objects; a
-#' named outer list must use the workflow names. A single unnamed nested
-#' sampling list is shared by all workflows. These arguments replace the method arguments in
-#' each reference-posterior info object for this run.
-#' To avoid ambiguity with nested shared arguments, use an unnamed outer list
-#' for per-workflow settings, in workflow order. A named nested list whose keys
-#' do not match workflow names is currently treated as shared sampler arguments;
-#' it is not necessarily rejected as a misspelled workflow map.
+#' @details
+#' `sampling` can take two forms:
+#'
+#' * one named list of sampler arguments, used for every workflow, for
+#'   example `list(iter = 5000, warmup = 2500, chains = 4)`;
+#' * a list with one such list per workflow, in the same order as
+#'   `reference_posteriors`, or named with the workflow names.
+#'
+#' The sampler arguments replace those stored in each reference-posterior
+#' info object for this run.
+#'
+#' Prefer the unnamed, ordered form for per-workflow settings. A named list
+#' whose names do not match the workflow names is read as a single set of
+#' shared sampler arguments, so a misspelled workflow name is not reported.
 #'
 #' @param reference_posteriors a non-empty list of
 #'   [pdb_reference_posterior_info] objects.

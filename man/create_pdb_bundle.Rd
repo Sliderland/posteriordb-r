@@ -3,7 +3,7 @@
 \name{create_pdb_bundle}
 \alias{create_pdb_bundle}
 \alias{create_pdb_bundle.stanfit}
-\title{Construct a standalone PosteriorDB reference-draw bundle from a Stan fit}
+\title{Build a PosteriorDB reference-draw bundle from a Stan fit}
 \usage{
 create_pdb_bundle(
   fit,
@@ -34,159 +34,115 @@ create_pdb_bundle(
 \arguments{
 \item{fit}{A completed `rstan::stanfit` object.}
 
-\item{data}{The exact named Stan input list, a `pdb_data` object, or the
-name of saved data in `pdb`. `list()` explicitly declares an empty input;
-`NULL` errors unless linked data can be retrieved from a supplied
-posterior object. Fit-data recovery is not supported.}
+\item{data}{The exact named list of data passed to Stan, a `pdb_data`
+object, or the name of data saved in `pdb`. Use `list()` for a model
+without data. May be omitted only when `posterior` supplies its linked
+data. Data cannot be recovered from the fit.}
 
-\item{added_by}{Shared default contributor name for the constructed data,
-model, posterior, and reference-draw metadata. Defaults to the current R
-user. Values supplied in the corresponding metadata lists take precedence.}
+\item{added_by}{Contributor name recorded for the new objects. Defaults to
+the current system user. A value in one of the `*_info` lists overrides
+it for that object.}
 
-\item{added_date}{Shared default contribution date for the constructed
-objects. Defaults to the current date when the function is called.
-Values supplied in the corresponding metadata lists take precedence.}
+\item{added_date}{Contribution date recorded for the new objects. Defaults
+to today. A value in one of the `*_info` lists overrides it for that
+object.}
 
-\item{...}{Named method options: `model_code`, `posterior`, `data_info`, `model_info`, `posterior_info`,
-`reference_info`, `include`, `exclude`, `check`, and
-`pdb`. Unnamed, duplicate, misspelled, or other arguments are rejected.}
+\item{...}{The arguments listed above, passed by name. Only `fit`, `data`,
+`added_by` and `added_date` can be passed by position. Unknown or
+misspelled arguments are an error.}
 
 \item{model_code}{Optional `pdb_model_code` object or saved model name.
-Its Stan source must match the source embedded in `fit`.}
+Its Stan code must match the code in `fit`.}
 
 \item{posterior}{Optional `pdb_posterior` object or saved posterior name.
-Its linked data/model and unconstrained dimensions must match the bundle.}
+Its data, model and `dimensions` must match the bundle. If `data` and
+`model_code` are omitted, the posterior's linked data and model are used.}
 
-\item{data_info}{Named data metadata. `name` and `title` are required;
-names must be nonempty single path components without separators,
-control characters, or the special names `.` and `..`. By convention,
-separate words with underscores and avoid hyphens, because posteriors
-are named `data_name-model_name`. The same rules apply to model
-names. Supported descriptive fields are `description`, `references`, `urls`,
-and `keywords`.}
+\item{data_info}{Named list describing new data. `name` and `title` are
+required; `description`, `references`, `urls` and `keywords` are
+optional. Names become file names, so they cannot contain slashes. Use
+underscores rather than hyphens, because posteriors are named
+`data_name-model_name`.}
 
-\item{model_info}{Named model metadata. `name` and `title` are required;
-supported descriptive fields are `description`, `references`, `urls`,
-`keywords`, `prior`, and `licence`. Supply `prior` only when you have
-prior metadata to record (for example, `list(keywords = "prior-key")`);
-the constructor does not infer priors from Stan code. When written, an
-unspecified prior is omitted, no `likelihood_code` entry is emitted, and
-omitted model `keywords` are written as `null`.
-Set `framework = "stan"` to have the constructor build
-`model_implementations$stan` using the conventional
-`models/stan/<name>.stan` path and `stan_version = ">=2.26.0"` default.
-You can instead supply `model_implementations` yourself; an explicit
-Stan implementation must use the inferred model-code path, and its
-`stan_version` overrides the default when provided.}
+\item{model_info}{Named list describing a new model. `name` and `title`
+are required; `description`, `references`, `urls`, `keywords`, `prior`
+and `licence` are optional. Names follow the same rules as in
+`data_info`. Set `framework = "stan"` to store the model code as
+`models/stan/<name>.stan` with the Stan version requirement
+`">=2.26.0"`, or supply `model_implementations` yourself to record a
+different `stan_version`. Priors are not inferred from the Stan code.}
 
-\item{posterior_info}{Named posterior metadata. Optional `added_by` and
-`added_date` values override the shared defaults for the posterior.
-The generated `dimensions` map contains unconstrained parameter counts,
-not constrained output shapes. Draw selection still retains every saved
-scalar output column for each selected base variable.
-Optional descriptive fields `urls`, `references`, and `keywords` are
-retained in the posterior info JSON when supplied.
-Optional structural fields
-(`name`, `model_name`, `data_name`, `reference_posterior_name`, and
-`dimensions`) are accepted only when they match inferred values.}
+\item{posterior_info}{Named list of optional posterior metadata:
+`references`, `urls`, `keywords`, `added_by` and `added_date`. The
+posterior's name, its links to the data and model, and its `dimensions`
+are worked out from the fit; if you supply them, they must match.}
 
-\item{reference_info}{Named human annotations for the reference draws,
-such as `comments`, `added_by`, and `added_date`. The inference method
-and version provenance are derived from the current R environment.
-Diagnostics and `checks_made` are calculated internally.}
+\item{reference_info}{Named list of optional notes for the reference
+draws: `comments`, `added_by` and `added_date`.}
 
-\item{include}{Optional character vector of saved base variable names to
-retain in addition to all inferred parameter-block variables. `NULL`
-retains all saved model outputs except `lp__`; `"all"` (or `c("all")`)
-is an alias for NULL. `"none"` (or `c("none")`) is an alias for
-`character(0)`: retain only parameter-block variables, with no additional
-outputs. `"all"` and `"none"` are reserved when used alone.
-`c()` is NULL and therefore selects all.}
+\item{include}{Base names of saved variables to keep. The default `NULL`
+(or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+`character(0)`) keeps only the model's parameters, which are always
+kept. A base name selects all of that variable's elements. Note that
+`c()` is `NULL` and therefore keeps everything.}
 
-\item{exclude}{Optional character vector of base variable names to omit.
-`NULL`, `character(0)`, or `"none"` excludes nothing. `"all"` removes all
-optional outputs, retaining the complete parameter block. Explicitly
-excluding a parameter-block variable is an error. Naming a variable in
-both `include` and `exclude` is a configuration error. The aliases
-`"all"` and `"none"` are reserved when used alone in either selector.}
+\item{exclude}{Base names of saved variables to drop. The default `NULL`
+(or `"none"`) drops nothing; `"all"` drops everything except the
+model's parameters. Excluding a parameter, naming a variable in both
+`include` and `exclude`, or using an unknown name is an error.}
 
-\item{check}{Whether to evaluate the package's reference-draw acceptance
-checks. `FALSE` leaves the candidate explicitly unchecked and skips
-draw-diagnostic and acceptance-metric calculations.}
+\item{check}{Whether to run the reference-draw checks now. With `FALSE`
+the draws are left unchecked; check them later with
+[check_reference_posterior_draws()].}
 
-\item{pdb}{Optional PosteriorDB connection used to retrieve named objects
-and attach newly constructed objects. Reused objects retain their source
-connections. This constructor never writes to it.}
+\item{pdb}{Optional PosteriorDB connection. It is used to look up objects
+passed by name and is attached to the new objects. Nothing is written
+to it.}
 }
 \value{
-A `pdb_reference_bundle` list containing `data`, `model_code`,
-  `posterior`, `reference_draws`, `summary_statistics`, `diagnostics`, and
-  `provenance`. When checks pass, `summary_statistics` is a named list with
-  `mean_value` and `mean_squared_value` objects; otherwise it is `NULL`. `diagnostics` is
-  `NULL` when `check = FALSE`; call [check_reference_posterior_draws()] on
-  that bundle to check it later.
+A `pdb_reference_bundle` list with `data`, `model_code`,
+  `posterior`, `reference_draws`, `summary_statistics`, `diagnostics` and
+  `provenance`. `summary_statistics` holds `mean_value` and
+  `mean_squared_value` when the checks pass and is `NULL` otherwise.
+  `diagnostics` is `NULL` when `check = FALSE`.
 }
 \description{
-Build linked data, model, posterior, and reference-draw objects around an
-already sampled `rstan::stanfit`. The default workflow accepts the actual
-Stan input list and human labels. Existing database objects can also be
-reused, either as objects or names. This function does not resample the fit
-or write files; it reads named records through the package getters and may
-recompile the model only to recover dimensions when compiled parameter-name
-methods are absent. Errors from available methods propagate without recovery.
+Builds linked data, model, posterior and reference-draw objects from an
+already sampled `rstan::stanfit`, and checks the draws. Nothing is sampled
+and nothing is written; write the result with [write_pdb()].
 }
 \details{
-The default variable selection includes saved parameters, transformed
-parameters, and generated quantities, except `lp__`. `include` and
-`exclude` select base variable names, so `include = "theta"` retains all
-saved scalar elements of an array parameter. All inferred parameter-block
-variables are always retained, diagnosed, and summarized, even when omitted
-from `include`. Excluding them is an error. Derived outputs do not change
-the inferred posterior dimensions.
+Describe new data and a new model with `data_info` and `model_info`, or
+reuse objects that are already in a database by passing them, or their
+saved names, as `data`, `model_code` or `posterior`.
 
 
-The first four positional arguments are `fit`, `data`, `added_by`, and
-`added_date`. Supply all other options by name through the generic.
-The default workflow uses a Stan input list and data/model metadata.
-Alternatively, `data` can be a `pdb_data` object or saved data name, and
-`model_code` and `posterior` can each be supplied as existing objects or
-saved names. A supplied posterior can provide linked data and model code
-when `data` and `model_code` are omitted. Database names are resolved with
-the package's normal getters. Supplied objects are checked against the fit
-source, links, and inferred unconstrained dimensions. If an existing object
-and its corresponding `*_info` list are both supplied, a warning is issued
-and the existing object's metadata takes precedence.
-Reused objects keep their source database connections. The bundle writer
-rejects same-name files in another destination database, even with
-`overwrite = TRUE`. When accepted bundle draws are written, a reused
-posterior with no reference link is linked to them; a reused posterior
-already linked to different reference draws is rejected.
+The posterior's `dimensions` hold the number of unconstrained parameters
+for each model parameter, not the shape of the saved variable. Transformed
+parameters and generated quantities are saved as draws but have no entry.
 
-The bundle embeds its content in memory and remains usable before database
-persistence. Supplied data is recorded as caller-supplied; this function
-cannot establish that it produced the fit. If a serialized RStan fit no longer
-exposes compiled parameter-name methods, the model source is recompiled with
-the supplied data to recover unconstrained parameter counts, bypassing RStan's
-lookup of same-source archived models. Errors from available methods, including
-inconsistent counts or invalid names, are not retried; the saved fit is
-not resampled. With `check = FALSE`, raw
-sampler diagnostics are retained so [check_reference_posterior_draws()]
-can check the bundle later without rerunning sampling. For example:
+A failed check does not raise an error. The bundle is returned with the
+failures recorded in `diagnostics`, and its draws cannot be written.
+
+Reused objects are compared with the fit. If you pass both an existing
+object and its `*_info` list, the list is ignored with a warning. See
+[write_pdb()] for how reused objects are treated when the bundle is
+written.
+
+The package cannot confirm that `data` is the data the fit was sampled
+with. If a `stanfit` was saved and reloaded in a new R session, the model
+may be recompiled to work out the parameter counts; the fit is not
+resampled.
 
 ```r
 bundle <- create_pdb_bundle(
   fit, data = stan_data,
   data_info = list(name = "study", title = "Study inputs"),
-  model_info = list(name = "normal", title = "Normal model"),
+  model_info = list(name = "normal", title = "Normal model",
+                    framework = "stan"),
   include = c("mu", "sigma")
 )
+bundle$diagnostics$status
 bundle$reference_draws
-bundle$summary_statistics$mean_value
-bundle$summary_statistics$mean_squared_value
 ```
-
-Missing names/titles, conflicting structural metadata, unknown fields,
-unsupported fit classes, unavailable data, and incomplete saved arrays
-produce actionable errors. Failed diagnostic candidates are returned with
-their failures recorded.
 }

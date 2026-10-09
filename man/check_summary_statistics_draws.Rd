@@ -26,13 +26,7 @@ Check that reference posterior draws follows the
 reference posterior summary definition.
 }
 \details{
-Requires at least 10,000 retained draws. For Stan sampling,
-  the recorded diagnostics must describe the draws and show at least four
-  chains, mean absolute lag-1 autocorrelation across chains at most 0.05
-  for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
-  chain, and no divergent transitions. ESS bounds are recorded but do not
-  determine acceptance. Analytical draws require the stated draw count
-  and matching count metadata; Stan sampling checks do not apply. Named
-  Stan metrics must identify the retained variables or `chain1`, `chain2`,
-  etc. Unnamed legacy metrics retain positional interpretation.
+The requirements are those of
+  [check_reference_posterior_draws()], except that at least 10,000
+  retained draws are required rather than exactly 10,000.
 }

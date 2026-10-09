@@ -17,23 +17,22 @@ passes_reference_draw_checks(
 \item{checks}{character vector of checks: `ndraws`, `nchains`,
 `mean_lag1_ac`, `r_hat`, `efmi`, and `divergent_transitions`; or `"all"`.}
 
-\item{include}{Saved base variable names to diagnose. `NULL` (the default)
-or `"all"` selects all saved model outputs except `lp__`. `"none"` or
-`character(0)` selects nothing and raises an empty-selection error.}
+\item{include}{Base names of saved variables to check. The default
+`NULL` (or `"all"`) checks every saved output except `lp__`. A base name
+selects all of that variable's elements.}
 
-\item{exclude}{Saved base variable names to omit. `NULL`, `character(0)`,
-or `"none"` excludes nothing. `"all"` selects nothing and raises an
-empty-selection error. Names appearing in both selectors are configuration
-errors. `"all"` and `"none"` are reserved when used alone.}
+\item{exclude}{Base names of saved variables to leave out. Naming a
+variable in both `include` and `exclude`, using an unknown name, or
+leaving nothing to check is an error.}
 }
 \value{
 A single `TRUE` or `FALSE`.
 }
 \description{
-Returns a scalar logical; it does not establish full acceptance unless all
-checks are selected. See [reference_draw_diagnostics()] for report details.
-Unavailable or undefined required metrics return `FALSE`; malformed objects
-and selectors raise informative errors.
+Returns `TRUE` if the fit passes the selected checks. By default only the
+lag-1 autocorrelation check is run; use `checks = "all"` to test every
+reference-draw requirement. A check whose metric cannot be computed counts
+as failed. See [reference_draw_diagnostics()] for the full report.
 }
 \examples{
 \dontrun{passes_reference_draw_checks(fit, "mean_lag1_ac")}

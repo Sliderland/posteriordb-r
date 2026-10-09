@@ -149,18 +149,18 @@ reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(x, 
 #'   Draws-list coercion defaults to \code{NULL}, creating a standalone object.
 #' @param info a [pdb_reference_posterior_info] object
 #' @param ... further arguments supplied to specific methods.
-#' @details `reference_posterior_draws()` reads saved or embedded draws.
-#'   The dotted `as.reference_posterior_draws()` wraps draws with caller-supplied
-#'   `info`; it does not infer parameter counts, calculate acceptance checks,
-#'   or write files. Its draws-list conversion omits `lp__`. Variable names
-#'   must be unique, nonmissing and nonempty, and identical across chains.
-#'   Retained variable vectors must have the same length across variables and
-#'   chains; zero iterations are allowed when wrapping an unchecked object.
-#'   Use [as_reference_posterior_draws()] (underscores) to import a completed
-#'   fit for an existing posterior, validate its parameter counts and run
-#'   reference checks. Use [import_reference_posterior_draws()] for that
-#'   workflow with optional persistence. The dotted compatibility alias
-#'   `as.pdb_reference_posterior_draws()` has the same wrapping behavior.
+#' @details `reference_posterior_draws()` reads the reference draws of a
+#'   posterior.
+#'
+#'   `as.reference_posterior_draws()` (with dots) attaches the metadata in
+#'   `info` to draws you prepared yourself. It runs no checks and writes
+#'   nothing, and it drops `lp__`. Variable names must be unique and the same
+#'   in every chain, and every variable must have the same number of draws.
+#'   `as.pdb_reference_posterior_draws()` is an alias.
+#'
+#'   To convert a completed Stan fit and check it, use
+#'   [as_reference_posterior_draws()] (with underscores) or
+#'   [import_reference_posterior_draws()].
 #' @return A `pdb_reference_posterior_draws` object.
 #' @export
 reference_posterior_draws <- function(x, ...){
@@ -287,9 +287,9 @@ assert_reference_posterior_info <- function(x){
 #' @param x a [pdb_reference_posterior_draws] to subest
 #' @param variable parameter names to subset.
 #' @param ... Further arguments (not used).
-#' @details Variable diagnostics follow the selected variables. Changed
-#'   selections clear acceptance flags and reports; recheck before writing.
-#'   The class chain and attached connection are preserved.
+#' @details The recorded diagnostics are kept for the selected variables.
+#'   If the selection changes, the recorded check results are cleared, so
+#'   check the draws again before writing them.
 #' @export
 subset.pdb_reference_posterior_draws <- function(x, variable, ...){
   requireNamespace("posterior")
@@ -360,11 +360,9 @@ reference_posterior_type_path <- function(type) {
 #'
 #' @return
 #' A thinned [pdb_reference_posterior_draws] object.
-#' @details Thinning updates retained counts and clears obsolete diagnostics,
-#'   acceptance flags, and reports. Retained sampler draws are thinned in
-#'   lockstep; E-FMI must be recalculated. Connections and descriptive metadata
-#'   and the class chain are preserved. A thinning period of one leaves the
-#'   object unchanged.
+#' @details Thinning updates the recorded draw counts and clears the
+#'   recorded diagnostics and check results, so check the draws again before
+#'   writing them. `thin = 1` leaves the object unchanged.
 #'
 #' @export thin_draws.pdb_reference_posterior_draws
 #' @exportS3Method posterior::thin_draws

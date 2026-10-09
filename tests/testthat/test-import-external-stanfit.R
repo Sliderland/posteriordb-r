@@ -159,10 +159,6 @@ test_that("unsupported import options are rejected before conversion", {
   po <- external_posterior_fixture()
   pdb <- empty_local_pdb()
   expect_error(
-    as_reference_posterior_draws(fit, po, pdb = pdb, policy = list(min_ess = 100)),
-    "Custom diagnostic policies are not implemented"
-  )
-  expect_error(
     as_reference_posterior_draws(fit, po, pdb = pdb, commments = "typo"),
     "accepts only named"
   )
