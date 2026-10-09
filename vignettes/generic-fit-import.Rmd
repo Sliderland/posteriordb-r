@@ -33,8 +33,8 @@ and unnamed metadata are rejected.
 bundle <- create_pdb_bundle(
   fit,
   data = stan_data,
-  data_info = list(name = "experiment-1", title = "Experiment 1 inputs"),
-  model_info = list(name = "normal-model", title = "Normal model"),
+  data_info = list(name = "experiment_1", title = "Experiment 1 inputs"),
+  model_info = list(name = "normal_model", title = "Normal model"),
   posterior_info = list(added_by = "Contributor name"),
   include = c("mu", "sigma")
 )
