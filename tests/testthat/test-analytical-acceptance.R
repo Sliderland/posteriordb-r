@@ -50,6 +50,40 @@ test_that("method applicability does not bypass counts or Stan checks", {
   expect_error(assert_checked_reference_posterior_draws(metadata), "method")
 })
 
+test_that("analytical draws and automatic summaries round trip through public writers", {
+  root <- tempfile("analytical-db-")
+  dir.create(file.path(root, "posteriors"), recursive = TRUE)
+  dir.create(file.path(root, "cache"))
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb"))
+  x <- analytical_acceptance_draws()
+  # The writer requires a persisted posterior link; no model compilation is needed.
+  jsonlite::write_json(list(reference_posterior_name = info(x)$name),
+    file.path(root, "posteriors", "linked.json"), auto_unbox = TRUE)
+  before <- list.files(root, recursive = TRUE)
+  expect_error(write_pdb(x, connection), "checks_made")
+  expect_identical(list.files(root, recursive = TRUE), before)
+  checked <- check_reference_posterior_draws(x)
+  expect_silent(write_pdb(checked, connection))
+  restored <- reference_posterior_draws(info(checked), connection)
+  expect_equal(restored[[1]]$theta, checked[[1]]$theta, tolerance = 1e-12)
+  expect_identical(info(restored)$checks_made, list(ndraws_is_10k = TRUE))
+  for (type in supported_summary_statistic_types()) {
+    summary <- reference_posterior_summary_statistic(info(checked), connection, type = type)
+    expect_identical(info(summary)$checks_made, list(ndraws_is_gte_10k = TRUE))
+    expect_silent(assert_checked_summary_statistics_draws(summary))
+  }
+  more <- check_summary_statistics_draws(analytical_acceptance_draws(11000L))
+  summary <- compute_reference_posterior_summary_statistic(more)
+  expect_silent(write_pdb(summary, connection, overwrite = TRUE))
+  pdb_clear_cache(connection)
+  restored_summary <- reference_posterior_summary_statistic(info(summary), connection,
+    type = "mean_value")
+  expect_equal(restored_summary$mean_value, summary$mean_value)
+  expect_identical(info(restored_summary)$diagnostics$ndraws, 11000L)
+})
+
 
 test_that("duplicate draw variables fail before checking or persistence", {
   checked <- check_reference_posterior_draws(analytical_acceptance_draws())
