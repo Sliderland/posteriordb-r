@@ -78,6 +78,384 @@ write_pdb <- function(x, pdb, overwrite = FALSE, ...) {
   UseMethod("write_pdb")
 }
 
+#' @rdname write_pdb
+#' @export
+write_pdb.pdb_reference_bundle <- function(
+  x,
+  pdb,
+  overwrite = FALSE,
+  write_summary_statistics = TRUE,
+  ...
+) {
+  if (length(list(...))) {
+    stop(
+      "`write_pdb()` does not accept extra arguments for a bundle.",
+      call. = FALSE
+    )
+  }
+  checkmate::assert_class(x, "pdb_reference_bundle")
+  checkmate::assert_flag(overwrite)
+  checkmate::assert_flag(write_summary_statistics)
+  checkmate::assert_class(x$data, "pdb_data")
+  checkmate::assert_class(x$model_code, "pdb_model_code")
+  checkmate::assert_class(x$posterior, "pdb_posterior")
+  checkmate::assert_class(x$reference_draws, "pdb_reference_posterior_draws")
+
+  bundle <- x
+  diagnostic_error <- NULL
+  if (is.null(bundle$diagnostics) || !isTRUE(bundle$diagnostics$checked)) {
+    diagnostic_result <- tryCatch(
+      list(bundle = check_reference_posterior_draws(bundle), error = NULL),
+      error = function(error) {
+        list(bundle = NULL, error = conditionMessage(error))
+      }
+    )
+    bundle <- diagnostic_result$bundle %||% bundle
+    diagnostic_error <- diagnostic_result$error
+  }
+
+  draws_accepted <- FALSE
+  draw_skip_reason <- diagnostic_error
+  if (is.null(draw_skip_reason)) {
+    acceptance <- tryCatch(
+      {
+        assert_checked_reference_posterior_draws(bundle$reference_draws)
+        NULL
+      },
+      error = identity
+    )
+    if (is.null(acceptance)) {
+      draws_accepted <- TRUE
+    } else {
+      draw_skip_reason <- conditionMessage(acceptance)
+    }
+  }
+
+  # Preflight includes the draw and summary files when acceptance passes.
+  write_plan <- preflight_pdb_bundle_write(
+    bundle,
+    pdb,
+    include_reference_draws = draws_accepted,
+    write_summary_statistics = write_summary_statistics,
+    overwrite = overwrite
+  )
+  if (overwrite && length(write_plan$collision_paths)) {
+    message(
+      "Bundle write preflight found existing destination file(s) that will be replaced: ",
+      paste(write_plan$collision_paths, collapse = ", ")
+    )
+  }
+
+  if (draws_accepted && write_summary_statistics) {
+    bundle$summary_statistics <- bundle$summary_statistics %||%
+      summary_statistics_from_checked_reference_draws(bundle$reference_draws)
+    checkmate::assert_list(bundle$summary_statistics)
+    checkmate::assert_names(
+      names(bundle$summary_statistics), type = "unique",
+      permutation.of = supported_summary_statistic_types()
+    )
+    draw_info <- info(bundle$reference_draws)
+    for (type in names(bundle$summary_statistics)) {
+      summary <- bundle$summary_statistics[[type]]
+      assert_reference_posterior_summary_statistic(summary)
+      assert_checked_summary_statistics_draws(summary)
+      checkmate::assert_true(identical(summary_statistic_type(summary), type))
+      checkmate::assert_set_equal(
+        summary[["names"]], posterior::variables(bundle$reference_draws)
+      )
+      for (field in c("name", "inference", "diagnostics")) {
+        checkmate::assert_true(
+          identical(info(summary)[[field]], draw_info[[field]]),
+          .var.name = paste0("bundle$summary_statistics$", type, "$info$", field)
+        )
+      }
+    }
+  }
+
+  written <- character()
+  write_complete <- FALSE
+  on.exit(
+    {
+      if (!write_complete) {
+        message(
+          "Bundle write did not complete. Completed components: ",
+          if (length(written)) paste(written, collapse = ", ") else "none",
+          ". Files already written are retained; the failing component may have partial files. ",
+          "Inspect local changes before retrying."
+        )
+      }
+    },
+    add = TRUE
+  )
+  for (component in c("data", "model_code", "posterior")) {
+    if (component %in% write_plan$write) {
+      object <- bundle[[component]]
+      if (component == "posterior" && !draws_accepted) {
+        posterior_path <- pdb_file_path(
+          pdb,
+          "posteriors",
+          paste0(object$name, ".json")
+        )
+        reference <- if (file.exists(posterior_path)) {
+          jsonlite::read_json(posterior_path)$reference_posterior_name
+        } else {
+          object$reference_posterior_name
+        }
+        object["reference_posterior_name"] <- list(reference)
+        object$embedded_reference_draws <- NULL
+        # A standalone posterior is only valid with every embedded payload.
+        pdb(object) <- pdb
+      }
+      component_overwrite <- if (component %in% write_plan$reused_to_copy) {
+        FALSE
+      } else {
+        overwrite
+      }
+      write_pdb(
+        object,
+        pdb = pdb,
+        overwrite = component_overwrite
+      )
+      written <- c(written, component)
+    }
+  }
+
+  if (draws_accepted) {
+    write_pdb(
+      bundle$reference_draws,
+      pdb = pdb,
+      overwrite = overwrite,
+      write_summary_statistics = FALSE
+    )
+    written <- c(written, "reference_draws")
+    if (write_summary_statistics) {
+      for (summary in bundle$summary_statistics) {
+        write_pdb(summary, pdb = pdb, overwrite = overwrite)
+      }
+      written <- c(written, "summary_statistics")
+    }
+  } else {
+    message(paste0(
+      "The data, model, and posterior components are available. Reference draws and ",
+      "summary statistics were skipped because the reference-draw checks ",
+      "did not pass.",
+      if (!is.null(draw_skip_reason)) paste0(" Reason: ", draw_skip_reason)
+    ))
+  }
+
+  write_complete <- TRUE
+  result <- list(
+    bundle = bundle,
+    written = written,
+    reused = write_plan$reused_in_target,
+    overwritten = write_plan$overwritten,
+    collisions = write_plan$collision_paths,
+    reference_draws_written = draws_accepted,
+    summary_statistics_written = draws_accepted && write_summary_statistics,
+    diagnostic_error = diagnostic_error,
+    skipped_reason = if (draws_accepted) NULL else draw_skip_reason
+  )
+  class(result) <- c("pdb_bundle_write_result", "list")
+  invisible(result)
+}
+
+preflight_pdb_bundle_write <- function(
+  bundle,
+  pdb,
+  include_reference_draws,
+  write_summary_statistics,
+  overwrite
+) {
+  checkmate::assert_flag(include_reference_draws)
+  checkmate::assert_flag(write_summary_statistics)
+  checkmate::assert_flag(overwrite)
+
+  reused <- bundle$provenance$reused_components %||% logical()
+  data_name <- info(bundle$data)$name
+  model_name <- info(bundle$model_code)$name
+  specs <- list(
+    data = list(
+      object = bundle$data,
+      reused = isTRUE(reused["data"]),
+      paths = c(
+        pdb_write_output_path(pdb, "data/info", "json", data_name),
+        pdb_write_output_path(
+          pdb,
+          "data/data",
+          "json",
+          data_name,
+          zip = TRUE,
+          info = FALSE
+        )
+      )
+    ),
+    model_code = list(
+      object = bundle$model_code,
+      reused = isTRUE(reused["model_code"]),
+      paths = c(
+        pdb_write_output_path(pdb, "models/info", "json", model_name),
+        pdb_write_output_path(
+          pdb,
+          "models/stan",
+          "stan",
+          model_name,
+          info = FALSE
+        )
+      )
+    ),
+    posterior = list(
+      object = bundle$posterior,
+      reused = isTRUE(reused["posterior"]),
+      paths = pdb_write_output_path(
+        pdb,
+        "posteriors",
+        "json",
+        bundle$posterior$name,
+        info = FALSE
+      )
+    )
+  )
+
+  if (include_reference_draws) {
+    draw_name <- info(bundle$reference_draws)$name
+    draw_paths <- pdb_reference_output_paths(
+      pdb,
+      draw_name,
+      if (write_summary_statistics) {
+        supported_summary_statistic_types()
+      } else {
+        character()
+      }
+    )
+    specs$reference_draws <- list(
+      object = bundle$reference_draws,
+      reused = FALSE,
+      paths = draw_paths
+    )
+  }
+
+  all_paths <- unlist(lapply(specs, `[[`, "paths"), use.names = FALSE)
+  duplicate_paths <- unique(all_paths[duplicated(all_paths)])
+  if (length(duplicate_paths)) {
+    stop(
+      "Bundle components map to duplicate destination file(s): ",
+      paste(duplicate_paths, collapse = ", "),
+      ". No files were written.",
+      call. = FALSE
+    )
+  }
+
+  write_components <- character()
+  reused_in_target <- character()
+  reused_to_copy <- character()
+  overwritten <- character()
+  collision_paths <- character()
+  blocking_issues <- character()
+  for (component in names(specs)) {
+    spec <- specs[[component]]
+    existing <- file.exists(spec$paths)
+
+    if (spec$reused && all(existing)) {
+      source_pdb <- tryCatch(pdb(spec$object), error = function(error) NULL)
+      if (is.null(source_pdb) || !same_local_pdb(source_pdb, pdb)) {
+        blocking_issues <- c(
+          blocking_issues,
+          paste0(
+            "The reused ",
+            component,
+            " object has files with the same destination name, but it is not ",
+            "confirmed to come from this database: ",
+            paste(spec$paths, collapse = ", "),
+            ". The bundle writer will not replace or silently reuse them."
+          )
+        )
+        next
+      }
+      if (
+        component == "posterior" &&
+          include_reference_draws &&
+          !is.null(jsonlite::read_json(spec$paths)$reference_posterior_name) &&
+          !identical(
+            jsonlite::read_json(spec$paths)$reference_posterior_name,
+            info(bundle$reference_draws)$name
+          )
+      ) {
+        blocking_issues <- c(
+          blocking_issues,
+          paste0(
+            "The reused posterior does not have the matching persisted reference link: ",
+            spec$paths,
+            ". A different existing link cannot be replaced."
+          )
+        )
+        next
+      }
+      reused_in_target <- c(reused_in_target, component)
+      next
+    }
+
+    if (spec$reused && any(existing)) {
+      blocking_issues <- c(
+        blocking_issues,
+        paste0(
+          "The reused ",
+          component,
+          " object has only some of its expected files in the destination: ",
+          paste(spec$paths[existing], collapse = ", "),
+          ". Reused objects are never overwritten."
+        )
+      )
+      next
+    }
+
+    if (any(existing)) {
+      collision_paths <- c(collision_paths, spec$paths[existing])
+      if (!overwrite) {
+        next
+      }
+      overwritten <- c(overwritten, component)
+    } else if (spec$reused) {
+      reused_to_copy <- c(reused_to_copy, component)
+    }
+    write_components <- c(write_components, component)
+  }
+
+  if (length(blocking_issues)) {
+    if (length(collision_paths)) {
+      blocking_issues <- c(
+        blocking_issues,
+        paste0(
+          "Other existing destination file(s): ",
+          paste(collision_paths, collapse = ", ")
+        )
+      )
+    }
+    stop(
+      "Bundle write preflight found unsafe reused-object collision(s):\n- ",
+      paste(blocking_issues, collapse = "\n- "),
+      "\nNo files were written.",
+      call. = FALSE
+    )
+  }
+
+  if (length(collision_paths) && !overwrite) {
+    stop(
+      "Bundle write preflight found existing destination file(s): ",
+      paste(collision_paths, collapse = ", "),
+      ". No files were written. Set `overwrite = TRUE` to replace files for newly constructed components.",
+      call. = FALSE
+    )
+  }
+
+  list(
+    write = write_components,
+    reused_in_target = reused_in_target,
+    reused_to_copy = reused_to_copy,
+    overwritten = unique(overwritten),
+    collision_paths = collision_paths
+  )
+}
+
 # Shared destination preflight for bundle, individual, and staged import writes.
 pdb_reference_output_paths <- function(pdb, name, summary_types = character()) {
   paths <- c(
@@ -446,38 +824,3 @@ write_pdb.pdb_posterior <- function(x, pdb, overwrite = FALSE, ...) {
     overwrite = overwrite
   )
 }
-
-
-#' Rename a pdb object
-#'
-#' @param x an object to rename
-#' @param new_name the new name of the object
-#' @param ... further arguments (not in use)
-#'
-#' @export
-rename_pdb <- function(x, new_name, ...){
-  checkmate::assert_string(new_name)
-  UseMethod("rename_pdb")
-}
-
-#' @rdname rename_pdb
-#' @export
-rename_pdb.pdb_data <- function(x, new_name, ...){
-  old_x <- x
-  di <- info(x)
-  di$name <- new_name
-  di$data_file <- paste0("data/data/", new_name, ".json")
-  info(x) <- di
-  write_pdb(x, pdb(x))
-  remove_pdb(old_x, pdb(x))
-}
-
-#' @rdname rename_pdb
-#' @export
-rename_pdb.pdb_posterior <- function(x, new_name, ...){
-  old_x <- x
-  x$name <- new_name
-  write_pdb(x, pdb(x))
-  remove_pdb(old_x, pdb(x))
-}
-

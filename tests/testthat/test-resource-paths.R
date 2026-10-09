@@ -44,6 +44,139 @@ resource_path_snapshot <- function(parent) {
   }), paths)
 }
 
+test_that("linking honors an explicit destination instead of the object's connection", {
+  testthat::local_mocked_bindings(pdb_default = function(...) stop("unexpected default connection"))
+  source <- resource_path_fixture()
+  destination <- resource_path_fixture()
+  for (fixture in list(source, destination)) {
+    bundle <- resource_path_objects(fixture$pdb)
+    suppressMessages(write_pdb(bundle, fixture$pdb, write_summary_statistics = FALSE))
+    unlinked <- bundle$posterior
+    unlinked["reference_posterior_name"] <- list(NULL)
+    unlinked$embedded_reference_draws <- NULL
+    write_pdb(unlinked, fixture$pdb, overwrite = TRUE)
+    pdb_clear_cache(fixture$pdb)
+  }
+  object <- posterior(unlinked$name, source$pdb)
+  stored_link <- function(fixture) jsonlite::read_json(file.path(fixture$root,
+    "posteriors", paste0(object$name, ".json")))$reference_posterior_name
+  result <- link_reference_posterior(object, pdb = destination$pdb)
+  expect_identical(pdb(result), destination$pdb)
+  expect_null(stored_link(source))
+  expect_identical(stored_link(destination), object$name)
+
+  result <- link_reference_posterior(object)
+  expect_identical(pdb(result), source$pdb)
+  expect_identical(stored_link(source), object$name)
+  attr(object, "pdb") <- NULL
+  expect_identical(pdb(link_reference_posterior(object, pdb = destination$pdb)), destination$pdb)
+
+  unlink(file.path(destination$root, "reference_posteriors/draws/draws",
+    paste0(object$name, ".json.zip")))
+  expect_error(link_reference_posterior(result, pdb = destination$pdb), "Both reference-posterior")
+  expect_identical(stored_link(source), object$name)
+})
+
+test_that("constructors, writers, rename and linking share safe resource names", {
+  fixture <- resource_path_fixture()
+  bundle <- resource_path_objects(fixture$pdb)
+  before <- resource_path_snapshot(fixture$parent)
+  unsafe_name <- "single path components|Assertion on 'name' failed"
+  for (name in c("", ".", "..", "../escape", "a/b", "a\\b", "a\nb", "a\tb")) {
+    di <- info(bundle$data)
+    di$name <- name
+    di$data_file <- paste0("data/data/", name, ".json")
+    mi <- info(bundle$model_code)
+    mi$name <- name
+    ri <- info(bundle$reference_draws)
+    ri$name <- name
+    po <- bundle$posterior
+    po$name <- name
+    expect_error(as.pdb_data_info(unclass(di)), unsafe_name)
+    expect_error(as.pdb_model_info(unclass(mi)), unsafe_name)
+    expect_error(as.pdb_reference_posterior_info(unclass(ri)), unsafe_name)
+    expect_error(as.pdb_posterior(unclass(po), pdb = fixture$pdb), unsafe_name)
+    for (object in list(di, mi, ri, po))
+      expect_error(write_pdb(object, fixture$pdb, type = "draws"), unsafe_name)
+    expect_error(write_json_to_path("payload", "new/nested", fixture$pdb,
+      name = name, info = FALSE), unsafe_name)
+    expect_error(rename_pdb("absent", name, type = "data", pdb = fixture$pdb), unsafe_name)
+    expect_error(link_reference_posterior("absent", name, pdb = fixture$pdb), unsafe_name)
+    expect_error(link_reference_posterior(name, "valid", pdb = fixture$pdb), unsafe_name)
+    expect_error(import_reference_posterior_draws(NULL, name, pdb = fixture$pdb, write = TRUE), unsafe_name)
+    expect_identical(resource_path_snapshot(fixture$parent), before)
+  }
+  for (path in c("../escape", "nested/../../escape", "/absolute", "C:/absolute",
+                 "nested\\escape", "new\nnested")) {
+    expect_error(write_json_to_path("payload", path, fixture$pdb, name = "safe"),
+      "paths must be relative")
+    expect_identical(resource_path_snapshot(fixture$parent), before)
+  }
+  # Ordinary names and nested internal paths remain valid.
+  expect_true(write_pdb(bundle, fixture$pdb)$reference_draws_written)
+  stored <- posterior(bundle$posterior$name, fixture$pdb)
+  expect_identical(get_data(stored)$n, 1L)
+  expect_equal(as.numeric(posterior::as_draws_array(reference_posterior_draws(stored))),
+    as.numeric(posterior::as_draws_array(bundle$reference_draws)))
+  expect_true(write_json_to_path("payload", "new/nested", fixture$pdb,
+    name = "safe.v1-a", info = FALSE))
+  expect_true(file.exists(file.path(fixture$root, "new/nested/safe.v1-a.json")))
+})
+
+test_that("multi-file writers reject escaping symlinks before saving metadata", {
+  for (destination in c("data/data", "models/stan", "reference_posteriors/draws/draws",
+      "reference_posteriors/summary_statistics/mean_value/mean_value")) {
+    fixture <- resource_path_fixture()
+    bundle <- resource_path_objects(fixture$pdb)
+    dir.create(dirname(file.path(fixture$root, destination)), recursive = TRUE,
+               showWarnings = FALSE)
+    skip_if_not(file.symlink(fixture$outside, file.path(fixture$root, destination)))
+    before <- resource_path_snapshot(fixture$parent)
+    object <- if (destination == "data/data") bundle$data else if (destination == "models/stan")
+      bundle$model_code else bundle$reference_draws
+    expect_error(write_pdb(object, fixture$pdb, overwrite = TRUE), "outside the database")
+    expect_error(write_pdb(bundle, fixture$pdb, overwrite = TRUE), "outside the database")
+    if (grepl("reference_posteriors", destination))
+      expect_error(write_imported_reference_posterior_draws(bundle$reference_draws, fixture$pdb,
+        overwrite = TRUE, linked_posterior = bundle$posterior), "outside the database")
+    if (grepl("summary_statistics", destination)) {
+      summary <- summary_statistics_from_checked_reference_draws(bundle$reference_draws)$mean_value
+      expect_error(write_pdb(summary, fixture$pdb, overwrite = TRUE), "outside the database")
+    }
+    expect_identical(resource_path_snapshot(fixture$parent), before)
+  }
+})
+
+test_that("ZIP writers check temporary JSON, final archive and missing ancestors", {
+  for (suffix in c(".json", ".json.zip")) {
+    for (target in c("sentinel", "missing")) {
+      fixture <- resource_path_fixture()
+      bundle <- resource_path_objects(fixture$pdb)
+      dir.create(file.path(fixture$root, "data/data"))
+      skip_if_not(file.symlink(file.path(fixture$outside, target),
+        file.path(fixture$root, "data/data", paste0(info(bundle$data)$name, suffix))))
+      before <- resource_path_snapshot(fixture$parent)
+      expect_error(write_pdb(bundle$data, fixture$pdb, overwrite = TRUE),
+        "outside the database|dangling symlinks")
+      expect_error(write_pdb(bundle, fixture$pdb, overwrite = TRUE),
+        "outside the database|dangling symlinks")
+      expect_identical(resource_path_snapshot(fixture$parent), before)
+    }
+  }
+  fixture <- resource_path_fixture()
+  skip_if_not(file.symlink(fixture$outside, file.path(fixture$root, "escape")))
+  before <- resource_path_snapshot(fixture$parent)
+  expect_error(write_json_to_path("payload", "escape/missing/nested", fixture$pdb,
+    name = "safe"), "outside the database")
+  expect_identical(resource_path_snapshot(fixture$parent), before)
+  # A symlink to a directory inside the database remains usable.
+  dir.create(file.path(fixture$root, "internal"))
+  skip_if_not(file.symlink(file.path(fixture$root, "internal"), file.path(fixture$root, "shortcut")))
+  expect_true(write_json_to_path("payload", "shortcut/nested", fixture$pdb,
+    name = "safe", info = FALSE))
+  expect_true(file.exists(file.path(fixture$root, "internal/nested/safe.json")))
+})
+
 test_that("rename preflight checks all paths before staging", {
   fixture <- resource_path_fixture()
   bundle <- resource_path_objects(fixture$pdb)
