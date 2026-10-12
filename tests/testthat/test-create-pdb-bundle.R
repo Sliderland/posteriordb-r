@@ -40,8 +40,8 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_identical(bundle$posterior$dimensions$beta, 6L)
   expect_true(all(c("mu", "twice_mu", "prediction", "constant", "beta[2,3]") %in%
                   posterior::variables(bundle$reference_draws)))
-  expect_true(is.null(pdb(bundle$data)))
-  expect_true(is.null(pdb(bundle$model_code)))
+  expect_null(pdb(bundle$data))
+  expect_null(pdb(bundle$model_code))
   expect_true(nzchar(info(bundle$data)$added_by))
   expect_s3_class(info(bundle$data)$added_date, "Date")
   expect_equal(info(bundle$model_code)$added_by, info(bundle$data)$added_by)
@@ -116,7 +116,7 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_true(failed_bundle$diagnostics$checked)
   expect_true("constant" %in% names(failed_bundle$diagnostics$metrics$mean_lag1_ac))
   expect_true(is.na(failed_bundle$diagnostics$metrics$mean_lag1_ac[["constant"]]))
-  root <- tempfile("bundle-write-"); dir.create(root)
+  root <- withr::local_tempdir("bundle-write-")
   for (folder in c("data", "models", "posteriors")) dir.create(file.path(root, folder))
   dir.create(file.path(root, "cache"))
   pdb <- pdb_local(root, cache_path = file.path(root, "cache"))
@@ -211,4 +211,79 @@ test_that("unchecked bundles skip diagnostic calculation", {
   expect_null(info(bundle$reference_draws)$checks_made)
   expect_equal(bundle$provenance$sampling_metadata$ndraws, 10L)
   expect_equal(bundle$provenance$sampling_metadata$nchains, 4L)
+})
+
+test_that("bundle metadata overrides and conflicts are handled without sampling", {
+  draws <- posterior::as_draws_array(array(
+    seq_len(40L), dim = c(10L, 4L, 1L),
+    dimnames = list(NULL, NULL, "mu")
+  ))
+  testthat::local_mocked_bindings(
+    extract_rstan_fit = function(...) {
+      list(
+        draws = draws,
+        sampler_diagnostics = NULL,
+        dimensions = list(mu = 1L),
+        source = "parameters { real mu; } model {}",
+        metadata = list(
+          ndraws = 10L, nchains = 4L, max_treedepth = NULL,
+          method_arguments = list()
+        ),
+        fit_class = "stanfit",
+        import_versions = list(R = "test", rstan = "test", posterior = "test")
+      )
+    },
+    .package = "posteriordb"
+  )
+  fit <- structure(list(), class = "stanfit")
+  data_info <- list(name = "override-data", title = "Inputs")
+  model_info <- list(name = "override-model", title = "Model")
+  make <- function(...) {
+    create_pdb_bundle(fit, data = list(), check = FALSE, ...)
+  }
+
+  overrides <- make(
+    data_info = c(data_info, added_by = "data curator"),
+    model_info = model_info,
+    posterior_info = list(added_date = as.Date("2025-02-03"))
+  )
+  expect_identical(info(overrides$data)$added_by, "data curator")
+  expect_identical(overrides$posterior$added_date, as.Date("2025-02-03"))
+
+  expect_error(
+    make(data_info = data_info, model_info = model_info, typo = TRUE),
+    "Unknown argument"
+  )
+  expect_error(
+    make(
+      data_info = c(data_info, data_file = "data/data/other.json"),
+      model_info = model_info
+    ),
+    "data_file` conflicts"
+  )
+  expect_error(
+    make(
+      data_info = data_info,
+      model_info = c(model_info, list(model_implementations = list(
+        stan = list(model_code = "models/stan/other.stan")
+      )))
+    ),
+    "inferred Stan model path"
+  )
+  other_code <- as.pdb_model_code(
+    "parameters { real other; } model {}",
+    info = info(overrides$model_code),
+    framework = "stan"
+  )
+  expect_error(
+    make(data_info = data_info, model_code = other_code),
+    "does not match the source"
+  )
+  expect_warning(
+    create_pdb_bundle(
+      fit, data = overrides$data, check = FALSE,
+      data_info = data_info, model_info = model_info
+    ),
+    "ignoring `data_info`"
+  )
 })

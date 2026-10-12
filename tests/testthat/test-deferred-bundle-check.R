@@ -107,8 +107,12 @@ test_that("an unchecked bundle can be checked later and becomes writable when ac
   expect_silent(assert_checked_reference_posterior_draws(
     checked$reference_draws
   ))
+  expect_setequal(
+    names(checked$summary_statistics),
+    c("mean_value", "mean_squared_value")
+  )
 
-  root <- tempfile("deferred-check-accepted-write-")
+  root <- withr::local_tempdir("deferred-check-accepted-write-")
   for (folder in c(
     "data/data",
     "data/info",
@@ -137,17 +141,34 @@ test_that("a failed deferred bundle check records failures without certifying dr
   expect_null(
     info(checked$reference_draws)$checks_made$no_divergent_transitions
   )
+  expect_match(
+    info(checked$reference_draws)$checks_made$check_failed,
+    "divergent_transitions"
+  )
+  expect_null(checked$summary_statistics)
   expect_equal(
     checked$posterior$embedded_reference_draws,
     checked$reference_draws
   )
 
-  root <- tempfile("deferred-check-write-")
-  dir.create(root)
+  root <- withr::local_tempdir("deferred-check-write-")
   for (folder in c("data", "models", "posteriors")) {
     dir.create(file.path(root, folder))
   }
   dir.create(file.path(root, "cache"))
   pdb <- pdb_local(root, cache_path = file.path(root, "cache"))
-  expect_error(write_pdb(checked$reference_draws, pdb), "TRUE|assertion")
+  expect_error(write_pdb(checked$reference_draws, pdb), "checks_made")
+})
+
+test_that("deferred bundle checks reject extra arguments and missing sampling metadata", {
+  bundle <- make_unchecked_test_bundle()
+  expect_error(
+    check_reference_posterior_draws(bundle, checks = "all"),
+    "does not accept extra arguments"
+  )
+  attr(bundle$reference_draws, "sampling_metadata") <- NULL
+  expect_error(
+    check_reference_posterior_draws(bundle),
+    "no saved sampling metadata"
+  )
 })

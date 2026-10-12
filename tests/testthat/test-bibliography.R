@@ -1,5 +1,3 @@
-context("test-bibliography")
-
 local_bibliography_fixture <- function(contents = character()) {
   root <- tempfile("pdb-bibliography-")
   cache <- tempfile("pdb-cache-")
@@ -15,10 +13,9 @@ local_bibliography_fixture <- function(contents = character()) {
   list(root = root, cache = cache, path = reference_path, pdb = pdb)
 }
 
-test_that("bibliography works as expected", {
+test_that("bibliography, keys and entries are read from the database file", {
   fixture <- local_bibliography_fixture(c("@misc{one, title={One}}",
     "@misc{two, title={Two}}"))
-  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
   expect_length(bibliography(fixture$pdb), 2L)
   expect_identical(posteriordb::bibliography_keys(fixture$pdb), c("one", "two"))
   entry <- posteriordb::bibliography_entry("one", pdb = fixture$pdb)
@@ -31,7 +28,6 @@ test_that("bibliography works as expected", {
 
 test_that("append_reference accepts strings and bibentry objects", {
   fixture <- local_bibliography_fixture()
-  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
 
   first <- paste0(
@@ -58,7 +54,6 @@ test_that("append_reference rejects duplicate keys and entries without writing",
     "journal={Journal}, year={2020}}"
   )
   fixture <- local_bibliography_fixture(original)
-  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
 
   duplicate_key <- sub("original", "ORIGINAL", original, fixed = TRUE)
@@ -72,7 +67,6 @@ test_that("append_reference rejects duplicate keys and entries without writing",
 
 test_that("append_reference identifies duplicates within supplied references", {
   fixture <- local_bibliography_fixture()
-  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
   refs <- c(
     utils::bibentry("Misc", key = "first", title = "Same", year = "2020"),
@@ -84,7 +78,6 @@ test_that("append_reference identifies duplicates within supplied references", {
 
 test_that("append_reference imports multiple entries from a .bib file", {
   fixture <- local_bibliography_fixture("@misc{original, title={Original}}")
-  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
   input <- tempfile(fileext = ".bib")
   on.exit(unlink(input), add = TRUE)
   writeLines(c(
@@ -108,7 +101,6 @@ test_that("append_reference imports multiple entries from a .bib file", {
 
 test_that("append_reference rejects invalid files and entries without writing", {
   fixture <- local_bibliography_fixture("@misc{original, title={Original}}")
-  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
   input <- tempfile(fileext = ".bib")
   on.exit(unlink(input), add = TRUE)
 
@@ -141,7 +133,6 @@ test_that("append_reference refuses an invalid existing bibliography", {
     "@unknown{ignored, title={Ignored}}"
   )
   fixture <- local_bibliography_fixture(original)
-  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
 
   expect_error(append_reference("@misc{new, title={New}}", fixture$pdb),
                "existing bibliography contains an invalid or unsupported")
@@ -190,4 +181,31 @@ test_that("bibliography replacement failures restore or retain the original byte
     cached <- file.path(fixture$cache, "bibliography/references.bib")
     expect_identical(readBin(cached, "raw", n = file.info(cached)$size), before)
   }
+})
+
+test_that("append_reference separates entries in a file without a final newline", {
+  fixture <- local_bibliography_fixture()
+  cat("@misc{original, title={Original}}", file = fixture$path)
+  expect_true(append_reference("@misc{new, title={New}}", fixture$pdb))
+  expect_identical(readLines(fixture$path)[1:3], c("@misc{original, title={Original}}", "", "@Misc{new,"))
+  expect_identical(bibliography_keys(fixture$pdb), c("original", "new"))
+})
+
+test_that("append_reference reads keys past a quoted closing brace", {
+  fixture <- local_bibliography_fixture("@misc{original, title={Original}}")
+  input <- tempfile(fileext = ".bib")
+  on.exit(unlink(input), add = TRUE)
+  writeLines(c(
+    "@misc{quoted, title = \"a } @misc{fake, b\"}",
+    "@misc{last, title={Last}}"
+  ), input)
+  expect_true(append_reference(input, fixture$pdb))
+  expect_identical(bibliography_keys(fixture$pdb), c("original", "quoted", "last"))
+})
+
+test_that("append_reference treats reordered fields as a duplicate entry", {
+  fixture <- local_bibliography_fixture("@misc{original, title={Same}, year={2020}}")
+  expect_error(append_reference("@misc{other, year={2020}, title={Same}}", fixture$pdb),
+    "`original` and `other`")
+  expect_identical(readLines(fixture$path), "@misc{original, title={Same}, year={2020}}")
 })

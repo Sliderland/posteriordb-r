@@ -33,7 +33,7 @@ test_that("model reads and removal follow declared paths for every supported fra
   }
 })
 
-test_that("legacy PyMC metadata without a code path uses its conventional Python path", {
+test_that("legacy PyMC metadata uses its conventional path and unlisted frameworks are refused", {
   root <- tempfile("legacy-model-path-")
   for (path in c("models/pymc", "cache")) dir.create(file.path(root, path), recursive = TRUE)
   on.exit(unlink(root, recursive = TRUE), add = TRUE)
@@ -103,4 +103,26 @@ test_that("posterior code and file-path getters use the same supplied metadata",
   pdb_clear_cache(connection)
   expect_identical(readLines(model_code_file_path(object, "pymc")), "# additional implementation")
   expect_identical(as.character(model_code(object, "pymc")), "# additional implementation")
+})
+
+test_that("code removal refuses a declared path outside the database", {
+  root <- normalizePath(withr::local_tempdir(), winslash = "/")
+  dir.create(file.path(root, "cache"))
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb"))
+  outside <- file.path(dirname(root), paste0(basename(root), "-outside.stan"))
+  writeLines("parameters {}", outside)
+  on.exit(unlink(outside), add = TRUE)
+  metadata <- as.pdb_model_info(list(name = "model", title = "Model", framework = "stan",
+    model_implementations = list(stan = list(model_code = file.path("..", basename(outside)))),
+    added_by = "test", added_date = Sys.Date()))
+  code <- as.model_code("parameters {}", info = metadata, framework = "stan")
+  expect_error(remove_pdb(code, connection, remove_info = FALSE), "cannot contain '.' or '..'", fixed = TRUE)
+  expect_true(file.exists(outside))
+})
+
+test_that("removal only modifies local databases", {
+  metadata <- as.pdb_model_info(list(name = "model", title = "Model", framework = "stan",
+    added_by = "test", added_date = Sys.Date()))
+  expect_error(remove_pdb(metadata, structure(list(), class = "pdb")), "pdb_local")
 })

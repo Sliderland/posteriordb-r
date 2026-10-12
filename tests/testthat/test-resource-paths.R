@@ -182,6 +182,7 @@ test_that("constructors, writers, rename and linking share safe resource names",
     expect_error(as.pdb_model_info(unclass(mi)), unsafe_name)
     expect_error(as.pdb_reference_posterior_info(unclass(ri)), unsafe_name)
     expect_error(as.pdb_posterior(unclass(po), pdb = fixture$pdb), unsafe_name)
+    # `type` is only used by reference info; the others ignore it.
     for (object in list(di, mi, ri, po)) {
       expect_error(write_pdb(object, fixture$pdb, type = "draws"), unsafe_name)
     }
@@ -453,4 +454,49 @@ test_that("a contained file cannot conceal an escaping parent directory", {
     "outside the database"
   )
   expect_identical(resource_path_snapshot(fixture$parent), before)
+})
+
+test_that("linking checks the stored reference files and refreshes cached posteriors", {
+  fixture <- resource_path_fixture()
+  bundle <- resource_path_objects(fixture$pdb)
+  suppressMessages(write_pdb(
+    bundle,
+    fixture$pdb,
+    write_summary_statistics = FALSE
+  ))
+  unlinked <- bundle$posterior
+  unlinked["reference_posterior_name"] <- list(NULL)
+  unlinked$embedded_reference_draws <- NULL
+  write_pdb(unlinked, fixture$pdb, overwrite = TRUE)
+  draws <- file.path(fixture$root, "reference_posteriors/draws")
+  info_path <- file.path(draws, "info", paste0(unlinked$name, ".info.json"))
+  zip_path <- file.path(draws, "draws", paste0(unlinked$name, ".json.zip"))
+  original_info <- readBin(info_path, "raw", n = file.info(info_path)$size)
+  original_zip <- readBin(zip_path, "raw", n = file.info(zip_path)$size)
+
+  stored <- jsonlite::read_json(info_path)
+  stored$name <- "other-reference"
+  jsonlite::write_json(stored, info_path, auto_unbox = TRUE, null = "null")
+  expect_error(
+    link_reference_posterior(unlinked$name, pdb = fixture$pdb),
+    "info name does not match"
+  )
+  writeBin(original_info, info_path)
+
+  wrong <- file.path(fixture$parent, "wrong.json")
+  writeLines("[]", wrong)
+  unlink(zip_path)
+  utils::zip(zip_path, wrong, flags = "-jq")
+  expect_error(
+    link_reference_posterior(unlinked$name, pdb = fixture$pdb),
+    "named JSON file"
+  )
+  writeBin(original_zip, zip_path)
+
+  expect_null(posterior(unlinked$name, fixture$pdb)$reference_posterior_name)
+  link_reference_posterior(unlinked$name, pdb = fixture$pdb)
+  expect_identical(
+    posterior(unlinked$name, fixture$pdb)$reference_posterior_name,
+    unlinked$name
+  )
 })

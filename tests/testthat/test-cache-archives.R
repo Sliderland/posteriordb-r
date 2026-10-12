@@ -75,11 +75,11 @@ test_that("cache paths reject traversal and escaping symlinks before mutation", 
   expect_error(pdb_cached_local_file_path(fixture$pdb, "../escape/new.json"), "paths must be relative")
   expect_false(dir.exists(file.path(dirname(fixture$cache), "escape")))
   expect_identical(list.files(fixture$cache, recursive = TRUE), before)
-  skip_if_not(file.symlink(dirname(fixture$cache), file.path(fixture$cache, "escape")))
-  expect_error(pdb_cached_local_file_path(fixture$pdb, "escape/new.json"), "outside")
   expect_identical(pdb_cache_path(fixture$pdb, ""), file.path(fixture$cache, ""))
   expect_length(pdb_cache_path(fixture$pdb, character()), 0L)
   expect_length(pdb_cache_path(fixture$pdb, c("data/a.json", "data/b.json")), 2L)
+  skip_if_not(file.symlink(dirname(fixture$cache), file.path(fixture$cache, "escape")))
+  expect_error(pdb_cached_local_file_path(fixture$pdb, "escape/new.json"), "outside")
 })
 
 test_that("a failed plain-file copy reports the failed destination", {
@@ -102,5 +102,19 @@ test_that("a failed plain-file copy reports the failed destination", {
     path <- pdb_cached_local_file_path(fixture$pdb, "data/data/value.json")
     expect_identical(readLines(path), "complete")
     expect_identical(copies, 2L)
+  }
+})
+
+test_that("archive member checks name the rule each unsafe member breaks", {
+  cases <- list(
+    list(members = "nested/value.json", message = "single path components"),
+    list(members = "../sentinel.json", message = "single path components"),
+    list(members = "C:drive.json", message = "must be relative filenames"),
+    list(members = "value.txt", message = "single JSON member"),
+    list(members = c("value.json", "extra.json"), message = "single JSON member")
+  )
+  for (case in cases) {
+    fixture <- cache_archive_fixture(case$members)
+    expect_error(pdb_json_archive_member(fixture$archive), case$message, info = case$members[[1]])
   }
 })

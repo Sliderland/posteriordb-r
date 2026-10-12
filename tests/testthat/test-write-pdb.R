@@ -1,5 +1,3 @@
-context("test-write-pdb")
-
 test_that("write data", {
   local_test_database()
 
@@ -192,4 +190,38 @@ test_that("write reference_posterior", {
 
   # Cleanup
   remove_pdb(po, pdb_test)
+})
+
+test_that("info and model writers save complete, consistent records", {
+  root <- withr::local_tempdir()
+  for (folder in c("data", "models", "posteriors", "cache")) {
+    dir.create(file.path(root, folder))
+  }
+  pdb_test <- pdb_local(root, cache_path = file.path(root, "cache"))
+  di <- as.pdb_data_info(list(
+    name = "fields", title = "Inputs", data_file = "data/data/fields.json",
+    added_by = "test", added_date = Sys.Date()
+  ))
+  write_pdb(di, pdb_test)
+  stored <- jsonlite::read_json(file.path(root, "data/info/fields.info.json"))
+  expect_named(stored, c(
+    "name", "data_file", "title", "added_by", "added_date",
+    "references", "description", "urls", "keywords"
+  ))
+
+  mi <- as.pdb_model_info(list(
+    name = "fields", title = "Model", framework = "stan",
+    added_by = "test", added_date = Sys.Date()
+  ))
+  write_pdb(mi, pdb_test)
+  stored <- jsonlite::read_json(file.path(root, "models/info/fields.info.json"))
+  expect_true("keywords" %in% names(stored))
+  expect_null(stored$keywords)
+
+  sc <- as.pdb_model_code("parameters { real theta; }", info = mi, framework = "stan")
+  mi$name <- "no_stan"
+  mi$model_implementations <- list(pymc = list(model_code = "models/pymc/no_stan.py"))
+  info(sc) <- mi
+  expect_error(write_pdb(sc, pdb_test), "model_implementations")
+  expect_false(file.exists(file.path(root, "models/info/no_stan.info.json")))
 })
