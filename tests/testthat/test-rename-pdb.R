@@ -381,7 +381,7 @@ test_that("model renames leave implementation paths named after other files", {
   expect_true(file.exists(file.path(fixture$root, "models/pymc/shared.py")))
 })
 
-test_that("renamed in-memory metadata matches the saved records", {
+test_that("renamed objects returned in memory carry the new names", {
   fixture <- make_rename_fixture()
   renamed_info <- rename_pdb(
     data_info("data_old", pdb = fixture$pdb),

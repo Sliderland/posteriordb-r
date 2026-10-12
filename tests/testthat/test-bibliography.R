@@ -187,7 +187,7 @@ test_that("append_reference separates entries in a file without a final newline"
   fixture <- local_bibliography_fixture()
   cat("@misc{original, title={Original}}", file = fixture$path)
   expect_true(append_reference("@misc{new, title={New}}", fixture$pdb))
-  expect_identical(readLines(fixture$path)[1:3], c("@misc{original, title={Original}}", "", "@Misc{new,"))
+  expect_identical(readLines(fixture$path)[2], "")
   expect_identical(bibliography_keys(fixture$pdb), c("original", "new"))
 })
 

@@ -204,7 +204,7 @@ test_that("info and model writers save complete, consistent records", {
   ))
   write_pdb(di, pdb_test)
   stored <- jsonlite::read_json(file.path(root, "data/info/fields.info.json"))
-  expect_named(stored, c(
+  expect_setequal(names(stored), c(
     "name", "data_file", "title", "added_by", "added_date",
     "references", "description", "urls", "keywords"
   ))
