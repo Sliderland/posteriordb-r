@@ -213,7 +213,7 @@ test_that("unchecked bundles skip diagnostic calculation", {
   expect_equal(bundle$provenance$sampling_metadata$nchains, 4L)
 })
 
-test_that("bundle metadata overrides and conflicts are handled without sampling", {
+local_bundle_extraction_mock <- function(envir = parent.frame()) {
   draws <- posterior::as_draws_array(array(
     seq_len(40L), dim = c(10L, 4L, 1L),
     dimnames = list(NULL, NULL, "mu")
@@ -233,36 +233,44 @@ test_that("bundle metadata overrides and conflicts are handled without sampling"
         import_versions = list(R = "test", rstan = "test", posterior = "test")
       )
     },
-    .package = "posteriordb"
+    .env = envir
   )
-  fit <- structure(list(), class = "stanfit")
-  data_info <- list(name = "override-data", title = "Inputs")
-  model_info <- list(name = "override-model", title = "Model")
-  make <- function(...) {
-    create_pdb_bundle(fit, data = list(), check = FALSE, ...)
-  }
+}
 
-  overrides <- make(
-    data_info = c(data_info, added_by = "data curator"),
-    model_info = model_info,
+make_mocked_bundle <- function(...) {
+  create_pdb_bundle(structure(list(), class = "stanfit"), data = list(), check = FALSE, ...)
+}
+
+test_that("bundle metadata overrides are applied without sampling", {
+  local_bundle_extraction_mock()
+  overrides <- make_mocked_bundle(
+    data_info = list(name = "override-data", title = "Inputs", added_by = "data curator"),
+    model_info = list(name = "override-model", title = "Model"),
     posterior_info = list(added_date = as.Date("2025-02-03"))
   )
   expect_identical(info(overrides$data)$added_by, "data curator")
   expect_identical(overrides$posterior$added_date, as.Date("2025-02-03"))
+})
+
+test_that("conflicting bundle metadata is rejected without sampling", {
+  local_bundle_extraction_mock()
+  data_info <- list(name = "override-data", title = "Inputs")
+  model_info <- list(name = "override-model", title = "Model")
+  bundle <- make_mocked_bundle(data_info = data_info, model_info = model_info)
 
   expect_error(
-    make(data_info = data_info, model_info = model_info, typo = TRUE),
+    make_mocked_bundle(data_info = data_info, model_info = model_info, typo = TRUE),
     "Unknown argument"
   )
   expect_error(
-    make(
+    make_mocked_bundle(
       data_info = c(data_info, data_file = "data/data/other.json"),
       model_info = model_info
     ),
     "data_file` conflicts"
   )
   expect_error(
-    make(
+    make_mocked_bundle(
       data_info = data_info,
       model_info = c(model_info, list(model_implementations = list(
         stan = list(model_code = "models/stan/other.stan")
@@ -272,16 +280,16 @@ test_that("bundle metadata overrides and conflicts are handled without sampling"
   )
   other_code <- as.pdb_model_code(
     "parameters { real other; } model {}",
-    info = info(overrides$model_code),
+    info = info(bundle$model_code),
     framework = "stan"
   )
   expect_error(
-    make(data_info = data_info, model_code = other_code),
+    make_mocked_bundle(data_info = data_info, model_code = other_code),
     "does not match the source"
   )
   expect_warning(
     create_pdb_bundle(
-      fit, data = overrides$data, check = FALSE,
+      structure(list(), class = "stanfit"), data = bundle$data, check = FALSE,
       data_info = data_info, model_info = model_info
     ),
     "ignoring `data_info`"
