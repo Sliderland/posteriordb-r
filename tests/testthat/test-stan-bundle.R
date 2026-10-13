@@ -18,7 +18,10 @@ test_that("a well-sampled RStan fit is accepted, bundled, and written", {
   database <- stan_bundle_pdb()
   result <- suppressMessages(write_pdb(bundle, database))
   expect_true(result$reference_draws_written)
-  stored <- reference_posterior_draws(posterior(bundle$posterior$name, database))
+  stored <- reference_posterior_draws(posterior(
+    bundle$posterior$name,
+    database
+  ))
   expect_silent(assert_checked_reference_posterior_draws(stored))
   expect_equal(posterior::as_draws_array(stored), saved, ignore_attr = TRUE)
 
@@ -108,3 +111,39 @@ test_that("structural constants alone reject a well-sampled RStan fit", {
     "Cannot exclude"
   )
 })
+
+###
+# CmdStanR tests kept for when CmdStanR bundle support is implemented
+#
+
+# test_that("a well-sampled CmdStanR fit is accepted by import", {
+#   fit <- stan_bundle_cmdstan_fit("accepted")
+#   imported <- stan_bundle_import(fit, "accepted")
+
+#   expect_null(info(imported)$checks_made$check_failed)
+#   expect_silent(assert_checked_reference_posterior_draws(imported))
+#   expect_equal(info(imported)$diagnostics$ndraws, 10000L)
+#   expect_equal(
+#     posterior::as_draws_array(imported),
+#     stan_bundle_saved_draws(fit$draws()),
+#     ignore_attr = TRUE
+#   )
+# })
+
+# test_that("structural constants alone reject a well-sampled CmdStanR fit", {
+#   fit <- stan_bundle_cmdstan_fit("constrained")
+#   constant <- stan_bundle_constant_variables(fit$draws())
+#   report <- suppressWarnings(reference_draw_diagnostics(fit))
+
+#   expect_identical(
+#     names(Filter(isFALSE, report$status)),
+#     c("mean_lag1_ac", "r_hat")
+#   )
+#   for (check in c("mean_lag1_ac", "r_hat")) {
+#     expect_true(all(structural_constants %in% report$failures[[check]]))
+#     expect_true(all(report$failures[[check]] %in% constant))
+#   }
+
+#   imported <- stan_bundle_import(fit, "constrained")
+#   expect_match(info(imported)$checks_made$check_failed, "mean_lag1_ac")
+# })
