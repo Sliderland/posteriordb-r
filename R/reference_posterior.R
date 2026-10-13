@@ -274,7 +274,7 @@ assert_reference_posterior_info <- function(x){
     if(!is.null(x$versions$rstan_version)){
       checkmate::assert_names(names(x$versions), must.include = c("rstan_version", "r_Makevars", "r_version", "r_session"))
     } else if(!is.null(x$versions$cmdstan_version) || !is.null(x$versions$cmdstanr_version)){
-      checkmate::assert_names(names(x$versions), must.include = c("r_Makevars", "r_version", "r_session"))
+      checkmate::assert_names(names(x$versions), must.include = c("cmdstan_version", "r_Makevars", "r_version", "r_session"))
     }
     for(i in seq_along(x$versions)){
       checkmate::assert_string(x$versions[[i]])
