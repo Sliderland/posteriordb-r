@@ -22,44 +22,16 @@ test_that("bundle extraction validates complete declared array coverage", {
   expect_error(posteriordb:::validate_rstan_saved_coverage("beta",
     c("beta[1,1]", "beta[2,1]", "beta[1,2]", "beta[2,2]"), c(2L, 3L)),
     "partial")
+  expect_error(posteriordb:::validate_rstan_saved_coverage("mu", "mu[1]", integer()),
+    "declared scalar shape")
+  expect_error(posteriordb:::validate_rstan_saved_coverage("theta",
+    c("theta[1]", "theta[2]", "theta[4]"), 3L), "partial")
+  expect_error(posteriordb:::validate_rstan_saved_coverage("beta",
+    c("beta[1]", "beta[1,2]"), c(1L, 2L)), "partial")
   expect_error(posteriordb:::validate_rstan_saved_coverage("beta",
     c("beta[1,1]", "beta[2,1]", "beta[1,2]", "beta[2,2]",
-      "beta[1,3]", "beta[2,3]", "beta[2,3]"), c(2L, 3L)), "partial")
+      "beta[1,3]", "beta[1,3]"), c(2L, 3L)), "partial")
 })
-
-bundle_fit_count_mock <- function(fit, include = NULL, exclude = NULL) {
-  counts <- stats::setNames(rep(list(1L), length(fit$par_dims)), names(fit$par_dims))
-  excluded <- if (is.null(exclude)) character() else exclude
-  selected <- setdiff(if (is.null(include)) names(counts) else include,
-                      excluded)
-  counts[selected]
-}
-
-make_bundle_extraction_fit <- function(dimensions = list(mu = integer(), theta = 1L),
-                                       variables = c("mu", "theta[1]"),
-                                       algorithm = "NUTS", source = "parameters { real mu; real theta[1]; } model {}") {
-  n <- 8L
-  vals <- array(seq_len(n * 2L * length(variables)),
-    dim = c(n, 2L, length(variables)),
-    dimnames = list(NULL, NULL, variables))
-  sampler <- array(0, c(n, 2L, 2L),
-    dimnames = list(NULL, NULL, c("divergent__", "energy__")))
-  structure(list(
-    stanmodel = list(model_code = source), par_dims = dimensions,
-    .MISC = list(stan_fit_instance = list(
-      constrained_param_names = function(...) names(dimensions),
-      unconstrained_param_names = function(...) names(dimensions))),
-    sim = list(chains = 2L),
-    stan_args = list(
-      list(method = "sampling", algorithm = algorithm,
-           control = list(max_treedepth = 10L), seed = 1L),
-      list(method = "sampling", algorithm = algorithm,
-           control = list(max_treedepth = 12L), seed = 2L)
-    ),
-    .draws = posterior::as_draws_array(vals),
-    .sampler = posterior::as_draws_array(sampler)
-  ), class = c("stanfit", "list"))
-}
 
 test_that("bundle extraction selects draws and keeps sampling provenance", {
   fit <- make_bundle_extraction_fit(dimensions = list(mu = integer(), theta = 1L),
@@ -73,20 +45,25 @@ test_that("bundle extraction selects draws and keeps sampling provenance", {
         metadata = list(nchains = 2L, expected_fraction_of_missing_information = c(.3, .4),
           rstan_version = "installed", posterior_version = "installed",
           r_version = "installed", stan_version = "installed",
+          sampling_timestamp = "saved-fit-clock",
           sampler_arguments = fit$stan_args,
-          method_arguments = list(sampler_arguments = fit$stan_args)))
+          method_arguments = list(sampler_arguments = fit$stan_args,
+            sampling_timestamp = "saved-fit-clock")))
     }
   )
   extracted <- posteriordb:::extract_rstan_fit_for_bundle(fit, strict = FALSE, include = "theta")
   expect_identical(posterior::variables(extracted$draws), c("mu", "theta[1]"))
+  expect_equal(extracted$draws, fit$.draws)
   expect_identical(extracted$dimensions, list(mu = 1L, theta = 1L))
   expect_identical(extracted$fit_class, "stanfit")
   expect_identical(extracted$source, fit$stanmodel$model_code)
   expect_identical(extracted$metadata$expected_fraction_of_missing_information, c(.3, .4))
-  expect_length(extracted$metadata$max_treedepth, 2L)
+  expect_identical(extracted$metadata$max_treedepth, c(10, 12))
   expect_false(any(c("rstan_version", "posterior_version", "r_version", "stan_version") %in%
                    names(extracted$metadata)))
   expect_false("sampling_timestamp" %in% names(extracted$metadata$method_arguments))
+  expect_null(extracted$metadata$sampling_timestamp)
+  expect_identical(extracted$metadata$fit_timestamp, "saved-fit-clock")
   expect_named(extracted$import_versions, c("R", "rstan", "posterior"))
 })
 
@@ -140,6 +117,9 @@ test_that("identical per-chain sampling arguments are stored once", {
   chain_specific[[2L]]$seed <- 8L
   expect_named(posteriordb:::rstan_sampler_arguments(chain_specific),
                c("chain1", "chain2"))
+  arguments <- posteriordb:::rstan_sampler_arguments(chain_specific)
+  expect_identical(vapply(arguments, `[[`, integer(1), "seed"),
+    c(chain1 = 7L, chain2 = 8L))
 })
 
 test_that("bundle extraction rejects unsupported provenance and incomplete variables", {
@@ -164,6 +144,10 @@ test_that("bundle extraction rejects unsupported provenance and incomplete varia
   chain_mismatch <- fit
   chain_mismatch$stan_args <- chain_mismatch$stan_args[1L]
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(chain_mismatch), "Merged or inconsistent")
+  repeated <- fit
+  repeated$stan_args[[1L]]$chain_id <- 1L
+  repeated$stan_args[[2L]]$chain_id <- 1L
+  expect_error(posteriordb:::extract_rstan_fit_for_bundle(repeated), "repeated chain IDs")
   missing <- fit
   missing$stanmodel$model_code <- ""
   expect_error(posteriordb:::extract_rstan_fit_for_bundle(missing), "saved Stan source")
@@ -220,6 +204,13 @@ test_that("public bundle selection shares aliases and retains zero-coordinate pa
       include = include, exclude = "all", check = FALSE)
     expect_identical(posterior::variables(minimal$reference_draws), c("mu", "fixed[1]"))
     expect_identical(minimal$posterior$dimensions, list(mu = 1L))
+  }
+  for (include in list("none", character())) {
+    minimal <- create_pdb_bundle(fit, data = list(),
+      data_info = list(name = "selector-data", title = "Inputs"),
+      model_info = list(name = "selector-model", title = "Model"),
+      include = include, check = FALSE)
+    expect_identical(posterior::variables(minimal$reference_draws), c("mu", "fixed[1]"))
   }
   for (exclude in list(NULL, character(), "none")) {
     extracted <- posteriordb:::extract_rstan_fit_for_bundle(fit, exclude = exclude)

@@ -59,8 +59,9 @@ test_that("malformed summary columns and metadata fail before writing", {
 test_that("reordered summary and metadata JSON round trip by field identity", {
   root <- tempfile("summary-json-")
   dir.create(root)
+  dir.create(file.path(root, "cache"))
   on.exit(unlink(root, recursive = TRUE), add = TRUE)
-  connection <- structure(list(pdb_local_endpoint = root, cache_path = root),
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
     class = c("pdb_local", "pdb"))
   fields <- unclass(summary_validation_info())
   metadata <- as.reference_posterior_info(fields[rev(seq_along(fields))])
@@ -79,4 +80,21 @@ test_that("reordered summary and metadata JSON round trip by field identity", {
   }
   expect_error(as.reference_posterior_info(fields[-1L]), "names")
   expect_error(as.reference_posterior_info(c(fields, list(unknown = NULL))), "names")
+})
+
+test_that("extra summary fields must be numeric and are kept when read", {
+  root <- withr::local_tempdir()
+  dir.create(file.path(root, "cache"))
+  connection <- structure(list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb"))
+  metadata <- summary_validation_info()
+  payload <- list(names = c("a", "b"), mean_value = c(1, 2), mcse_mean = c(.1, .2), sd = c(.5, .6))
+  write_pdb(metadata, connection, type = "mean_value")
+  directory <- file.path(root, "reference_posteriors/summary_statistics/mean_value/mean_value")
+  dir.create(directory, recursive = TRUE)
+  jsonlite::write_json(payload, file.path(directory, paste0(metadata$name, ".json")))
+  result <- reference_posterior_summary_statistic(metadata, connection, type = "mean_value")
+  expect_equal(result$sd, payload$sd)
+  payload$sd <- c("x", "y")
+  expect_error(reference_posterior_summary_statistic(payload, metadata, "mean_value"), "numeric")
 })

@@ -1,5 +1,3 @@
-context("test-rename-pdb")
-
 make_rename_fixture <- function() {
   parent <- tempfile("posteriordb-rename-")
   root <- file.path(parent, "database")
@@ -97,6 +95,7 @@ test_that("failed ZIP staging leaves every original file intact", {
       actual_zip(zipfile, files, ...)
       if (failure == "payload") {
         bytes <- readBin(zipfile, "raw", n = file.info(zipfile)$size)
+        # Bytes 27-30 of the local file header hold the name and extra-field lengths.
         name_length <- sum(as.integer(bytes[27:28]) * c(1, 256))
         extra_length <- sum(as.integer(bytes[29:30]) * c(1, 256))
         payload <- 31L + name_length + extra_length
@@ -116,7 +115,6 @@ test_that("failed ZIP staging leaves every original file intact", {
 
 test_that("data and model renames update the complete local PDB graph", {
   fixture <- make_rename_fixture()
-  on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
 
   # Populate the old data cache before migrating; a successful migration must
@@ -157,6 +155,7 @@ test_that("data and model renames update the complete local PDB graph", {
     "data_new-model_old.json"
   )
   expect_equal(get_data("data_new", pdb)$y, c(1, 2))
+  expect_error(get_data("data_old", pdb), "does not exist")
 
   expect_silent(rename_pdb("model_old", "model_new", type = "model", pdb = pdb))
   expect_false(file.exists(file.path(fixture$root, "models/stan/model_old.stan")))
@@ -195,7 +194,6 @@ test_that("renames update every posterior sharing a moved reference", {
     }
     expect_true(file.exists(file.path(root, "reference_posteriors/draws/draws",
       paste0(moved, ".json.zip"))))
-    unlink(root, recursive = TRUE)
   }
 })
 
@@ -235,7 +233,6 @@ test_that("data and posterior renames use their attached connection", {
 
 test_that("rename rejects unsafe names and collisions without mutation", {
   fixture <- make_rename_fixture()
-  on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
   writeLines("existing", file.path(fixture$root, "data/info/data_taken.info.json"))
 
@@ -253,7 +250,6 @@ test_that("rename rejects unsafe names and collisions without mutation", {
 
 test_that("posterior-only renames move its reference files and aliases", {
   fixture <- make_rename_fixture()
-  on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
 
   expect_silent(rename_pdb(
@@ -343,4 +339,66 @@ test_that("incomplete rename rollback retains original bytes and recovery paths"
     pattern = "^\\.pdb-rename-stage-"), 0L)
   expect_true(actual_rename(retained, original))
   expect_identical(rename_fixture_bytes(fixture$root), before)
+})
+
+test_that("renames refuse to move a reference shared with an unaffected posterior", {
+  fixture <- make_rename_fixture()
+  shared <- jsonlite::read_json(
+    file.path(fixture$root, "posteriors/data_old-model_old.json")
+  )
+  shared$name <- "other_data-other_model"
+  shared$data_name <- "other_data"
+  shared$model_name <- "other_model"
+  jsonlite::write_json(
+    shared,
+    file.path(fixture$root, "posteriors/other_data-other_model.json"),
+    pretty = TRUE, auto_unbox = TRUE
+  )
+  before <- rename_fixture_bytes(fixture$root)
+  expect_error(
+    rename_pdb("data_old", "data_new", type = "data", pdb = fixture$pdb),
+    "shared with an unaffected posterior"
+  )
+  expect_identical(rename_fixture_bytes(fixture$root), before)
+})
+
+test_that("model renames leave implementation paths named after other files", {
+  fixture <- make_rename_fixture()
+  info_path <- file.path(fixture$root, "models/info/model_old.info.json")
+  stored <- jsonlite::read_json(info_path)
+  stored$model_implementations$pymc <- list(model_code = "models/pymc/shared.py")
+  jsonlite::write_json(stored, info_path, pretty = TRUE, auto_unbox = TRUE)
+  dir.create(file.path(fixture$root, "models/pymc"))
+  writeLines("# shared", file.path(fixture$root, "models/pymc/shared.py"))
+  rename_pdb("model_old", "model_new", type = "model", pdb = fixture$pdb)
+  renamed <- jsonlite::read_json(
+    file.path(fixture$root, "models/info/model_new.info.json")
+  )
+  expect_identical(
+    renamed$model_implementations$pymc$model_code,
+    "models/pymc/shared.py"
+  )
+  expect_true(file.exists(file.path(fixture$root, "models/pymc/shared.py")))
+})
+
+test_that("renamed objects returned in memory carry the new names", {
+  fixture <- make_rename_fixture()
+  renamed_info <- rename_pdb(
+    data_info("data_old", pdb = fixture$pdb),
+    "data_new",
+    pdb = fixture$pdb
+  )
+  expect_identical(renamed_info$data_file, "data/data/data_new.json")
+  renamed_posterior <- rename_pdb(
+    posterior("data_new-model_old", fixture$pdb),
+    "posterior_new"
+  )
+  expect_identical(renamed_posterior$reference_posterior_name, "posterior_new")
+})
+
+test_that("rename infers the type of a uniquely named resource", {
+  fixture <- make_rename_fixture()
+  rename_pdb("model_old", "model_new", pdb = fixture$pdb)
+  expect_true(file.exists(file.path(fixture$root, "models/info/model_new.info.json")))
+  expect_true(file.exists(file.path(fixture$root, "data/info/data_old.info.json")))
 })
