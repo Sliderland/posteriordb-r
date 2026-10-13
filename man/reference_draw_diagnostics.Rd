@@ -23,9 +23,14 @@ errors. `"all"` and `"none"` are reserved when used alone.}
 }
 \value{
 `reference_draw_diagnostics()` returns a list with `metrics`,
-  `thresholds`, named logical `status`, and named `failures`. Metric vectors
-  are named by scalar variable or chain. Unavailable metrics are marked
-  `"unavailable"`; undefined variable metrics are `NA` and fail their check.
+  `thresholds`, named logical `status`, named `failures`, and `constant`.
+  Metric vectors are named by scalar variable or chain. Unavailable metrics
+  are marked `"unavailable"`; undefined variable metrics are `NA` and fail
+  their check. The exception is a variable with the same value in every draw
+  of every chain, such as the fixed elements of a Cholesky factor: it is
+  listed in `constant`, skipped by the lag-1 autocorrelation and R-hat
+  checks, and reported in a warning. Chains that are constant at different
+  values still fail.
   Failed count checks report observed and required values. `ndraws` requires
   exactly 10,000 retained draws total.
 }

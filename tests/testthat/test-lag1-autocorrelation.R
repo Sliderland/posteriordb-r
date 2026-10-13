@@ -73,12 +73,57 @@ test_that("legacy draws fail when lag-1 autocorrelation is undefined", {
   draw_info$diagnostics$mean_lag1_ac <- NULL
   info(draws) <- draw_info
   for (chain_index in seq_along(draws)) {
-    draws[[chain_index]]$theta[] <- 1
+    draws[[chain_index]]$theta[] <- chain_index
   }
   expect_error(
     check_reference_posterior_draws(draws),
     "Lag-1 autocorrelation was undefined"
   )
+})
+
+# Stored draws with a varying `theta` and a second variable `fixed`.
+stored_draws_with_fixed <- function(fixed, lag1 = c(0.01, NA), r_hat = c(1, NA)) {
+  withr::local_seed(123)
+  values <- array(
+    stats::rnorm(2500L * 4L * 2L),
+    dim = c(2500L, 4L, 2L),
+    dimnames = list(NULL, NULL, c("theta", "fixed"))
+  )
+  values[,, "fixed"] <- fixed
+  draw_info <- info(small_checked_draws())
+  draw_info$diagnostics$mean_lag1_ac <- lag1
+  draw_info$diagnostics$r_hat <- r_hat
+  as.reference_posterior_draws(posterior::as_draws_list(values), info = draw_info)
+}
+
+test_that("stored draws accept undefined metrics only for a constant variable", {
+  expect_warning(
+    checked <- check_reference_posterior_draws(stored_draws_with_fixed(1)),
+    "Constant variables.*fixed$"
+  )
+  expect_true(info(checked)$checks_made$abs_mean_lag1_ac_below_0_05)
+  expect_true(info(checked)$checks_made$r_hat_below_1_01)
+
+  legacy <- stored_draws_with_fixed(1, lag1 = NULL)
+  expect_warning(checked <- check_reference_posterior_draws(legacy), "Constant variables")
+  expect_true(info(checked)$checks_made$abs_mean_lag1_ac_below_0_05)
+
+  # The same missing metrics are rejected when `fixed` is not constant.
+  different <- rep(1:4, each = 2500L)
+  expect_error(check_reference_posterior_draws(stored_draws_with_fixed(different)),
+               "mean_lag1_ac")
+  expect_error(
+    suppressWarnings(
+      check_reference_posterior_draws(stored_draws_with_fixed(1, lag1 = c(NA, NA)))
+    ),
+    "mean_lag1_ac"
+  )
+})
+
+test_that("stored draws in which every variable is constant fail", {
+  draws <- small_checked_draws()
+  for (chain_index in seq_along(draws)) draws[[chain_index]]$theta[] <- 1
+  expect_error(suppressWarnings(check_reference_posterior_draws(draws)), "mean_lag1_ac")
 })
 
 test_that("undefined lag-1 autocorrelation fails explicitly", {

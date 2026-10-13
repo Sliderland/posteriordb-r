@@ -75,7 +75,8 @@ test_that("a sampled stanfit produces a standalone bundle", {
   expect_null(info(bundle$reference_draws)$checks_made)
   expect_null(bundle$diagnostics)
   expect_match(paste(capture.output(print(bundle)), collapse = "\n"), "unchecked")
-  checked_later <- check_reference_posterior_draws(bundle)
+  expect_warning(checked_later <- check_reference_posterior_draws(bundle),
+    "Constant variables.*constant$")
   expect_s3_class(checked_later, "pdb_reference_bundle")
   expect_true(checked_later$diagnostics$checked)
   expect_false(all(unlist(checked_later$diagnostics$status, use.names = FALSE)))
@@ -106,9 +107,10 @@ test_that("a sampled stanfit produces a standalone bundle", {
     data_info = list(name = "conflict", title = "Inputs"),
     model_info = list(name = "conflict", title = "Model"),
     posterior_info = list(dimensions = list(mu = 2L)), check = FALSE), "conflicts")
-  failed_bundle <- create_pdb_bundle(fit, data = list(),
+  expect_warning(failed_bundle <- create_pdb_bundle(fit, data = list(),
     data_info = list(name = "unit-data-failed", title = "Unit inputs"),
-    model_info = list(name = "unit-model-failed", title = "Unit model"), check = TRUE)
+    model_info = list(name = "unit-model-failed", title = "Unit model"), check = TRUE),
+    "Constant variables.*constant$")
   failed_print <- paste(capture.output(print(failed_bundle)), collapse = "\n")
   expect_match(failed_print, "Draws: 20 across 2 chains")
   expect_match(failed_print, "failed")

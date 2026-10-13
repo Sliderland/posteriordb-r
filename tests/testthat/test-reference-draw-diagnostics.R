@@ -14,7 +14,7 @@ test_that("lag-only diagnostics do not read sampler or energy diagnostics", {
   )
   report <- reference_draw_diagnostics(mock$fit, "mean_lag1_ac")
   expect_false(mock$called$sampler)
-  expect_named(report, c("metrics", "thresholds", "status", "failures"))
+  expect_named(report, c("metrics", "thresholds", "status", "failures", "constant"))
   expect_named(report$metrics$mean_lag1_ac, "theta")
   expect_identical(
     passes_reference_draw_checks(mock$fit, "mean_lag1_ac"),
@@ -191,15 +191,16 @@ test_that("selector composition works with diagnostics", {
   }
 })
 
-test_that("constant variables retain named unavailable metrics without dropping others", {
+# Two variables over 4 chains: `varying` is noise, `fixed` is set by the caller.
+constant_case_report <- function(fixed) {
   withr::local_seed(123)
   arr <- array(
     stats::rnorm(1000L * 4L * 2L),
     c(1000L, 4L, 2L),
-    dimnames = list(NULL, NULL, c("varying", "constant"))
+    dimnames = list(NULL, NULL, c("varying", "fixed"))
   )
-  arr[,, 2L] <- 1
-  report <- posteriordb:::reference_draw_diagnostics_from_extracted(
+  arr[,, "fixed"] <- fixed
+  posteriordb:::reference_draw_diagnostics_from_extracted(
     list(
       draws = posterior::as_draws_array(arr),
       sampler_diagnostics = NULL,
@@ -207,13 +208,51 @@ test_that("constant variables retain named unavailable metrics without dropping 
     ),
     checks = c("mean_lag1_ac", "r_hat")
   )
+}
+
+test_that("a variable constant at one value in every chain is skipped with a warning", {
+  expect_warning(report <- constant_case_report(1), "Constant variables.*fixed$")
+  expect_identical(report$constant, "fixed")
   for (metric in c("mean_lag1_ac", "r_hat")) {
-    expect_named(report$metrics[[metric]], c("varying", "constant"))
+    expect_named(report$metrics[[metric]], c("varying", "fixed"))
     expect_true(is.finite(report$metrics[[metric]][["varying"]]))
-    expect_true(is.na(report$metrics[[metric]][["constant"]]))
-    expect_identical(report$failures[[metric]], "constant")
-    expect_false(report$status[[metric]])
+    expect_true(is.na(report$metrics[[metric]][["fixed"]]))
+    expect_true(report$status[[metric]])
   }
+  expect_length(report$failures, 0L)
+})
+
+test_that("rounding jitter around a constant counts as constant", {
+  jitter <- 1 + rep(c(0, 4.4e-16), length.out = 4000L)
+  expect_warning(report <- constant_case_report(jitter), "Constant variables")
+  expect_identical(report$constant, "fixed")
+  expect_true(all(unlist(report$status)))
+})
+
+test_that("chains constant at different values or only partly constant still fail", {
+  different <- rep(1:4, each = 1000L)
+  partly <- c(rep(1, 1000L), stats::rnorm(3000L))
+  for (fixed in list(different, partly)) {
+    expect_no_warning(report <- constant_case_report(fixed))
+    expect_length(report$constant, 0L)
+    for (metric in c("mean_lag1_ac", "r_hat")) {
+      expect_identical(report$failures[[metric]], "fixed")
+      expect_false(report$status[[metric]])
+    }
+  }
+})
+
+test_that("draws in which every variable is constant fail", {
+  arr <- array(1, c(1000L, 4L, 2L), dimnames = list(NULL, NULL, c("a", "b")))
+  expect_warning(
+    report <- posteriordb:::reference_draw_diagnostics_from_extracted(
+      list(draws = posterior::as_draws_array(arr), sampler_diagnostics = NULL,
+           metadata = list()),
+      checks = c("mean_lag1_ac", "r_hat")
+    ),
+    "Constant variables"
+  )
+  expect_false(any(unlist(report$status)))
 })
 
 test_that("all diagnostics aggregate failures and E-FMI is independent of chain count gate", {

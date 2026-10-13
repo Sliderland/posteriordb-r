@@ -5,7 +5,9 @@
 #'   the recorded diagnostics must describe the draws and show at least four
 #'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
 #'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
-#'   chain, and no divergent transitions. ESS bounds are recorded but do not
+#'   chain, and no divergent transitions. A variable with the same value in
+#'   every draw of every chain is skipped by the lag-1 autocorrelation and
+#'   R-hat checks, with a warning. ESS bounds are recorded but do not
 #'   determine acceptance. Analytical draws require the stated draw count
 #'   and matching count metadata; Stan sampling checks do not apply. Named
 #'   Stan metrics must identify the retained variables or `chain1`, `chain2`,
@@ -47,7 +49,9 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(x, ...)
 #'   the recorded diagnostics must describe the draws and show at least four
 #'   chains, mean absolute lag-1 autocorrelation across chains at most 0.05
 #'   for every variable, R-hat at most 1.01, E-FMI at least 0.2 in every
-#'   chain, and no divergent transitions. ESS bounds are recorded but do not
+#'   chain, and no divergent transitions. A variable with the same value in
+#'   every draw of every chain is skipped by the lag-1 autocorrelation and
+#'   R-hat checks, with a warning. ESS bounds are recorded but do not
 #'   determine acceptance. Analytical draws require the stated draw count
 #'   and matching count metadata; Stan sampling checks do not apply. Named
 #'   Stan metrics must identify the retained variables or `chain1`, `chain2`,
@@ -147,17 +151,22 @@ assert_diagnostic_draw_counts <- function(x, rpi) {
 check_stan_sampling_quality <- function(x, rpi) {
   diagnostics <- rpi$diagnostics
   variables <- posterior::variables(x)
+  constant <- constant_reference_variables(x)
+  warn_constant_reference_variables(constant)
   lag1 <- diagnostics$mean_lag1_ac
-  if (is.null(lag1)) lag1 <- mean_lag1_ac(x)
-  observed <- list(nchains = diagnostics$nchains, mean_lag1_ac = lag1,
-    r_hat = diagnostics$r_hat,
+  if (is.null(lag1)) lag1 <- if (length(constant)) reference_lag1_ac(x) else mean_lag1_ac(x)
+  checkmate::assert_numeric(lag1, len = length(variables), .var.name = "mean_lag1_ac")
+  checkmate::assert_numeric(diagnostics$r_hat, len = length(variables), .var.name = "r_hat")
+  observed <- list(nchains = diagnostics$nchains,
+    mean_lag1_ac = varying_metric(lag1, variables, constant),
+    r_hat = varying_metric(diagnostics$r_hat, variables, constant),
     efmi = diagnostics$expected_fraction_of_missing_information,
     divergent_transitions = diagnostics$divergent_transitions)
   fields <- c(mean_lag1_ac = "mean_lag1_ac", r_hat = "r_hat",
     efmi = "expected_fraction_of_missing_information",
     divergent_transitions = "divergent_transitions")
   for (key in names(fields)) {
-    labels <- if (key %in% c("mean_lag1_ac", "r_hat")) variables
+    labels <- if (key %in% c("mean_lag1_ac", "r_hat")) setdiff(variables, constant)
       else paste0("chain", seq_len(diagnostics$nchains))
     assert_finite_diagnostic(observed[[key]], length(labels), name = fields[[key]])
   }
@@ -179,6 +188,34 @@ assert_finite_diagnostic <- function(values, expected_length, lower = -Inf,
     values, lower = lower, upper = upper, finite = TRUE,
     any.missing = FALSE, len = expected_length, .var.name = name
   )
+}
+
+# Variables with the same value in every draw of every chain, such as the
+# fixed elements of a Cholesky factor or a simplex[1]. Their R-hat and lag-1
+# autocorrelation are undefined, so both gates skip them with a warning.
+# Chains stuck at different values are not constant here and still fail.
+constant_reference_variables <- function(x) {
+  x <- posterior::as_draws_array(x)
+  vars <- posterior::variables(x)
+  vars[vapply(seq_along(vars), function(j) {
+    z <- as.numeric(x[, , j])
+    # The tolerance covers rounding, e.g. corr_matrix diagonals at 1 +/- 5e-16.
+    isTRUE(diff(range(z)) <= 1e-12 * max(1, abs(z)))
+  }, logical(1))]
+}
+
+warn_constant_reference_variables <- function(constant) {
+  if (length(constant)) {
+    warning("Constant variables were not checked for lag-1 autocorrelation or R-hat: ",
+            paste(constant, collapse = ", "), call. = FALSE)
+  }
+}
+
+# Per-variable metric without its constant variables. Unnamed metrics are in
+# variable order.
+varying_metric <- function(values, variables, constant) {
+  if (!is.numeric(values)) return(values)
+  values[!(names(values) %||% variables) %in% constant]
 }
 
 # Compute the mean absolute lag-1 autocorrelation across chains for every

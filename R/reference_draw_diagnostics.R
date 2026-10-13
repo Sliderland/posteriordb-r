@@ -16,9 +16,14 @@
 #'   empty-selection error. Names appearing in both selectors are configuration
 #'   errors. `"all"` and `"none"` are reserved when used alone.
 #' @return `reference_draw_diagnostics()` returns a list with `metrics`,
-#'   `thresholds`, named logical `status`, and named `failures`. Metric vectors
-#'   are named by scalar variable or chain. Unavailable metrics are marked
-#'   `"unavailable"`; undefined variable metrics are `NA` and fail their check.
+#'   `thresholds`, named logical `status`, named `failures`, and `constant`.
+#'   Metric vectors are named by scalar variable or chain. Unavailable metrics
+#'   are marked `"unavailable"`; undefined variable metrics are `NA` and fail
+#'   their check. The exception is a variable with the same value in every draw
+#'   of every chain, such as the fixed elements of a Cholesky factor: it is
+#'   listed in `constant`, skipped by the lag-1 autocorrelation and R-hat
+#'   checks, and reported in a warning. Chains that are constant at different
+#'   values still fail.
 #'   Failed count checks report observed and required values. `ndraws` requires
 #'   exactly 10,000 retained draws total.
 #' @examples
@@ -61,9 +66,16 @@ reference_draw_diagnostics_from_extracted <- function(extracted, checks = "all",
   for (key in setdiff(checks, names(observed))) observed[[key]] <- "unavailable"
   observed <- observed[checks]
   thresholds <- policy$thresholds[checks]
-  evaluated <- reference_diagnostic_evaluation(observed, checks, policy)
+  variable_checks <- intersect(c("mean_lag1_ac", "r_hat"), checks)
+  constant <- if (length(variable_checks)) constant_reference_variables(draws) else character()
+  warn_constant_reference_variables(constant)
+  judged <- observed
+  judged[variable_checks] <- lapply(observed[variable_checks], varying_metric,
+    variables = posterior::variables(draws), constant = constant)
+  evaluated <- reference_diagnostic_evaluation(judged, checks, policy)
   list(metrics = observed, thresholds = thresholds,
-       status = evaluated$status, failures = evaluated$failures)
+       status = evaluated$status, failures = evaluated$failures,
+       constant = constant)
 }
 
 reference_diagnostic_evaluation <- function(observed, checks, policy = reference_draw_policy(),
@@ -108,7 +120,8 @@ reference_diagnostic_evaluation <- function(observed, checks, policy = reference
 #'
 #' Returns a scalar logical; it does not establish full acceptance unless all
 #' checks are selected. See [reference_draw_diagnostics()] for report details.
-#' Unavailable or undefined required metrics return `FALSE`; malformed objects
+#' Unavailable or undefined required metrics return `FALSE`, except that
+#' constant variables are skipped with a warning; malformed objects
 #' and selectors raise informative errors.
 #' @inheritParams reference_draw_diagnostics
 #' @return A single `TRUE` or `FALSE`.

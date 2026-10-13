@@ -340,8 +340,11 @@ Fix the sampling, then build a new bundle from the new fit.
 | Divergent transitions | Raise `adapt_delta`, or reparameterize |
 
 Every retained variable is checked, including transformed parameters and
-generated quantities. A constant output has no defined R-hat or
-autocorrelation and therefore fails; exclude it as described below.
+generated quantities. The exception is a variable with the same value in
+every draw of every chain, such as the fixed elements of a Cholesky
+factor or a `simplex[1]`. It has no defined R-hat or autocorrelation, so
+those two checks skip it and a warning names it. A variable that is
+constant at a different value in each chain still fails.
 
 ## Choose variables
 

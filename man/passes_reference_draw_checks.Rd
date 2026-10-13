@@ -32,7 +32,8 @@ A single `TRUE` or `FALSE`.
 \description{
 Returns a scalar logical; it does not establish full acceptance unless all
 checks are selected. See [reference_draw_diagnostics()] for report details.
-Unavailable or undefined required metrics return `FALSE`; malformed objects
+Unavailable or undefined required metrics return `FALSE`, except that
+constant variables are skipped with a warning; malformed objects
 and selectors raise informative errors.
 }
 \examples{

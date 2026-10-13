@@ -103,8 +103,10 @@ The selective calls need only the fit. A lag-only request reads post-warmup
 draws and does not calculate ESS or R-hat or read sampler energy diagnostics.
 The all-check report includes the observed metrics, policy thresholds, each
 check's status, and variables or chains that failed.
-Undefined metrics, including autocorrelation for constant quantities, fail
-their selected checks while the rest of the report remains available.
+Undefined metrics fail their selected checks while the rest of the report
+remains available. A quantity with the same value in every draw of every
+chain is skipped by the lag-1 autocorrelation and R-hat checks, with a
+warning.
 
 Full acceptance requires exactly 10,000 retained draws across at least four
 chains, mean absolute per-chain lag-1 autocorrelation at most 0.05 for every
