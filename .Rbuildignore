@@ -5,7 +5,6 @@ README.Rmd
 README.md
 ^appveyor\.yml$
 ^\.github$
-^\.code-review-graph$
 posteriordb*
 ^codecov\.yml$
 ^doc
