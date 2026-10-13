@@ -426,6 +426,7 @@ is_pdb_endpoint_local_path <- function(x) {
 
 pdb_json_archive_member <- function(path) {
   members <- utils::unzip(path, list = TRUE)$Name
+  members <- members[!startsWith(members, "__MACOSX/")]
   if (length(members) != 1L || !grepl("[.]json$", members[[1L]])) {
     stop("Expected a single JSON member in ZIP archive '", path, "'.", call. = FALSE)
   }
@@ -453,8 +454,9 @@ pdb_extract_json_archive <- function(path, member, directory) {
 #' Read json file from \code{path}
 #'
 #' @details
-#' Copies the file to the cache and returns its path. Archives must contain
-#' one safe root JSON member matching the requested filename. Failed
+#' Copies the file to the cache and returns its path. Ignoring macOS
+#' `__MACOSX/` metadata, archives must contain one safe root JSON member
+#' matching the requested filename. Failed
 #' extraction removes incomplete output. Cache destinations remain inside
 #' the configured cache root. Existing cached files still require manual
 #' refresh when the source changes.

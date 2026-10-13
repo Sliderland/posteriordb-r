@@ -14,6 +14,8 @@
 #' and data are used to infer them, which can require compilation.
 #' Construction does not write files. `pdb_posterior()` is the lookup alias;
 #' `as.pdb_posterior()` is the construction alias.
+#' Saved records may use arrays of unconstrained dimensions; lookup multiplies
+#' their extents into scalar counts.
 #'
 #' Posteriors returned by [create_pdb_bundle()] embed their data, model
 #' code, and reference draws. Their normal getters work without a database.
@@ -45,6 +47,12 @@ posterior.character <- function(x, pdb = pdb_default(), ...) {
     warning("Extra arguments to posterior name lookup will be disregarded.", call. = FALSE)
   x <- handle_aliases(x, type = "posteriors", pdb)
   po <- read_info_json(x, "posteriors", pdb)
+  checkmate::assert_list(po$dimensions)
+  po$dimensions <- lapply(po$dimensions, function(dimension) {
+    if (length(dimension) <= 1L) return(dimension)
+    checkmate::assert_integerish(dimension, lower = 1, any.missing = FALSE, tol = 0)
+    prod(dimension)
+  })
   pdb(po) <- pdb
   class(po) <- "pdb_posterior"
   po$model_info <- read_model_info(po)

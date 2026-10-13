@@ -41,6 +41,8 @@ posterior metadata fields. If dimensions are omitted, supplied Stan code
 and data are used to infer them, which can require compilation.
 Construction does not write files. `pdb_posterior()` is the lookup alias;
 `as.pdb_posterior()` is the construction alias.
+Saved records may use arrays of unconstrained dimensions; lookup multiplies
+their extents into scalar counts.
 
 Posteriors returned by [create_pdb_bundle()] embed their data, model
 code, and reference draws. Their normal getters work without a database.

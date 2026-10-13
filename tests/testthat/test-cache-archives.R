@@ -46,6 +46,24 @@ test_that("cache extraction validates archive members before extracting", {
   }
 })
 
+test_that("cache extraction ignores macOS metadata but still requires one safe JSON payload", {
+  metadata <- "__MACOSX/._value.json"
+  fixture <- cache_archive_fixture(c("value.json", metadata))
+  expect_identical(pdb_json_archive_member(fixture$archive), "value.json")
+  path <- pdb_cached_local_file_path(fixture$pdb, "data/data/value.json", unzip = TRUE)
+  expect_identical(readLines(path), '{"value":1}')
+  expect_false(dir.exists(file.path(dirname(path), "__MACOSX")))
+
+  for (members in list(metadata, c("value.json", "extra.json", metadata),
+                       c("nested/value.json", metadata), c("../sentinel.json", metadata))) {
+    fixture <- cache_archive_fixture(members)
+    expect_error(pdb_cached_local_file_path(fixture$pdb, "data/data/value.json", unzip = TRUE),
+      "single JSON member|single path components")
+    expect_identical(readLines(fixture$sentinel), "sentinel")
+    expect_length(list.files(file.path(fixture$cache, "data/data")), 0L)
+  }
+})
+
 test_that("damaged ZIP extraction cannot leave reusable partial output", {
   fixture <- cache_archive_fixture("value.json",
     paste0('{"value":"', strrep("A", 10000), '"}'))

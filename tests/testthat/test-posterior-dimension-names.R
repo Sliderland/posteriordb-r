@@ -24,6 +24,35 @@ test_that("invalid declarations fail before variable matching", {
   expect_error(dimension_names(list(x = TRUE)), "must be one positive integer")
 })
 
+test_that("saved unconstrained dimension arrays become counts on lookup", {
+  root <- normalizePath(withr::local_tempdir(), winslash = "/")
+  for (path in c("data/info", "models/info", "posteriors", "alias", "cache"))
+    dir.create(file.path(root, path), recursive = TRUE)
+  writeLines("{}", file.path(root, "alias/posteriors.json"))
+  connection <- pdb_local(root, cache_path = file.path(root, "cache"))
+  write_pdb(as.pdb_model_info(list(name = "model", title = "Model", framework = "stan",
+    added_by = "test", added_date = Sys.Date())), connection)
+  write_pdb(as.pdb_data_info(list(name = "inputs", title = "Inputs",
+    added_by = "test", added_date = Sys.Date())), connection)
+  record <- list(name = "inputs-model", model_name = "model", data_name = "inputs",
+    reference_posterior_name = NULL, dimensions = list(pi1 = 2L, A = c(3L, 2L), w = c(3L, 4L)),
+    added_by = "test", added_date = "2026-01-01")
+  path <- file.path(root, "posteriors/inputs-model.json")
+  jsonlite::write_json(record, path, auto_unbox = TRUE, null = "null")
+  expect_silent(object <- posterior(record$name, connection))
+  expect_equal(object$dimensions, list(pi1 = 2L, A = 6L, w = 12L))
+  expect_identical(jsonlite::read_json(path, simplifyVector = TRUE)$dimensions$A, c(3L, 2L))
+  object$dimensions <- record$dimensions
+  expect_error(assert_pdb_posterior(object), "one positive integer")
+
+  for (invalid in list(c(0L, 2L), c(-1L, -2L), c(0.5, 2), c(2, NA), c(2, Inf), c(TRUE, TRUE))) {
+    record$dimensions$A <- invalid
+    jsonlite::write_json(record, path, auto_unbox = TRUE, null = "null")
+    pdb_clear_cache(connection)
+    expect_error(posterior(record$name, connection), "dimension")
+  }
+})
+
 
 test_that("free-coordinate count selection and representations stay canonical", {
   coordinates <- c("weights.1", "weights.2", "M.1.1", "M.2.1", "theta")
