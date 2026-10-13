@@ -3,6 +3,8 @@ context("test-contributing")
 # This test the contribution pipeline presented in CONTRIBUTING.md.
 
 test_that("test that all steps of the contribution pipeline works as expected", {
+  skip_stan_integration()
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdbl <- pdb_local())
 
@@ -58,7 +60,7 @@ test_that("test that all steps of the contribution pipeline works as expected", 
             urls = "posterior_urls",
             references = "posterior_references",
             dimensions = list("theta" = 8, "mu" = 1, "tau" = 1),
-            reference_posterior_name = NULL,
+            reference_posterior_name = "test_eight_schools_data-test_eight_schools_model",
             added_date = Sys.Date(),
             added_by = "Stanislaw Ulam")
   expect_silent(po <- as.pdb_posterior(x, pdbl))

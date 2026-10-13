@@ -19,6 +19,7 @@ as.pdb_data <- function(x, ...) {
 #' @rdname get_data
 #' @export
 get_data.pdb_posterior <- function(x, ...) {
+  if (!is.null(x$embedded_data)) return(x$embedded_data)
   get_data(x$data_name, pdb = pdb(x), ...)
 }
 
@@ -66,6 +67,7 @@ data_file_path <- function(x, ...) {
 #' @inheritParams model_code_file_path
 #' @export
 data_file_path.pdb_posterior <- function(x, ...) {
+  if (!is.null(x$embedded_data)) stop("This in-memory posterior is not persisted; its embedded data has no database file path.", call. = FALSE)
   fp <- pdb_cached_local_file_path(pdb = pdb(x), path = x$data_info$data_file, unzip = TRUE)
   checkmate::assert_file_exists(fp)
   fp

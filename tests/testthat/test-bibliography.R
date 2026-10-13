@@ -1,8 +1,193 @@
 context("test-bibliography")
 
-test_that("bibliography works as expected", {
-  assert_pdb_path_exists()
-  expect_silent(pdb_test <- pdb_local())
-  expect_silent(bib <- bibliography(pdb_test))
+local_bibliography_fixture <- function(contents = character()) {
+  root <- tempfile("pdb-bibliography-")
+  cache <- tempfile("pdb-cache-")
+  withr::defer(unlink(c(root, cache), recursive = TRUE), envir = parent.frame())
+  dir.create(file.path(root, "bibliography"), recursive = TRUE)
+  dir.create(cache)
+  reference_path <- file.path(root, "bibliography", "references.bib")
+  writeLines(contents, reference_path)
+  pdb <- structure(
+    list(pdb_local_endpoint = root, cache_path = cache),
+    class = c("pdb_local", "pdb")
+  )
+  list(root = root, cache = cache, path = reference_path, pdb = pdb)
+}
 
+test_that("bibliography works as expected", {
+  fixture <- local_bibliography_fixture(c("@misc{one, title={One}}",
+    "@misc{two, title={Two}}"))
+  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
+  expect_length(bibliography(fixture$pdb), 2L)
+  expect_identical(posteriordb::bibliography_keys(fixture$pdb), c("one", "two"))
+  entry <- posteriordb::bibliography_entry("one", pdb = fixture$pdb)
+  expect_s3_class(entry, "bibentry")
+  expect_identical(names(entry), "one")
+  expect_match(paste(as.character(utils::toBibtex(entry)), collapse = "\n"),
+    "@Misc{one,", fixed = TRUE)
+  expect_error(posteriordb::bibliography_entry("missing", pdb = fixture$pdb), "key")
+})
+
+test_that("append_reference accepts strings and bibentry objects", {
+  fixture <- local_bibliography_fixture()
+  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
+  pdb <- fixture$pdb
+
+  first <- paste0(
+    "@article{first, title={First}, author={Doe, Jane}, ",
+    "journal={Journal}, year={2020}}"
+  )
+  expect_true(append_reference(first, pdb))
+
+  second <- utils::bibentry(
+    "Book", key = "second", title = "Second",
+    author = utils::person("John", "Roe"), publisher = "Press", year = "2021"
+  )
+  third <- utils::bibentry(
+    "Misc", key = "third", title = "Third", year = "2022"
+  )
+  expect_true(append_reference(c(second, third), pdb))
+  expect_equal(length(bibtex::read.bib(fixture$path)), 3L)
+  expect_identical(list.files(dirname(fixture$path)), "references.bib")
+})
+
+test_that("append_reference rejects duplicate keys and entries without writing", {
+  original <- paste0(
+    "@article{original, title={Same}, author={Doe, Jane}, ",
+    "journal={Journal}, year={2020}}"
+  )
+  fixture <- local_bibliography_fixture(original)
+  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
+  pdb <- fixture$pdb
+
+  duplicate_key <- sub("original", "ORIGINAL", original, fixed = TRUE)
+  expect_error(append_reference(duplicate_key, pdb), "`original` and `ORIGINAL`")
+  expect_identical(readLines(fixture$path), original)
+
+  duplicate_entry <- sub("original", "another-key", original, fixed = TRUE)
+  expect_error(append_reference(duplicate_entry, pdb), "`original` and `another-key`")
+  expect_identical(readLines(fixture$path), original)
+})
+
+test_that("append_reference identifies duplicates within supplied references", {
+  fixture <- local_bibliography_fixture()
+  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
+  pdb <- fixture$pdb
+  refs <- c(
+    utils::bibentry("Misc", key = "first", title = "Same", year = "2020"),
+    utils::bibentry("Misc", key = "second", title = "Same", year = "2020")
+  )
+  expect_error(append_reference(refs, pdb), "`first` and `second`")
+  expect_identical(readLines(fixture$path), character())
+})
+
+test_that("append_reference imports multiple entries from a .bib file", {
+  fixture <- local_bibliography_fixture("@misc{original, title={Original}}")
+  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
+  input <- tempfile(fileext = ".bib")
+  on.exit(unlink(input), add = TRUE)
+  writeLines(c(
+    "% @misc{also-fake, title={Ignored}}",
+    "@string{journal = {Journal}}",
+    "@comment{ A quoted \"@article{fake, title={Ignored}} }",
+    paste0("@article{second, title={Text @article{fake, example}}, ",
+           "author={Doe, Jane}, journal=journal, year={2020}}"),
+    "@misc{third, title={Third}}"
+  ), input)
+
+  expect_length(bibliography(fixture$pdb), 1L)
+  cache_path <- file.path(fixture$cache, "bibliography", "references.bib")
+  expect_true(file.exists(cache_path))
+  expect_true(append_reference(input, fixture$pdb))
+  expect_false(file.exists(cache_path))
+  expect_length(bibliography(fixture$pdb), 3L)
+  expect_identical(posteriordb::bibliography_keys(fixture$pdb),
+    c("original", "second", "third"))
+})
+
+test_that("append_reference rejects invalid files and entries without writing", {
+  fixture <- local_bibliography_fixture("@misc{original, title={Original}}")
+  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
+  input <- tempfile(fileext = ".bib")
+  on.exit(unlink(input), add = TRUE)
+
+  writeLines(c("@misc{new, title={New}}", "@unknown{bad, title={Bad}}"), input)
+  expect_error(append_reference(input, fixture$pdb), "invalid or unsupported")
+  expect_identical(readLines(fixture$path), "@misc{original, title={Original}}")
+
+  writeLines(c("@misc{new, title={New}}", "@unknown{bad}"), input)
+  expect_error(append_reference(input, fixture$pdb), "invalid or unsupported")
+  expect_identical(readLines(fixture$path), "@misc{original, title={Original}}")
+
+  writeLines(c("@misc{new, title={New}}", "@misc{NEW, title={Other}}"), input)
+  expect_error(append_reference(input, fixture$pdb), "`new` and `NEW`")
+  expect_identical(readLines(fixture$path), "@misc{original, title={Original}}")
+
+  no_key <- utils::bibentry("Misc", title = "No key")
+  expect_error(append_reference(no_key, fixture$pdb), "invalid or unsupported")
+  expect_identical(readLines(fixture$path), "@misc{original, title={Original}}")
+  expect_error(append_reference(
+    "@misc{one, title={One}}\n@misc{two, title={Two}}", fixture$pdb
+  ), "exactly one")
+  expect_identical(readLines(fixture$path), "@misc{original, title={Original}}")
+  expect_error(append_reference(paste0(input, "-missing.bib"), fixture$pdb),
+               "file does not exist")
+})
+
+test_that("append_reference refuses an invalid existing bibliography", {
+  original <- c(
+    "@misc{original, title={Original}}",
+    "@unknown{ignored, title={Ignored}}"
+  )
+  fixture <- local_bibliography_fixture(original)
+  on.exit(unlink(c(fixture$root, fixture$cache), recursive = TRUE), add = TRUE)
+
+  expect_error(append_reference("@misc{new, title={New}}", fixture$pdb),
+               "existing bibliography contains an invalid or unsupported")
+  expect_identical(readLines(fixture$path), original)
+})
+
+test_that("bibliography replacement failures restore or retain the original bytes", {
+  actual_rename <- base::file.rename
+  for (restore_fails in c(FALSE, TRUE)) {
+    fixture <- local_bibliography_fixture("@misc{original, title={Original}}")
+    before <- readBin(fixture$path, "raw", n = file.info(fixture$path)$size)
+    bibliography(fixture$pdb)
+    testthat::local_mocked_bindings(file.rename = function(from, to) {
+      if (identical(to, fixture$path)) {
+        is_backup <- startsWith(basename(from), "references-bib-backup-")
+        if (!is_backup || restore_fails) return(FALSE)
+      }
+      actual_rename(from, to)
+    }, .package = "base")
+    warnings <- character()
+    error <- withCallingHandlers(tryCatch(
+      append_reference("@misc{new, title={New}}", fixture$pdb), error = identity
+    ), warning = function(warning) {
+      warnings <<- c(warnings, conditionMessage(warning))
+      invokeRestart("muffleWarning")
+    })
+    expect_s3_class(error, "error")
+    expect_match(conditionMessage(error), "Could not commit the updated bibliography")
+    backup <- list.files(dirname(fixture$path), full.names = TRUE,
+      pattern = "^references-bib-backup-")
+    if (restore_fails) {
+      expect_length(warnings, 1L)
+      expect_length(backup, 1L)
+      expect_match(warnings, fixture$path, fixed = TRUE)
+      expect_match(warnings, backup, fixed = TRUE)
+      expect_false(file.exists(fixture$path))
+      expect_identical(readBin(backup, "raw", n = file.info(backup)$size), before)
+      expect_identical(list.files(dirname(fixture$path)), basename(backup))
+      expect_true(actual_rename(backup, fixture$path))
+    } else {
+      expect_length(warnings, 0L)
+      expect_length(backup, 0L)
+      expect_identical(list.files(dirname(fixture$path)), "references.bib")
+    }
+    expect_identical(readBin(fixture$path, "raw", n = file.info(fixture$path)$size), before)
+    cached <- file.path(fixture$cache, "bibliography/references.bib")
+    expect_identical(readBin(cached, "raw", n = file.info(cached)$size), before)
+  }
 })

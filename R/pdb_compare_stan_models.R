@@ -11,9 +11,8 @@ pdb_compare_stan_models <- function(po, new_stan_model_code_file, upar_values = 
   mc1 <- as.character(stan_code(po))
   mc2 <- as.character(paste(readLines(new_stan_model_code_file), collapse = "\n"))
 
-  if(digest::sha1(mc1) == digest::sha1(mc2)) warning("The exact same model code is compared.", call. = FALSE)
+  if(identical(mc1, mc2)) warning("The exact same model code is compared.", call. = FALSE)
 
-  # Do hash-check and warn if the exact same code is used
   utils::capture.output(sm1 <- suppressWarnings(run_stan.pdb_posterior(po, stan_args = list(iter = 2, warmup = 0, chains = 1))))
   pdb_clear_cache()
   utils::capture.output(sm2 <- suppressWarnings(rstan::stan(file = new_stan_model_code_file, data = get_data(po), iter = 2, warmup = 0, chains = 1)))
@@ -44,5 +43,4 @@ pdb_compare_stan_models <- function(po, new_stan_model_code_file, upar_values = 
   }
   return(list(upar_values = upar_values, lpd_model1 = lpd1,  lpd_model2 = lpd2))
 }
-
 

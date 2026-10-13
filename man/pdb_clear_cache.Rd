@@ -15,4 +15,10 @@ pdb_cache_clear(pdb = pdb_default())
 \description{
 Clear posterior database cache
 }
+\details{
+Removes files in the configured cache. Local database directories
+  and their resource directories cannot be used as cache deletion roots.
+  Use a dedicated cache directory; unrelated files in that directory are
+  also removed by a full clear.
+}
 \keyword{internal}

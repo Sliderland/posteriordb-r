@@ -1,6 +1,7 @@
 context("test-print")
 
 test_that("All PPFs are printed", {
+  local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
   expect_silent(po <- posterior("eight_schools-eight_schools_noncentered", pdb = pdb_test))

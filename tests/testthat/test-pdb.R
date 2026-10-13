@@ -1,6 +1,7 @@
 context("test-pdb")
 
 test_that("model_names and data_names works as expected", {
+  local_test_database()
   expect_silent(pdb_test <- pdb_local(Sys.getenv("PDB_PATH")))
   expect_silent(posteriors <- posterior_names(pdb_test))
   expect_silent(mn <- model_names(pdb_test))
@@ -16,6 +17,7 @@ test_that("model_names and data_names works as expected", {
 
 
 test_that("pdb_version", {
+  local_test_database()
   expect_silent(pdb_test <- pdb_local(Sys.getenv("PDB_PATH")))
   checkmate::expect_list(pdb_version(pdb_test))
   checkmate::expect_names(names(pdb_version(pdb_test)), must.include = "sha")
@@ -23,6 +25,7 @@ test_that("pdb_version", {
 
 
 test_that("pdb_local", {
+  local_test_database()
   assert_pdb_path_exists()
   if(on_github_actions()) skip_on_os("windows")
 
@@ -30,15 +33,16 @@ test_that("pdb_local", {
   expect_silent(pdbl1 <- pdb_local(pdb_path))
 
   if(!on_covr()) expect_silent(pdbl2 <- pdb_local())
-  expect_error(pdbl3 <- pdb_local(path = dirname(pdb_path)))
+  expect_error(pdbl3 <- pdb_local(path = dirname(pdb_path)), "No posterior database in path")
   expect_silent(pdbl4 <- pdb_local(file.path(pdb_path, "posterior_database", "data", "data")))
-  expect_error(pdbl5 <- pdb_local(dirname(dirname(dirname(dirname(pdb_path))))))
+  expect_error(pdbl5 <- pdb_local(dirname(dirname(dirname(dirname(pdb_path))))), "No posterior database in path")
   if(!on_covr()) expect_equal(pdbl1, pdbl2)
   expect_equal(pdbl1, pdbl4)
 })
 
 
 test_that("pdb_config", {
+  local_test_database()
   if(on_github_actions()) skip_on_os("windows")
   skip_on_covr()
   pdb_path <- Sys.getenv("PDB_PATH")
@@ -73,6 +77,7 @@ test_that("pdb_config", {
 
 
 test_that("pdb_config", {
+  local_test_database()
   if(on_github_actions()) skip_on_os("windows")
   pdb_path <- Sys.getenv("PDB_PATH")
   expect_silent(pdbl <- pdb_local(pdb_path))

@@ -1,6 +1,7 @@
 context("test-info")
 
 test_that("info() should extract the object information", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
   posteriordb:::pdb_clear_cache(pdb_test)
@@ -44,7 +45,7 @@ test_that("data info constructor ", {
             added_date = Sys.Date(),
             data_file = "data/data/.json",
             added_by = "Phil Clemson")
-  expect_error(di <- as.pdb_data_info(x))
+  expect_error(di <- as.pdb_data_info(x), "data_file")
   x$data_file <- NULL
   expect_silent(di <- as.pdb_data_info(x))
   x$data_file <- "data/data/wells_data2.json"
@@ -65,4 +66,63 @@ test_that("model info constructor ", {
 
   expect_silent(mi <- as.pdb_model_info(x))
   checkmate::expect_class(mi, "pdb_model_info")
+  expect_identical(
+    mi$model_implementations$stan,
+    list(
+      model_code = "models/stan/test_eight_schools_model.stan",
+      stan_version = ">=2.26.0"
+    )
+  )
+})
+
+test_that("model info accepts explicit implementations with framework shorthand", {
+  explicit <- list(
+    stan = list(
+      model_code = "models/stan/custom.stan",
+      stan_version = ">=2.30.0"
+    )
+  )
+  model <- as.pdb_model_info(list(
+    name = "custom",
+    title = "Custom model",
+    framework = "stan",
+    model_implementations = explicit,
+    added_by = "testthat",
+    added_date = as.Date("2026-09-29")
+  ))
+
+  expect_identical(model$model_implementations, explicit)
+  expect_false("framework" %in% names(model))
+})
+
+test_that("unused non-Stan implementation details are preserved and ignored", {
+  model_info <- list(
+    name = "stan-with-other-framework",
+    model_implementations = list(
+      stan = list(model_code = "models/stan/example.stan", stan_version = ">=2.26.0"),
+      pymc = list(model_code = "models/pymc/example.py", pymc_version = ">=5.0", extra = "ignored")
+    ),
+    title = "Test model",
+    added_by = "testthat",
+    added_date = as.Date("2026-09-28")
+  )
+
+  model <- as.pdb_model_info(model_info)
+
+  expect_identical(model$model_implementations$pymc$pymc_version, ">=5.0")
+  expect_identical(model$model_implementations$stan$stan_version, ">=2.26.0")
+})
+
+test_that("empty optional string arrays from JSON are normalized", {
+  testthat::local_mocked_bindings(read_json_from_pdb = function(...) {
+    list(name = "empty-fields", added_date = "2026-09-28",
+         references = list(), urls = list(), keywords = list())
+  }, .package = "posteriordb")
+  fake_pdb <- structure(list(), class = c("pdb_local", "pdb"))
+
+  info <- posteriordb:::read_info_json("empty-fields", "posteriors", fake_pdb)
+
+  expect_identical(info$references, character())
+  expect_identical(info$urls, character())
+  expect_identical(info$keywords, character())
 })

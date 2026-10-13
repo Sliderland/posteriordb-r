@@ -9,3 +9,5 @@ posteriordb*
 ^codecov\.yml$
 ^doc
 ^LICENSE\.md$
+^scripts$
+^tests/test-suite\.log$
