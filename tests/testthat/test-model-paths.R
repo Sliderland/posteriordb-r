@@ -19,6 +19,12 @@ test_that("model reads and removal follow declared paths for every supported fra
       writeLines("# fixture code", source)
       expect_identical(readLines(model_code_file_path(name, framework, connection)), "# fixture code")
       code <- model_code(name, framework, connection)
+      # Disabled until model_code() reads a file without a final newline
+      # silently, which check_pdb relies on. That behaviour is changed later, on
+      # fix/constant-variables-checks; these lines replace the three above there.
+      # writeLines("# fixture code", source, sep = if (custom) "" else "\n")
+      # expect_identical(readLines(model_code_file_path(name, framework, connection), warn = FALSE), "# fixture code")
+      # expect_silent(code <- model_code(name, framework, connection))
       expect_identical(as.character(code), "# fixture code")
       expect_identical(framework(code), framework)
       expect_identical(info(code), metadata)
@@ -26,6 +32,8 @@ test_that("model reads and removal follow declared paths for every supported fra
       object <- structure(list(model_name = name, model_info = metadata), class = "pdb_posterior", pdb = connection)
       expect_identical(model_code_file_path(object, framework), model_code_file_path(metadata, framework, connection))
       expect_identical(model_code(object, framework), code)
+      # Disabled for the same reason as above.
+      # expect_silent(check_pdb_read_model_code(list(object)))
       remove_pdb(code, connection, remove_info = FALSE)
       expect_false(file.exists(source))
       expect_true(file.exists(file.path(root, "models/info", paste0(name, ".info.json"))))
