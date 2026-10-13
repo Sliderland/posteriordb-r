@@ -57,7 +57,7 @@ model_code.character <- function(x, framework, pdb = pdb_default(), ...) {
 #' @export
 model_code.pdb_model_info <- function(x, framework, pdb = pdb_default(), ...) {
   scfp <- model_code_file_path(x, framework, pdb, ...)
-  out <- paste0(readLines(scfp), collapse = "\n")
+  out <- paste0(readLines(scfp, warn = FALSE), collapse = "\n")
   class(out) <- c("pdb_model_code", "character")
   framework(out) <- framework
   info(out) <- x
