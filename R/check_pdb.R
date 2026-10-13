@@ -32,8 +32,8 @@ check_pdb <- function(pdb, posterior_names_to_check = NULL, run_stan_code_checks
   checkmate::assert_flag(verbose)
 
   if(verbose) message("Checking posterior database...")
-  if(verbose & !run_stan_code_checks) message("No checking of Stan code and syntax.")
-  if(verbose & run_stan_code_checks) message("Checking that Stan can be run for posteriors.")
+  if(verbose && !run_stan_code_checks) message("No checking of Stan code and syntax.")
+  if(verbose && run_stan_code_checks) message("Checking that Stan can be run for posteriors.")
   return_status <- 0L
 
   if(!is.null(posterior_names_to_check)) {
@@ -71,7 +71,7 @@ check_pdb <- function(pdb, posterior_names_to_check = NULL, run_stan_code_checks
   if(inherits(res, "try-error")) {return_status <- 1L} else {
   if(verbose) message("- All bibliography elements exist in a data, model or posterior object.")}
 
-  if(verbose & return_status == 0L) message("\nPosterior database is ok.\n")
+  if(verbose && return_status == 0L) message("\nPosterior database is ok.\n")
   invisible(return_status)
 }
 
