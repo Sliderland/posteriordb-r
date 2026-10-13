@@ -136,3 +136,60 @@ test_that("write posterior", {
   remove_pdb(d, pdb = pdb_test)
 
 })
+
+
+
+test_that("write reference_posterior", {
+  local_test_database()
+  if(on_github_actions()) skip_on_os("windows")
+
+  expect_silent(pdb_test <- pdb_local())
+  expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
+  expect_silent(gsd <- reference_posterior_draws(po))
+  gsi <- info(gsd)
+  gsi$checks_made <- list(
+    ndraws_is_10k = TRUE,
+    nchains_is_gte_4 = TRUE,
+    abs_mean_lag1_ac_below_0_05 = TRUE,
+    r_hat_below_1_01 = TRUE,
+    efmi_above_0_2 = TRUE,
+    no_divergent_transitions = TRUE
+  )
+  info(gsd) <- gsi
+
+  # Setup posterior
+  # This is needed to access the created reference posterior
+  # since it uses posterior() to access the test reference posterior
+  po$name <- "test_data-test_model"
+  po$reference_posterior_name <- po$name
+  write_pdb(po, pdb_test)
+
+  # Test write gsd
+  info(gsd)$name <- "test_data-test_model"
+  expect_silent(write_pdb(gsd, pdb_test))
+  expect_error(write_pdb(gsd, pdb_test), "already exists")
+  expect_silent(write_pdb(gsd, pdb_test, overwrite = TRUE))
+
+  expect_silent(rpt <- pdb_reference_posterior_draws(x = "test_data-test_model", pdb_test))
+
+  expect_identical(info(gsd)$added_by, info(rpt)$added_by)
+  expect_identical(gsd, rpt)
+
+  # Remove rpd
+  expect_silent(remove_pdb(rpt, pdb = pdb_test))
+  pdb_clear_cache(pdb_test)
+  expect_error(pdb_reference_posterior_draws("test_data-test_model", pdb_test), "File does not exist")
+
+  # Test write gsi
+  gsi$name <- "test_data-test_model"
+  expect_silent(write_pdb(gsi, pdb_test, type = "draws"))
+  expect_error(write_pdb(gsi, pdb_test, type = "draws"), "already exists")
+  expect_silent(write_pdb(gsi, pdb_test, overwrite = TRUE, type = "draws"))
+
+  expect_silent(rpi <- pdb_reference_posterior_draws_info(x = "test_data-test_model", pdb_test))
+  expect_identical(gsi, rpi)
+  expect_silent(remove_pdb(rpi, pdb = pdb_test, type = "draws"))
+
+  # Cleanup
+  remove_pdb(po, pdb_test)
+})

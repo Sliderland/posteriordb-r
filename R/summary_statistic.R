@@ -1,7 +1,8 @@
+supported_summary_statistic_types <- function() {
+  c("mean_value", "mean_squared_value")
+}
 
-supported_summary_statistic_types <- function() c("mean_value", "sd")
-
-summary_statistic_class_name <- function(type){
+summary_statistic_class_name <- function(type) {
   checkmate::assert_subset(type, supported_summary_statistic_types())
   paste0("pdb_summary_statistic_", type)
 }
@@ -15,13 +16,10 @@ supported_summary_statistic_classes <- function() {
 #'
 #' @param x a [pdb_reference_posterior_summary_statistic]
 #'
-summary_statistic_type <- function(x){
+summary_statistic_type <- function(x) {
   checkmate::assert_class(x, "pdb_reference_posterior_summary_statistic")
   sst <- supported_summary_statistic_types()
-  bool <- logical(length(sst))
-  for(i in seq_along(sst)){
-    bool[i] <- grepl(x = class(x)[1], pattern = sst[i])
-  }
+  bool <- summary_statistic_class_name(sst) %in% class(x)
   checkmate::assert_true(sum(bool) == 1L)
   sst[bool]
 }
@@ -29,7 +27,7 @@ summary_statistic_type <- function(x){
 
 #' @export
 print.pdb_reference_posterior_summary_statistic <- function(x, ...) {
-  cat(paste0("Posterior: ",  info(x)$name, "\n\n"))
+  cat(paste0("Posterior: ", info(x)$name, "\n\n"))
   attr(x, "info") <- NULL
   attr(x, "pdb") <- NULL
   x <- unclass(x)
@@ -37,18 +35,25 @@ print.pdb_reference_posterior_summary_statistic <- function(x, ...) {
 }
 
 
-assert_reference_posterior_summary_statistic <- function(x){
+assert_reference_posterior_summary_statistic <- function(x) {
   checkmate::assert_class(x, c("pdb_reference_posterior_summary_statistic"))
   sst <- summary_statistic_type(x)
-  if (sst == "mean_value") sst <- "mean"
-  checkmate::assert_names(names(x)[1], identical.to = c("names"))
-  checkmate::assert_true(any(grepl(names(x)[-1], pattern = sst)))
-  checkmate::assert_true(any(grepl(names(x)[-1], pattern = paste0("mcse_", sst))))
+  value_name <- sst
+  mcse_name <- "mcse_mean"
+  checkmate::assert_names(
+    names(x),
+    type = "unique",
+    must.include = c("names", value_name, mcse_name)
+  )
 
-  checkmate::assert_character(x[[1]])
-  for(j in 2:length(x)){
-    checkmate::assert_numeric(x[[j]])
+  checkmate::assert_character(x[["names"]], unique = TRUE, any.missing = FALSE)
+  count <- length(x[["names"]])
+  checkmate::assert_numeric(x[[value_name]], len = count)
+  checkmate::assert_numeric(x[[mcse_name]], len = count)
+  for (field in setdiff(names(x), c("names", value_name, mcse_name))) {
+    checkmate::assert_numeric(x[[field]])
   }
+  assert_reference_posterior_info(info(x))
 }
 
 
@@ -59,9 +64,20 @@ assert_reference_posterior_summary_statistic <- function(x){
 #' @param info a [pdb_reference_posterior_info] object
 #' @param type the type of summary statistic to extract
 #' @param ... further arguments supplied to specific methods.
-#' @return a [pdb_reference_posterior_summary_statistic] object.
+#' @return A [pdb_reference_posterior_summary_statistic] object for singular
+#'   access; a named list of available types for plural access.
+#' @details Stored summaries use the posterior's `reference_posterior_name`
+#'   link for both payload and metadata; that name may differ from the
+#'   posterior's own name. Plural access omits types without metadata and
+#'   returns an empty list when there is no reference link. Advertised summaries
+#'   must be readable: malformed metadata/payloads and read or transport errors
+#'   propagate rather than being treated as absence.
+#'   Field order is ignored. Variable names must be unique and nonmissing;
+#'   summary values and MCSE must each have one numeric entry per variable.
+#'   Numeric missing and infinite values retain their existing permissive
+#'   validation behavior.
 #' @export
-reference_posterior_summary_statistic <- function(x, ...){
+reference_posterior_summary_statistic <- function(x, ...) {
   UseMethod("reference_posterior_summary_statistic")
 }
 
@@ -71,36 +87,54 @@ pdb_reference_posterior_summary_statistic <- reference_posterior_summary_statist
 
 #' @rdname reference_posterior_summary_statistic
 #' @export
-reference_posterior_summary_statistic.character <- function(x, pdb = pdb_default(), type, ...){
+reference_posterior_summary_statistic.character <- function(
+  x,
+  pdb = pdb_default(),
+  type,
+  ...
+) {
   reference_posterior_summary_statistic(posterior(x, pdb = pdb), type)
 }
 
 #' @rdname reference_posterior_summary_statistic
 #' @export
-reference_posterior_summary_statistic.pdb_posterior <- function(x, type, ...){
-  read_reference_posterior_summary_statistic(x = x$reference_posterior_name, pdb = pdb(x), type = type)
+reference_posterior_summary_statistic.pdb_posterior <- function(x, type, ...) {
+  read_reference_posterior_summary_statistic(
+    x = x$reference_posterior_name,
+    pdb = pdb(x),
+    type = type
+  )
 }
 
 #' @rdname reference_posterior_summary_statistic
 #' @export
-reference_posterior_summary_statistic.pdb_reference_posterior_info <- function(x, pdb = pdb_default(), type, ...){
+reference_posterior_summary_statistic.pdb_reference_posterior_info <- function(
+  x,
+  pdb = pdb_default(),
+  type,
+  ...
+) {
   read_reference_posterior_summary_statistic(x = x$name, pdb = pdb, type = type)
 }
 
 #' @rdname reference_posterior_summary_statistic
 #' @export
-reference_posterior_summary_statistic.list <- function(x, info, type, ...){
+reference_posterior_summary_statistic.list <- function(x, info, type, ...) {
   checkmate::assert_class(info, "pdb_reference_posterior_info")
   checkmate::assert_choice(type, supported_summary_statistic_types())
   attr(x, "info") <- info
-  class(x) <- c(summary_statistic_class_name(type), "pdb_reference_posterior_summary_statistic", "list")
+  class(x) <- c(
+    summary_statistic_class_name(type),
+    "pdb_reference_posterior_summary_statistic",
+    "list"
+  )
   assert_reference_posterior_summary_statistic(x)
   x
 }
 
 
 #' Read reference_posterior_summary_statistic json object
-#' @param x a data, model or posterior name
+#' @param x a reference-posterior name
 #' @param pdb a posterior db object to access the info json from
 #' @param ... further arguments. Currently not used.
 #' @noRd
@@ -109,13 +143,28 @@ read_reference_posterior_summary_statistic <- function(x, pdb, type, ...) {
   checkmate::assert_string(x, null.ok = TRUE)
   checkmate::assert_choice(type, supported_summary_statistic_types())
 
-  if(is.null(x)) stop("There is currently no reference posterior for this posterior.", call. = FALSE)
+  if (is.null(x)) {
+    stop(
+      "There is currently no reference posterior for this posterior.",
+      call. = FALSE
+    )
+  }
   checkmate::assert_class(pdb, classes = "pdb")
 
-  rpssfp <- pdb_cached_local_file_path(pdb, file.path("reference_posteriors", "summary_statistics", type, type,  paste0(x, ".json")), unzip = FALSE)
+  rpssfp <- pdb_cached_local_file_path(
+    pdb,
+    file.path(
+      "reference_posteriors",
+      "summary_statistics",
+      type,
+      type,
+      paste0(x, ".json")
+    ),
+    unzip = FALSE
+  )
   rpssd <- jsonlite::read_json(rpssfp, simplifyVector = TRUE)
 
-  rpssi <- reference_posterior_info(x, pdb, type = type)
+  rpssi <- read_reference_posterior_info(x = x, type = type, pdb = pdb)
   rpss <- reference_posterior_summary_statistic(rpssd, rpssi, type)
 
   assert_reference_posterior_summary_statistic(rpss)
@@ -125,7 +174,7 @@ read_reference_posterior_summary_statistic <- function(x, pdb, type, ...) {
 
 #' @rdname reference_posterior_summary_statistic
 #' @export
-reference_posterior_summary_statistics <- function(x, ...){
+reference_posterior_summary_statistics <- function(x, ...) {
   UseMethod("reference_posterior_summary_statistics")
 }
 
@@ -135,18 +184,33 @@ pdb_reference_posterior_summary_statistics <- reference_posterior_summary_statis
 
 #' @rdname reference_posterior_summary_statistic
 #' @export
-reference_posterior_summary_statistics.character <- function(x, pdb = pdb_default(), ...){
+reference_posterior_summary_statistics.character <- function(
+  x,
+  pdb = pdb_default(),
+  ...
+) {
   reference_posterior_summary_statistics(x = posterior(x, pdb = pdb))
 }
 
 #' @rdname reference_posterior_summary_statistic
 #' @export
-reference_posterior_summary_statistics.pdb_posterior <- function(x, ...){
-  ssst <- supported_summary_statistic_types()
+reference_posterior_summary_statistics.pdb_posterior <- function(x, ...) {
+  reference <- x$reference_posterior_name
+  checkmate::assert_string(reference, null.ok = TRUE)
   ss_list <- list()
-  for(i in seq_along(ssst)){
-    ss_list[[ssst[i]]] <- try(read_reference_posterior_summary_statistic(x = x$reference_posterior_name, pdb = pdb(x), type = ssst[i]), silent = TRUE)
-    if(inherits(ss_list[[ssst[i]]], "try-error")) ss_list[[ssst[i]]] <- NULL
+  if (is.null(reference)) {
+    return(ss_list)
+  }
+  connection <- pdb(x)
+  for (type in supported_summary_statistic_types()) {
+    if (!reference %in% reference_posterior_names(connection, type = type)) {
+      next
+    }
+    ss_list[[type]] <- read_reference_posterior_summary_statistic(
+      x = reference,
+      pdb = connection,
+      type = type
+    )
   }
   ss_list
 }
