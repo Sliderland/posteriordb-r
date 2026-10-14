@@ -169,6 +169,36 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(
   invisible(x)
 }
 
+# Nonthrowing worker for reports; strict callers use mean_lag1_ac().
+reference_lag1_ac <- function(x) {
+  x <- posterior::as_draws_array(x)
+  vars <- posterior::variables(x)
+  stats::setNames(
+    vapply(
+      seq_along(vars),
+      function(j) {
+        by_chain <- vapply(
+          seq_len(posterior::nchains(x)),
+          function(i) {
+            z <- x[, i, j]
+            if (
+              length(z) < 2L || !is.finite(stats::var(z)) || stats::var(z) == 0
+            ) {
+              return(NA_real_)
+            }
+            centered <- z - mean(z)
+            sum(centered[-length(centered)] * centered[-1L]) / sum(centered^2)
+          },
+          numeric(1)
+        )
+        if (any(!is.finite(by_chain))) NA_real_ else mean(abs(by_chain))
+      },
+      numeric(1)
+    ),
+    vars
+  )
+}
+
 #' Compute ESS tail and bulk bounds
 #'
 #' @details Compute the bounds for ESS tail and bulk based on 100 000

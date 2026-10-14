@@ -260,7 +260,7 @@ assert_reference_posterior_info <- function(x) {
   checkmate::assert_class(x, "pdb_reference_posterior_info")
   checkmate::assert_names(
     names(x),
-    identical.to = c(
+    permutation.of = c(
       "name",
       "inference",
       "diagnostics",
@@ -305,7 +305,10 @@ assert_reference_posterior_info <- function(x) {
       names(x$versions),
       subset.of = c(
         "rstan_version",
+        "cmdstanr_version",
         "cmdstan_version",
+        "stan_version",
+        "posterior_version",
         "r_Makevars",
         "r_version",
         "r_session",
@@ -322,7 +325,10 @@ assert_reference_posterior_info <- function(x) {
           "r_session"
         )
       )
-    } else if (!is.null(x$versions$cmdstan_version)) {
+    } else if (
+      !is.null(x$versions$cmdstan_version) ||
+        !is.null(x$versions$cmdstanr_version)
+    ) {
       checkmate::assert_names(
         names(x$versions),
         must.include = c(
