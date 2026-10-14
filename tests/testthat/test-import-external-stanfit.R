@@ -693,7 +693,7 @@ test_that("CmdStanR MCMC fits are imported through their CSV-backed methods", {
   fit <- cmdstanr_fit_fixture()
   posterior <- external_posterior_fixture()
   posterior$dimensions <- list(alpha = 1L)
-  rpd <- as_reference_posterior_draws_from_cmdstanr(
+  rpd <- as_reference_posterior_draws(
     fit,
     posterior,
     pdb = empty_local_pdb()
