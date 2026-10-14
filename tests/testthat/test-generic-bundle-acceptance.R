@@ -22,7 +22,7 @@ test_that("bundle acceptance agrees with writers and retains single-chain metric
     fit_class = "stanfit",
     import_versions = list()
   )
-  testthat::local_mocked_bindings(extract_rstan_fit = function(...) extracted)
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) extracted)
   make <- function(check = TRUE, ...) {
     create_pdb_bundle(
       structure(list(), class = "stanfit"),

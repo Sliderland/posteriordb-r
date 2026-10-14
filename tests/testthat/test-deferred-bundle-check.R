@@ -37,17 +37,12 @@ make_unchecked_test_bundle <- function(divergence = 0L) {
     import_versions = list(R = "test", rstan = "test", posterior = "test")
   )
   testthat::local_mocked_bindings(
-    extract_rstan_fit = function(
+    extract_rstan_fit_for_bundle = function(
       fit,
-      checks = "all",
       strict = TRUE,
-      for_bundle = FALSE,
       compute_diagnostics = TRUE,
-      include = NULL,
-      exclude = NULL,
       ...
     ) {
-      expect_true(for_bundle)
       expect_false(compute_diagnostics)
       extracted
     },

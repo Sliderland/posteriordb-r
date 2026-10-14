@@ -156,10 +156,8 @@ test_that("unchecked bundles skip diagnostic calculation", {
   ))
   diagnostic_called <- FALSE
   testthat::local_mocked_bindings(
-    extract_rstan_fit = function(fit, checks = "all", strict = TRUE,
-                                 for_bundle = FALSE, compute_diagnostics = TRUE,
-                                 include = NULL, exclude = NULL, ...) {
-      expect_true(for_bundle)
+    extract_rstan_fit_for_bundle = function(fit, strict = TRUE,
+                                            compute_diagnostics = TRUE, ...) {
       expect_false(compute_diagnostics)
       list(
         draws = draws,

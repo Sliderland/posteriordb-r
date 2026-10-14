@@ -499,15 +499,7 @@ extract_rstan_sampler_diagnostics <- function(fit, strict = TRUE) {
   })
 }
 
-extract_rstan_fit <- function(fit, checks = "all", strict = TRUE,
-                              for_bundle = FALSE, compute_diagnostics = TRUE,
-                              include = NULL,
-                              exclude = NULL, data = NULL, ...) {
-  if (isTRUE(for_bundle)) {
-    return(extract_rstan_fit_for_bundle(fit, strict = strict,
-      compute_diagnostics = compute_diagnostics,
-      include = include, exclude = exclude, data = data))
-  }
+extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
   draws <- tryCatch(
     posterior::as_draws_array(fit),
     error = function(error) {

@@ -325,11 +325,9 @@ create_pdb_bundle.stanfit <- function(
   }
 
   # Convert the fit into backend-neutral draws, dimensions, and provenance.
-  extracted <- extract_external_stan_fit(
+  extracted <- extract_rstan_fit_for_bundle(
     fit,
-    checks = "all",
     strict = FALSE,
-    for_bundle = TRUE,
     compute_diagnostics = check,
     include = include,
     exclude = exclude,
