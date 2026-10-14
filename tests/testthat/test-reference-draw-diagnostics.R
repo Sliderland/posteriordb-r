@@ -1,0 +1,533 @@
+#Helpers: helper-diagnostics.R
+
+test_that("lag-only diagnostics do not read sampler or energy diagnostics", {
+  mock <- make_diagnostic_cmdstan_fit()
+  testthat::local_mocked_bindings(
+    rhat = function(...) stop("unexpected R-hat calculation"),
+    ess_bulk = function(...) stop("unexpected bulk ESS calculation"),
+    ess_tail = function(...) stop("unexpected tail ESS calculation"),
+    .package = "posterior"
+  )
+  testthat::local_mocked_bindings(
+    cmdstanr_bfmi = function(...) stop("unexpected BFMI calculation"),
+    .package = "posteriordb"
+  )
+  report <- reference_draw_diagnostics(mock$fit, "mean_lag1_ac")
+  expect_false(mock$called$sampler)
+  expect_named(report, c("metrics", "thresholds", "status", "failures"))
+  expect_named(report$metrics$mean_lag1_ac, "theta")
+  expect_identical(
+    passes_reference_draw_checks(mock$fit, "mean_lag1_ac"),
+    report$status$mean_lag1_ac
+  )
+  expect_named(report$metrics, "mean_lag1_ac")
+})
+test_that("report metrics cover only the selected variables", {
+  mock <- make_diagnostic_cmdstan_fit(n_var = 3)
+  checks <- c("mean_lag1_ac", "r_hat")
+  all_vars <- reference_draw_diagnostics(mock$fit, checks)
+  selected <- reference_draw_diagnostics(mock$fit, checks, exclude = "b")
+  included <- reference_draw_diagnostics(mock$fit, checks, include = "b")
+  for (metric in checks) {
+    expect_named(all_vars$metrics[[metric]], c("theta", "a", "b"))
+    expect_named(selected$metrics[[metric]], c("theta", "a"))
+    expect_named(included$metrics[[metric]], "b")
+    expect_identical(
+      selected$metrics[[metric]][["theta"]],
+      all_vars$metrics[[metric]][["theta"]]
+    )
+    expect_identical(
+      selected$metrics[[metric]][["a"]],
+      all_vars$metrics[[metric]][["a"]]
+    )
+  }
+})
+
+test_that("selector composition excludes lp", {
+  draws <- create_draws_arr()
+  selected <- posteriordb:::select_reference_diagnostic_draws(draws)
+  expect_false("lp__" %in% posterior::variables(selected))
+})
+
+test_that("selector composition excludes named, present, variable", {
+  draws <- create_draws_arr()
+  selected <- posteriordb:::select_reference_diagnostic_draws(
+    draws,
+    exclude = "beta"
+  )
+  expect_identical(posterior::variables(selected), "alpha[1]")
+})
+
+test_that("selector composition inclusion prevents duplicates", {
+  draws <- create_draws_arr()
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(
+      draws,
+      include = c("alpha", "alpha")
+    ),
+    "`include` must contain unique, non-empty base names.",
+    fixed = TRUE
+  )
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(
+      draws,
+      include = c("beta", "beta")
+    ),
+    "`include` must contain unique, non-empty base names.",
+    fixed = TRUE
+  )
+})
+test_that("select composition prevents non-present parameter selection", {
+  draws <- create_draws_arr()
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(
+      draws,
+      include = c("sigma")
+    ),
+    "Unknown base variable(s) in `include`: sigma",
+    fixed = TRUE
+  )
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(
+      draws,
+      exclude = c("sigma")
+    ),
+    "Unknown base variable(s) in `exclude`: sigma",
+    fixed = TRUE
+  )
+  # Selectors take base names, so an indexed element is an unknown name.
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(
+      draws,
+      include = c("alpha[1]", "alpha")
+    ),
+    "Unknown base variable(s) in `include`: alpha[1]",
+    fixed = TRUE
+  )
+  # The overlap check runs before the unknown-name check.
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(
+      draws,
+      include = c("sigma"),
+      exclude = c("sigma")
+    ),
+    "Variable(s) appear in both `include` and `exclude`: sigma",
+    fixed = TRUE
+  )
+})
+
+test_that("selector composition defaults work correctly", {
+  draws <- create_draws_arr()
+  expect_identical(
+    posterior::variables(posteriordb:::select_reference_diagnostic_draws(
+      draws
+    )),
+    c("alpha[1]", "beta")
+  )
+})
+test_that("selector composition requires non-empty argument", {
+  draws <- create_draws_arr()
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(draws, include = ""),
+    "`include` must contain unique, non-empty base names.",
+    fixed = TRUE
+  )
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(draws, exclude = ""),
+    "`exclude` must contain unique, non-empty base names.",
+    fixed = TRUE
+  )
+})
+test_that("selector composition aliases work correctly", {
+  draws <- create_draws_arr()
+  for (include in list(NULL, "all")) {
+    for (exclude in list(NULL, character(), "none", "lp__")) {
+      expect_identical(
+        posterior::variables(posteriordb:::select_reference_diagnostic_draws(
+          draws,
+          include = include,
+          exclude = exclude
+        )),
+        c("alpha[1]", "beta")
+      )
+    }
+  }
+})
+test_that("selector composition cannot exclude all variables", {
+  draws <- create_draws_arr()
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(draws, exclude = "all"),
+    "No posterior variables remain"
+  )
+})
+test_that("selector composition cannot include no variables", {
+  draws <- create_draws_arr()
+  for (include in list("none", character())) {
+    expect_error(
+      posteriordb:::select_reference_diagnostic_draws(draws, include = include),
+      "No posterior variables remain"
+    )
+  }
+})
+
+test_that("selector composition cannot include and exclude the same variable", {
+  draws <- create_draws_arr()
+  expect_error(
+    posteriordb:::select_reference_diagnostic_draws(
+      draws,
+      include = c("alpha", "beta"),
+      exclude = "beta"
+    ),
+    "both.*include.*exclude"
+  )
+})
+test_that("selector composition works with diagnostics", {
+  mock <- make_diagnostic_cmdstan_fit()
+  for (exclude in list(character(), "none")) {
+    expect_identical(
+      reference_draw_diagnostics(mock$fit, "mean_lag1_ac", exclude = exclude),
+      reference_draw_diagnostics(mock$fit, "mean_lag1_ac")
+    )
+  }
+})
+
+test_that("constant variables retain named unavailable metrics without dropping others", {
+  withr::local_seed(123)
+  arr <- array(
+    stats::rnorm(1000L * 4L * 2L),
+    c(1000L, 4L, 2L),
+    dimnames = list(NULL, NULL, c("varying", "constant"))
+  )
+  arr[,, 2L] <- 1
+  report <- posteriordb:::reference_draw_diagnostics_from_extracted(
+    list(
+      draws = posterior::as_draws_array(arr),
+      sampler_diagnostics = NULL,
+      metadata = list(expected_fraction_of_missing_information = NULL)
+    ),
+    checks = c("mean_lag1_ac", "r_hat")
+  )
+  for (metric in c("mean_lag1_ac", "r_hat")) {
+    expect_named(report$metrics[[metric]], c("varying", "constant"))
+    expect_true(is.finite(report$metrics[[metric]][["varying"]]))
+    expect_true(is.na(report$metrics[[metric]][["constant"]]))
+    expect_identical(report$failures[[metric]], "constant")
+    expect_false(report$status[[metric]])
+  }
+})
+
+test_that("all diagnostics aggregate failures and E-FMI is independent of chain count gate", {
+  arr <- array(
+    seq_len(12L * 3L),
+    c(12L, 3L, 1L),
+    dimnames = list(NULL, NULL, "theta")
+  )
+  sampler <- array(
+    1,
+    c(12L, 3L, 1L),
+    dimnames = list(NULL, NULL, "divergent__")
+  )
+  report <- posteriordb:::reference_draw_diagnostics_from_extracted(
+    list(
+      draws = posterior::as_draws_array(arr),
+      sampler_diagnostics = posterior::as_draws_array(sampler),
+      #E-FMI exactly at 0.2 limit passes, even if chain count fails
+      metadata = list(expected_fraction_of_missing_information = rep(0.2, 3L))
+    ),
+    checks = c(
+      "ndraws",
+      "nchains",
+      "mean_lag1_ac",
+      "efmi",
+      "divergent_transitions"
+    )
+  )
+  expect_true(report$status$efmi)
+  expect_false(report$status$nchains)
+  expect_false(report$status$divergent_transitions)
+  expect_false(report$status$mean_lag1_ac)
+  expect_false(report$status$ndraws)
+  expect_named(
+    report$failures,
+    c("ndraws", "nchains", "mean_lag1_ac", "divergent_transitions"),
+    ignore.order = TRUE
+  )
+})
+
+test_that("draw count must be exactly 10,000 and chain count at least 4", {
+  withr::local_seed(123)
+  arr <- array(
+    stats::rnorm(2500L * 4L),
+    c(2500L, 4L, 1L),
+    dimnames = list(NULL, NULL, "theta")
+  )
+  report <- posteriordb:::reference_draw_diagnostics_from_extracted(
+    list(
+      draws = posterior::as_draws_array(arr),
+      sampler_diagnostics = NULL,
+      metadata = list()
+    ),
+    checks = c("ndraws", "nchains")
+  )
+  expect_true(report$status$ndraws)
+  expect_true(report$status$nchains)
+  expect_equal(report$metrics$ndraws, 10000L)
+  expect_equal(report$metrics$nchains, 4L)
+
+  evaluate <- posteriordb:::reference_diagnostic_evaluation
+  for (ndraws in list(9999L, 10001L, 10000.5)) {
+    expect_false(evaluate(list(ndraws = ndraws), "ndraws")$status$ndraws)
+  }
+  expect_false(evaluate(list(nchains = 3L), "nchains")$status$nchains)
+  expect_true(evaluate(list(nchains = 5L), "nchains")$status$nchains)
+})
+
+test_that("values exactly at the limits pass", {
+  boundary <- posteriordb:::reference_diagnostic_evaluation(
+    list(
+      ndraws = 10000L,
+      nchains = 4L,
+      mean_lag1_ac = c(theta = 0.05),
+      r_hat = c(theta = 1.01),
+      efmi = c(chain1 = 0.2),
+      divergent_transitions = c(chain1 = 0L)
+    ),
+    c(
+      "ndraws",
+      "nchains",
+      "mean_lag1_ac",
+      "r_hat",
+      "efmi",
+      "divergent_transitions"
+    )
+  )
+  expect_true(all(unlist(boundary$status)))
+  expect_length(boundary$failures, 0L)
+})
+
+test_that("R-hat is computed per scalar variable and malformed arrays error", {
+  withr::local_seed(123)
+  arr <- array(
+    stats::rnorm(500L * 4L * 2L),
+    c(500L, 4L, 2L),
+    dimnames = list(NULL, NULL, c("a", "b"))
+  )
+  report <- posteriordb:::reference_draw_diagnostics_from_extracted(
+    list(
+      draws = posterior::as_draws_array(arr),
+      sampler_diagnostics = NULL,
+      metadata = list()
+    ),
+    checks = "r_hat"
+  )
+  expect_true(all(is.finite(report$metrics$r_hat)))
+  expect_named(report$metrics$r_hat, c("a", "b"))
+  # Each variable's R-hat comes from that variable's own chains.
+  for (variable in c("a", "b")) {
+    expect_equal(
+      report$metrics$r_hat[[variable]],
+      posterior::rhat(arr[,, variable])
+    )
+  }
+  expect_error(
+    posteriordb:::reference_draw_diagnostics_from_extracted(
+      list(
+        draws = posterior::as_draws_array(arr),
+        sampler_diagnostics = posterior::as_draws_array(array(0, c(2, 4, 1))),
+        metadata = list()
+      ),
+      checks = "divergent_transitions"
+    ),
+    "dimensions must match"
+  )
+})
+
+test_that("policy boundaries collect named variable and chain failures", {
+  failed <- posteriordb:::reference_diagnostic_evaluation(
+    list(
+      ndraws = 9999L,
+      nchains = 3L,
+      mean_lag1_ac = c(ok = 0.05, bad = 0.0501),
+      r_hat = c(ok = 1.01, bad = 1.011),
+      efmi = c(chain1 = 0.2, chain2 = 0.199),
+      divergent_transitions = c(chain1 = 0L, chain2 = 1L)
+    ),
+    c(
+      "ndraws",
+      "nchains",
+      "mean_lag1_ac",
+      "r_hat",
+      "efmi",
+      "divergent_transitions"
+    )
+  )
+  expect_false(any(unlist(failed$status)))
+  expect_identical(failed$failures$mean_lag1_ac, "bad")
+  expect_identical(failed$failures$r_hat, "bad")
+  expect_identical(failed$failures$efmi, "chain2")
+  expect_identical(failed$failures$divergent_transitions, "chain2")
+  expect_named(
+    failed$failures,
+    c(
+      "ndraws",
+      "nchains",
+      "mean_lag1_ac",
+      "r_hat",
+      "efmi",
+      "divergent_transitions"
+    )
+  )
+})
+
+test_that("diagnostics reject unknown checks and empty selections", {
+  mock <- make_diagnostic_cmdstan_fit()
+  expect_error(
+    reference_draw_diagnostics(mock$fit, "made_up"),
+    "`checks` must contain unique supported check names",
+    fixed = TRUE
+  )
+  expect_error(
+    reference_draw_diagnostics(mock$fit, "mean_lag1_ac", include = "missing"),
+    "Unknown base variable(s) in `include`: missing",
+    fixed = TRUE
+  )
+  expect_error(
+    reference_draw_diagnostics(mock$fit, "mean_lag1_ac", exclude = "missing"),
+    "Unknown base variable(s) in `exclude`: missing",
+    fixed = TRUE
+  )
+  # Diagnostics have no mandatory variables, so these leave nothing to check.
+  expect_error(
+    reference_draw_diagnostics(mock$fit, "mean_lag1_ac", include = "none"),
+    "No posterior variables remain after `include`/`exclude`.",
+    fixed = TRUE
+  )
+  expect_error(
+    reference_draw_diagnostics(mock$fit, "mean_lag1_ac", exclude = "all"),
+    "No posterior variables remain after `include`/`exclude`.",
+    fixed = TRUE
+  )
+})
+
+test_that("direct-fit diagnostics and object acceptance share one policy", {
+  policy <- posteriordb:::reference_draw_policy()
+  expect_identical(policy$ndraws_exact, 10000L)
+  expect_identical(policy$ndraws_summary_min, 10000L)
+  expect_identical(
+    policy$thresholds,
+    list(
+      ndraws = 10000L,
+      nchains = 4L,
+      mean_lag1_ac = 0.05,
+      r_hat = 1.01,
+      efmi = 0.2,
+      divergent_transitions = 0L
+    )
+  )
+
+  mock <- make_diagnostic_cmdstan_fit(n = 2000L)
+  report <- reference_draw_diagnostics(mock$fit, "ndraws")
+  expect_false(report$status$ndraws)
+  expect_equal(report$failures$ndraws$observed, 8000L)
+  expect_equal(report$failures$ndraws$required, policy$ndraws_exact)
+})
+
+
+test_that("all-check reports retain metrics when sampler diagnostics are unavailable", {
+  mock <- make_diagnostic_cmdstan_fit(n = 2500L)
+  mock$fit$sampler_diagnostics <- function(...) {
+    stop("sampler CSV diagnostics absent")
+  }
+  report <- reference_draw_diagnostics(mock$fit, "all")
+  expect_named(
+    report$status,
+    c(
+      "ndraws",
+      "nchains",
+      "mean_lag1_ac",
+      "r_hat",
+      "efmi",
+      "divergent_transitions"
+    )
+  )
+  expect_true(all(c("mean_lag1_ac", "r_hat") %in% names(report$metrics)))
+  for (check in c("ndraws", "nchains", "mean_lag1_ac", "r_hat")) {
+    expect_true(report$status[[check]], info = check)
+  }
+  expect_false(report$status$efmi)
+  expect_false(report$status$divergent_transitions)
+  expect_identical(report$failures$efmi, "unavailable")
+  expect_identical(report$failures$divergent_transitions, "unavailable")
+  expect_false(passes_reference_draw_checks(mock$fit, "efmi"))
+  # The default tests every requirement, so one unavailable check fails it.
+  expect_true(passes_reference_draw_checks(mock$fit, "r_hat"))
+  expect_false(passes_reference_draw_checks(mock$fit))
+})
+
+test_that("RStan sampler extraction can be unavailable while draw metrics report", {
+  skip_if_not_installed("rstan")
+  withr::local_seed(123)
+  vals <- array(
+    stats::rnorm(500L * 4L),
+    c(500L, 4L, 1L),
+    dimnames = list(NULL, NULL, "theta")
+  )
+  draws <- posterior::as_draws_array(vals)
+  expect_null(posteriordb:::extract_rstan_sampler_diagnostics(
+    list(),
+    strict = FALSE
+  ))
+  expect_error(
+    posteriordb:::extract_rstan_sampler_diagnostics(list(), strict = TRUE),
+    "Could not extract post-warmup sampler diagnostics"
+  )
+  report <- posteriordb:::reference_draw_diagnostics_from_extracted(
+    list(
+      draws = draws,
+      sampler_diagnostics = NULL,
+      metadata = list(expected_fraction_of_missing_information = NULL)
+    ),
+    checks = "all"
+  )
+  expect_true(all(
+    c("ndraws", "nchains", "mean_lag1_ac", "r_hat") %in%
+      names(report$metrics)
+  ))
+  expect_identical(report$failures$efmi, "unavailable")
+  expect_identical(report$failures$divergent_transitions, "unavailable")
+})
+
+test_that("report evaluation rejects malformed metrics and shares count rules", {
+  expect_false(
+    reference_diagnostic_evaluation(
+      list(nchains = c(4, 4)),
+      "nchains"
+    )$status$nchains
+  )
+  expect_false(
+    reference_diagnostic_evaluation(list(r_hat = "1"), "r_hat")$status$r_hat
+  )
+  expect_false(
+    reference_diagnostic_evaluation(
+      list(ndraws = 11000L),
+      "ndraws"
+    )$status$ndraws
+  )
+  report <- reference_diagnostic_evaluation(
+    list(ndraws = 11000L),
+    "ndraws",
+    summary = TRUE
+  )
+  expect_true(report$status$ndraws)
+  expect_identical(
+    required_reference_draw_checks("stan_sampling"),
+    c(
+      "ndraws_is_10k",
+      "nchains_is_gte_4",
+      "abs_mean_lag1_ac_below_0_05",
+      "r_hat_below_1_01",
+      "efmi_above_0_2",
+      "no_divergent_transitions"
+    )
+  )
+})

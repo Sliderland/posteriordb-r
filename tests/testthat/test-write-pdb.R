@@ -1,5 +1,3 @@
-context("test-write-pdb")
-
 test_that("write data", {
   local_test_database()
   expect_silent(pdb_test <- pdb_local())
@@ -139,8 +137,17 @@ test_that("write reference_posterior", {
   expect_silent(
     po <- posterior("eight_schools-eight_schools_centered", pdb_test)
   )
-  expect_silent(gsi <- reference_posterior_draws_info(po))
   expect_silent(gsd <- reference_posterior_draws(po))
+  gsi <- info(gsd)
+  gsi$checks_made <- list(
+    ndraws_is_10k = TRUE,
+    nchains_is_gte_4 = TRUE,
+    abs_mean_lag1_ac_below_0_05 = TRUE,
+    r_hat_below_1_01 = TRUE,
+    efmi_above_0_2 = TRUE,
+    no_divergent_transitions = TRUE
+  )
+  info(gsd) <- gsi
 
   # Setup posterior
   # This is needed to access the created reference posterior
@@ -152,7 +159,7 @@ test_that("write reference_posterior", {
   # Test write gsd
   info(gsd)$name <- "test_data-test_model"
   expect_silent(write_pdb(gsd, pdb_test))
-  expect_error(write_pdb(gsd, pdb_test))
+  expect_error(write_pdb(gsd, pdb_test), "already exists")
   expect_silent(write_pdb(gsd, pdb_test, overwrite = TRUE))
 
   expect_silent(
@@ -165,12 +172,15 @@ test_that("write reference_posterior", {
   # Remove rpd
   expect_silent(remove_pdb(rpt, pdb = pdb_test))
   pdb_clear_cache(pdb_test)
-  expect_error(pdb_reference_posterior_draws("test_data-test_model", pdb_test))
+  expect_error(
+    pdb_reference_posterior_draws("test_data-test_model", pdb_test),
+    "File does not exist"
+  )
 
   # Test write gsi
   gsi$name <- "test_data-test_model"
   expect_silent(write_pdb(gsi, pdb_test, type = "draws"))
-  expect_error(write_pdb(gsi, pdb_test, type = "draws"))
+  expect_error(write_pdb(gsi, pdb_test, type = "draws"), "already exists")
   expect_silent(write_pdb(gsi, pdb_test, overwrite = TRUE, type = "draws"))
 
   expect_silent(

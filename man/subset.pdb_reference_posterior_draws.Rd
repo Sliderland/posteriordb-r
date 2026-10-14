@@ -16,3 +16,8 @@
 \description{
 Subset a [pdb_reference_posterior_draws] object
 }
+\details{
+The recorded diagnostics are kept for the selected variables.
+  If the selection changes, the recorded check results are cleared, so
+  check the draws again before writing them.
+}

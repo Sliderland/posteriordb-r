@@ -33,8 +33,10 @@ Assert that all checks of the reference posterior draws
 are true
 }
 \details{
-This functionasserts that the reference posterior draws comply
-with the criterias of the reference posterior draws.
+The draws must carry a passed result for the draw-count check and, for
+Stan sampling, for the chain, autocorrelation, R-hat, E-FMI and divergence
+checks. Analytical draws only need the draw-count result. The variable
+names and the number of draws per variable are validated as well.
 
 See \url{https://github.com/stan-dev/posteriordb/blob/master/doc/REFERENCE_POSTERIOR_DEFINITION.md} for details.
 }

@@ -17,11 +17,30 @@ check_reference_posterior_draws(x, ...)
 \method{check_reference_posterior_draws}{pdb_reference_posterior_draws}(x, ...)
 }
 \arguments{
-\item{x}{a posterior name, posterior object or reference_posterior_draws object}
+\item{x}{a posterior name, posterior object, reference-posterior draws, or
+a `pdb_reference_bundle` returned by [create_pdb_bundle()].}
 
 \item{...}{currently not used.}
+}
+\value{
+The reference draws, invisibly, with the passed checks recorded;
+  an error is raised if a check fails. For a `pdb_reference_bundle`, the
+  updated bundle with its diagnostic report. A bundle that fails a check
+  is returned with the failures recorded rather than raising an error.
 }
 \description{
 Check that reference posterior draws follows the
 reference posterior draws definition.
+}
+\details{
+Reference draws must have exactly 10,000 retained draws. Draws
+  from Stan sampling must also have at least four chains, a mean absolute
+  lag-1 autocorrelation across chains of at most 0.05 for every variable,
+  an R-hat of at most 1.01 for every variable, an E-FMI of at least 0.2
+  for every chain, and no divergent transitions. ESS is recorded but does
+  not decide the result. Analytical draws only need the draw count.
+
+  The checks use the diagnostics recorded with the draws. Named
+  diagnostics must be named by variable, or `chain1`, `chain2`, and so on
+  for per-chain values; unnamed diagnostics are matched by position.
 }
