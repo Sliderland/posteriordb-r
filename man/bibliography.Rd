@@ -2,10 +2,16 @@
 % Please edit documentation in R/bibliography.R
 \name{bibliography}
 \alias{bibliography}
+\alias{bibliography_keys}
+\alias{bibliography_entry}
 \alias{pdb_bibliography}
 \title{Get the bibliography of a posterior database}
 \usage{
 bibliography(pdb, ...)
+
+bibliography_keys(pdb, ...)
+
+bibliography_entry(key, pdb = pdb_default(), ...)
 
 pdb_bibliography(pdb, ...)
 }
@@ -13,6 +19,14 @@ pdb_bibliography(pdb, ...)
 \item{pdb}{a posterior database connection}
 
 \item{...}{further arguments passed to [bibtex::read.bib]}
+
+\item{key}{a single citation key to retrieve}
+}
+\value{
+`bibliography()` returns a `bibentry` object;
+  `bibliography_keys()` returns its citation keys, equivalent to
+  `names(bibliography(pdb, ...))`. `bibliography_entry()` returns the
+  selected entry as a `bibentry` object and errors if the key is absent.
 }
 \description{
 Get the bibliography of a posterior database

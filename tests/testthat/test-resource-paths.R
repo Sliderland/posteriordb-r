@@ -422,6 +422,19 @@ test_that("public import and link reject escaping destinations without mutation"
   expect_identical(resource_path_snapshot(fixture$parent), before)
 })
 
+test_that("bibliography append rejects escaping paths before replacement", {
+  fixture <- resource_path_fixture()
+  dir.create(file.path(fixture$root, "bibliography"))
+  skip_if_not(file.symlink(
+    file.path(fixture$outside, "sentinel"),
+    file.path(fixture$root, "bibliography/references.bib")
+  ))
+  before <- resource_path_snapshot(fixture$parent)
+  ref <- utils::bibentry("Misc", title = "Test entry", key = "test-key")
+  expect_error(append_reference(ref, fixture$pdb), "outside the database")
+  expect_identical(resource_path_snapshot(fixture$parent), before)
+})
+
 test_that("a contained file cannot conceal an escaping parent directory", {
   fixture <- resource_path_fixture()
   internal <- file.path(fixture$root, "internal.json")

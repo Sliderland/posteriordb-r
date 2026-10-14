@@ -18,6 +18,7 @@ Encoding: UTF-8
 Depends:
   R (>= 3.5.0)
 Imports:
+  bibtex,
   checkmate,
   gh,
   jsonlite,
@@ -25,7 +26,6 @@ Imports:
   posterior,
   tibble
 Suggests:
-    bibtex,
     BH,
     covr,
     cmdstanr,
