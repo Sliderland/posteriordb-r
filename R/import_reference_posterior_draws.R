@@ -454,7 +454,8 @@ extract_cmdstanr_fit <- function(fit, checks = "all", strict = TRUE, ...) {
     model_name = cmdstanr_metadata_value(metadata, "model_name", NULL),
     stan_version = cmdstanr_stan_version(metadata),
     cmdstanr_version = paste("cmdstanr", utils::packageVersion("cmdstanr")),
-    cmdstan_version = cmdstanr_metadata_value(metadata, "cmdstan_version", NULL),
+    # CmdStan writes its own release version as stan_version_* in the CSV header.
+    cmdstan_version = if (!is.null(stan_version <- cmdstanr_stan_version(metadata))) sub("^Stan ", "CmdStan ", stan_version),
     posterior_version = paste("posterior", utils::packageVersion("posterior")),
     r_version = R.version$version.string,
     sampling_timestamp = cmdstanr_metadata_value(

@@ -8,7 +8,8 @@ version_info_fixture <- function(versions) {
 
 test_that("fit version metadata satisfies the reference-info schema", {
   versions <- posteriordb:::stan_fit_sampling_versions(list(
-    cmdstanr_version = "cmdstanr test", stan_version = "Stan 2.40.0"
+    cmdstanr_version = "cmdstanr test", stan_version = "Stan 2.40.0",
+    cmdstan_version = "CmdStan 2.40.0"
   ))
   expect_silent(version_info_fixture(versions))
   expect_true(all(c("r_Makevars", "r_version", "r_session") %in% names(versions)))
