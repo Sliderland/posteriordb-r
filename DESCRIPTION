@@ -21,6 +21,7 @@ Imports:
   checkmate,
   gh,
   jsonlite,
+  methods,
   tibble
 Suggests:
     bibtex,
