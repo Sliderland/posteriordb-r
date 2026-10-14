@@ -24,3 +24,30 @@ test_that("fit version metadata satisfies the reference-info schema", {
   expect_identical(versions$stan_version, "Stan 2.40.0")
   expect_null(versions$rstan_version)
 })
+
+test_that("import versions do not probe RStan or invent unknown backend versions", {
+  original <- base::requireNamespace
+  testthat::local_mocked_bindings(
+    requireNamespace = function(package, ...) {
+      if (identical(package, "rstan")) {
+        stop("RStan probe reached")
+      }
+      original(package, ...)
+    },
+    .package = "base"
+  )
+  cmdstan <- posteriordb:::imported_reference_posterior_versions(list(
+    cmdstanr_version = "cmdstanr test",
+    cmdstan_version = "CmdStan test"
+  ))
+  expect_silent(version_info_fixture(cmdstan))
+  expect_null(cmdstan$rstan_version)
+  expect_null(cmdstan$stan_version)
+  expect_identical(cmdstan$cmdstan_version, "CmdStan test")
+  rstan <- posteriordb:::imported_reference_posterior_versions(list(
+    rstan_version = "rstan supplied"
+  ))
+  expect_silent(version_info_fixture(rstan))
+  expect_identical(rstan$rstan_version, "rstan supplied")
+  expect_null(rstan$cmdstanr_version)
+})

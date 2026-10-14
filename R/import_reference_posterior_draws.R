@@ -1,3 +1,373 @@
+#' Convert a sampled Stan fit to reference-posterior draws
+#'
+#' Takes a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` fit for an
+#' existing posterior, keeps the selected variables, runs the reference-draw
+#' checks, and returns the result in memory. Nothing is sampled and nothing is
+#' written; use [import_reference_posterior_draws()] to also write the draws.
+#'
+#' The fit's unconstrained parameter counts must match the posterior's
+#' `dimensions`. The function cannot confirm that the fit used the model code
+#' and data linked to that posterior.
+#'
+#' This differs from [as.reference_posterior_draws()] (with dots), which only
+#' attaches metadata to draws you prepared yourself and runs no checks.
+#'
+#' @details
+#' For CmdStanR, the draws and sampler diagnostics are read from the fit's CSV
+#' output files, so those files must still exist.
+#'
+#' The version information recorded with the draws describes the R session
+#' doing the conversion. For CmdStanR fits, the Stan version stored in the CSV
+#' files is also kept. None of this proves which versions were used for
+#' sampling.
+#'
+#' @param fit a completed `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.
+#' @param posterior a PosteriorDB posterior name or a `pdb_posterior` object.
+#' @param pdb a local or remote PosteriorDB connection used to resolve a name.
+#' @param dimensions optional named list of unconstrained parameter counts.
+#'   Defaults to the posterior's `dimensions`.
+#' @param include Base names of saved variables to keep. The default `NULL`
+#'   (or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+#'   `character(0)`) keeps only the required variables: the model's
+#'   parameters and any variable listed in the posterior's `dimensions`.
+#'   A base name selects all of that variable's elements.
+#' @param exclude Base names of saved variables to drop. The default `NULL`
+#'   (or `"none"`) drops nothing; `"all"` drops everything except the
+#'   required variables. Excluding a required variable, naming a variable in
+#'   both `include` and `exclude`, or using an unknown name is an error.
+#' @param ... optional metadata fields: `comments`, `added_by`,
+#'   `added_date`, and `sampling_timestamp`.
+#' @return A `pdb_reference_posterior_draws` object. If a check fails, the
+#'   object is still returned, with the failure recorded in its `checks_made`
+#'   metadata; it cannot be written.
+#' @export
+as_reference_posterior_draws <- function(
+  fit,
+  posterior,
+  pdb = pdb_default(),
+  dimensions = NULL,
+  include = NULL,
+  exclude = NULL,
+  ...
+) {
+  UseMethod("as_reference_posterior_draws", fit)
+}
+
+#' @rdname as_reference_posterior_draws
+#' @export
+as_reference_posterior_draws.stanfit <- function(
+  fit,
+  posterior,
+  pdb = pdb_default(),
+  dimensions = NULL,
+  include = NULL,
+  exclude = NULL,
+  ...
+) {
+  as_reference_posterior_draws_external(
+    fit,
+    posterior,
+    pdb,
+    dimensions,
+    include = include,
+    exclude = exclude,
+    ...
+  )
+}
+
+#' @rdname as_reference_posterior_draws
+#' @export
+as_reference_posterior_draws.CmdStanMCMC <- function(
+  fit,
+  posterior,
+  pdb = pdb_default(),
+  dimensions = NULL,
+  include = NULL,
+  exclude = NULL,
+  ...
+) {
+  as_reference_posterior_draws_external(
+    fit,
+    posterior,
+    pdb,
+    dimensions,
+    include = include,
+    exclude = exclude,
+    ...
+  )
+}
+
+as_reference_posterior_draws_external <- function(
+  fit,
+  posterior,
+  pdb,
+  dimensions,
+  include = NULL,
+  exclude = NULL,
+  ...
+) {
+  checkmate::assert_class(pdb, "pdb")
+  validate_variable_selections(include, exclude)
+  dots <- list(...)
+  if (
+    length(dots) &&
+      (is.null(names(dots)) ||
+        anyNA(names(dots)) ||
+        any(!nzchar(names(dots))) ||
+        anyDuplicated(names(dots)) ||
+        !all(
+          names(dots) %in%
+            c("comments", "added_by", "added_date", "sampling_timestamp")
+        ))
+  ) {
+    stop(
+      "`...` accepts only named `comments`, `added_by`, `added_date`, and `sampling_timestamp` fields.",
+      call. = FALSE
+    )
+  }
+  if (!is.null(dots$sampling_timestamp)) {
+    checkmate::assert_string(dots$sampling_timestamp)
+  }
+  if (!is.null(dots$comments)) {
+    checkmate::assert_string(dots$comments)
+  }
+  extracted <- extract_external_stan_fit(fit)
+  if (!is.null(dots$sampling_timestamp)) {
+    extracted$metadata$sampling_timestamp <- as.character(
+      dots$sampling_timestamp
+    )
+  }
+  po <- resolve_import_posterior(posterior, pdb)
+  posterior_dimensions <- dimensions %||% po$dimensions
+  if (is.null(posterior_dimensions) || length(posterior_dimensions) == 0L) {
+    stop(
+      "Posterior dimensions are unavailable; supply `dimensions` explicitly.",
+      call. = FALSE
+    )
+  }
+  posterior_dimensions <- validate_import_dimensions(posterior_dimensions)
+  keep_dimensions <- posterior_dimension_names(posterior_dimensions)
+  if (!is.null(dimensions) && length(po$dimensions)) {
+    declared <- validate_import_dimensions(po$dimensions)
+    if (
+      !setequal(names(posterior_dimensions), names(declared)) ||
+        any(vapply(
+          names(posterior_dimensions),
+          function(nm) {
+            !identical(
+              as.integer(posterior_dimensions[[nm]]),
+              as.integer(declared[[nm]])
+            )
+          },
+          logical(1)
+        ))
+    ) {
+      stop(
+        "Supplied `dimensions` disagree with the posterior's declared dimensions.",
+        call. = FALSE
+      )
+    }
+  }
+
+  fitted_counts <- infer_unconstrained_parameter_counts_from_fit(fit)
+  fitted_parameters <- fitted_parameter_names(fit)
+  common <- intersect(keep_dimensions, names(fitted_counts))
+  mismatched_counts <- common[vapply(
+    common,
+    function(nm) {
+      !identical(
+        as.integer(posterior_dimensions[[nm]]),
+        as.integer(fitted_counts[[nm]])
+      )
+    },
+    logical(1)
+  )]
+  if (length(mismatched_counts)) {
+    details <- paste(
+      "unconstrained counts differ:",
+      paste(mismatched_counts, collapse = ", ")
+    )
+    stop(
+      "The fitted model does not match the posterior's declared parameter dimensions (",
+      paste(details, collapse = "; "),
+      ").",
+      call. = FALSE
+    )
+  }
+
+  selected_bases <- resolve_import_variable_selection(
+    extracted$draws,
+    union(keep_dimensions, fitted_parameters),
+    include,
+    exclude
+  )
+  draws <- filter_external_posterior_draws(
+    extracted$draws,
+    keep_dimensions = selected_bases
+  )
+  validate_external_posterior_draws(draws)
+  selected_draw_names <- posterior::variables(draws)
+
+  diagnostics <- compute_stan_sampling_diagnostics(
+    x = draws,
+    keep_dimensions = selected_draw_names,
+    sampler_diagnostics = extracted$sampler_diagnostics,
+    expected_fraction_of_missing_information = extracted$metadata$expected_fraction_of_missing_information,
+    max_treedepth = extracted$metadata$max_treedepth
+  )
+  rpi <- new_import_reference_posterior_info(
+    posterior = po,
+    diagnostics = diagnostics,
+    metadata = extracted$metadata,
+    dots = dots
+  )
+
+  rpd <- as.reference_posterior_draws(
+    posterior::as_draws_list(draws),
+    info = rpi,
+    pdb = pdb
+  )
+  attr(rpd, "sampler_diagnostics") <- extracted$sampler_diagnostics
+  attr(rpd, "sampling_metadata") <- extracted$metadata
+
+  checked <- tryCatch(
+    check_reference_posterior_draws(rpd),
+    error = function(error) {
+      failed_info <- info(rpd)
+      failed_info$checks_made <- c(
+        failed_info$checks_made %||% list(),
+        list(check_failed = conditionMessage(error))
+      )
+      info(rpd) <- failed_info
+      rpd
+    }
+  )
+  checked
+}
+
+#' @exportS3Method
+as_reference_posterior_draws.default <- function(fit, ...) {
+  stop(
+    "Unsupported Stan fit object; expected a completed rstan::stanfit or cmdstanr::CmdStanMCMC object.",
+    call. = FALSE
+  )
+}
+
+#' Import a sampled Stan fit as reference draws for an existing posterior
+#'
+#' Converts and checks a completed fit with [as_reference_posterior_draws()],
+#' and with `write = TRUE` writes the draws and their summary statistics to a
+#' local database and links them to the posterior. Nothing is sampled.
+#'
+#' With `write = FALSE` (the default) the checked draws are returned and
+#' nothing is written, even if a check failed. With `write = TRUE` every check
+#' must pass, and the posterior must already exist in the database. Its data
+#' and model files are not changed.
+#'
+#' @details
+#' The write is all or nothing: if any step fails, the files already written
+#' are removed and any replaced files are restored. If that cannot be
+#' completed, warnings list the files left behind and the backups to restore.
+#'
+#' A posterior with no linked reference draws is linked to the new draws. A
+#' posterior already linked to different reference draws is rejected.
+#'
+#' @inheritParams as_reference_posterior_draws
+#' @param pdb a local PosteriorDB connection. Required when `write = TRUE`;
+#'   when `write = FALSE`, it is used to resolve a posterior name.
+#' @param write whether to write the checked draws to `pdb`.
+#' @param overwrite whether existing reference-posterior files may be replaced.
+#' @param write_summary_statistics whether to also write the summary
+#'   statistics (`mean_value` and `mean_squared_value`) when `write = TRUE`.
+#' @return A `pdb_reference_posterior_draws` object.
+#' @examples
+#' \dontrun{
+#' imported <- import_reference_posterior_draws(
+#'   fit,
+#'   posterior = "existing_data-existing_model",
+#'   pdb = pdb_local("/path/to/posterior_database"),
+#'   write = TRUE
+#' )
+#' }
+#' @seealso [as_reference_posterior_draws()], [write_pdb()]
+#' @export
+import_reference_posterior_draws <- function(
+  fit,
+  posterior,
+  pdb = pdb_default(),
+  dimensions = NULL,
+  write = FALSE,
+  overwrite = FALSE,
+  write_summary_statistics = TRUE,
+  include = NULL,
+  exclude = NULL,
+  ...
+) {
+  checkmate::assert_flag(write)
+  checkmate::assert_flag(overwrite)
+  checkmate::assert_flag(write_summary_statistics)
+  checkmate::assert_class(pdb, "pdb")
+  if (write) {
+    checkmate::assert_class(pdb, "pdb_local")
+  }
+  posterior_name <- if (is.character(posterior)) posterior else posterior$name
+  assert_pdb_resource_name(posterior_name)
+
+  rpd <- as_reference_posterior_draws(
+    fit = fit,
+    posterior = posterior,
+    pdb = pdb,
+    dimensions = dimensions,
+    include = include,
+    exclude = exclude,
+    ...
+  )
+
+  if (!write) {
+    return(rpd)
+  }
+  failure <- info(rpd)$checks_made$check_failed
+  if (!is.null(failure)) {
+    stop(
+      "Reference-posterior checks failed; nothing was written: ",
+      failure,
+      call. = FALSE
+    )
+  }
+  assert_checked_reference_posterior_draws(rpd)
+  target_posterior <- pdb_posterior(posterior_name, pdb = pdb)
+  # The counts validated against the fit must be the saved posterior's counts.
+  used_dimensions <- dimensions %||%
+    if (!is.character(posterior)) posterior$dimensions
+  if (
+    !is.null(used_dimensions) &&
+      !same_dimension_counts(used_dimensions, target_posterior$dimensions)
+  ) {
+    stop(
+      "Supplied posterior dimensions do not match the target database's saved posterior.",
+      call. = FALSE
+    )
+  }
+  target_bases <- posterior_dimension_names(validate_import_dimensions(
+    target_posterior$dimensions
+  ))
+  imported_bases <- unique(sub("\\[.*$", "", posterior::variables(rpd)))
+  if (length(setdiff(target_bases, imported_bases))) {
+    stop(
+      "Imported variables are missing the target database's posterior dimensions.",
+      call. = FALSE
+    )
+  }
+  write_imported_reference_posterior_draws(
+    rpd,
+    pdb = pdb,
+    overwrite = overwrite,
+    linked_posterior = target_posterior,
+    write_summary_statistics = write_summary_statistics
+  )
+  rpd
+}
+
 # Internal extraction boundary for future fit implementations.
 extract_external_stan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
   UseMethod("extract_external_stan_fit", fit)
@@ -503,6 +873,18 @@ validate_rstan_saved_coverage <- function(base, saved_names, axes) {
   invisible(TRUE)
 }
 
+resolve_import_posterior <- function(posterior, pdb) {
+  if (is.character(posterior)) {
+    return(pdb_posterior(posterior, pdb = pdb))
+  }
+  checkmate::assert_class(posterior, "pdb_posterior")
+  posterior
+}
+
+validate_import_dimensions <- function(dimensions) {
+  validate_posterior_dimension_counts(dimensions)
+}
+
 # Selection is shared by both fit backends. Dimensions remain mandatory;
 # additional saved outputs need not contribute unconstrained coordinates.
 resolve_import_variable_selection <- function(
@@ -528,6 +910,350 @@ filter_external_posterior_draws <- function(draws, keep_dimensions) {
   }
   selected <- available[sub("\\[.*$", "", available) %in% keep_dimensions]
   posterior::subset_draws(draws, variable = selected, regex = FALSE)
+}
+
+validate_external_posterior_draws <- function(draws) {
+  checkmate::assert_class(draws, "draws_array")
+  if (posterior::nchains(draws) < 1L || posterior::ndraws(draws) < 1L) {
+    stop(
+      "The external Stan fit has no complete post-warmup chains.",
+      call. = FALSE
+    )
+  }
+  values <- as.numeric(draws)
+  if (anyNA(values) || any(!is.finite(values))) {
+    stop(
+      "Retained posterior draws contain missing or non-finite values.",
+      call. = FALSE
+    )
+  }
+  invisible(draws)
+}
+
+new_import_reference_posterior_info <- function(
+  posterior,
+  diagnostics,
+  metadata,
+  dots
+) {
+  added_by <- dots$added_by %||% unname(Sys.info()[["user"]])
+  added_date <- dots$added_date %||% Sys.Date()
+  checkmate::assert_string(added_by)
+  checkmate::assert_class(added_date, "Date")
+  method_arguments <- metadata$method_arguments %||% list()
+  info <- list(
+    name = posterior$reference_posterior_name %||% posterior$name,
+    inference = list(
+      method = "stan_sampling",
+      method_arguments = method_arguments
+    ),
+    diagnostics = diagnostics,
+    checks_made = NULL,
+    comments = dots$comments %||%
+      paste0(
+        "Imported from an externally sampled ",
+        if (!is.null(metadata$cmdstanr_version)) {
+          "cmdstanr::CmdStanMCMC."
+        } else {
+          "rstan::stanfit."
+        }
+      ),
+    added_by = added_by,
+    added_date = added_date,
+    versions = imported_reference_posterior_versions(metadata)
+  )
+  as.pdb_reference_posterior_info(info)
+}
+
+imported_reference_posterior_versions <- function(metadata) {
+  stan_fit_sampling_versions(metadata)
+}
+
+write_imported_reference_posterior_draws <- function(
+  x,
+  pdb,
+  overwrite,
+  linked_posterior = NULL,
+  write_summary_statistics = TRUE
+) {
+  checkmate::assert_class(pdb, "pdb_local")
+  checkmate::assert_flag(write_summary_statistics)
+  if (is.null(linked_posterior)) {
+    stop(
+      "A linked posterior is required before reference draws can be written.",
+      call. = FALSE
+    )
+  }
+  failure <- info(x)$checks_made$check_failed
+  if (!is.null(failure)) {
+    stop(
+      "Reference-posterior checks failed; nothing was written: ",
+      failure,
+      call. = FALSE
+    )
+  }
+  assert_checked_reference_posterior_draws(x)
+  name <- info(x)$name
+  checkmate::assert_class(linked_posterior, "pdb_posterior")
+  current_reference <- linked_posterior$reference_posterior_name
+  if (!is.null(current_reference) && !identical(current_reference, name)) {
+    stop(
+      "The posterior already points to a different reference posterior.",
+      call. = FALSE
+    )
+  }
+  update_posterior <- is.null(current_reference)
+  summary_types <- if (write_summary_statistics) {
+    supported_summary_statistic_types()
+  } else {
+    character()
+  }
+  reference_files <- pdb_reference_output_paths(pdb, name, summary_types)
+  posterior_path <- pdb_write_output_path(
+    pdb,
+    "posteriors",
+    "json",
+    linked_posterior$name,
+    info = FALSE
+  )
+  final_files <- reference_files
+  if (update_posterior) {
+    final_files <- c(final_files, posterior_path)
+  }
+  # The linked posterior is an existing record that this operation may need
+  # to update atomically. `overwrite = FALSE` governs collisions with new
+  # reference-draw and summary-statistic files, not that required link update.
+  if (any(file.exists(reference_files)) && !overwrite) {
+    stop(
+      "Reference-posterior files already exist; use `overwrite = TRUE` to replace them.",
+      call. = FALSE
+    )
+  }
+  endpoint <- pdb$pdb_local_endpoint %||% pdb_endpoint(pdb)
+  staging <- tempfile("reference-posterior-import-", tmpdir = endpoint)
+  dir.create(staging, recursive = TRUE)
+  on.exit(unlink(staging, recursive = TRUE, force = TRUE), add = TRUE)
+  staged_pdb <- pdb
+  staged_pdb$pdb_id <- staging
+  staged_pdb$pdb_local_endpoint <- staging
+  staged_pdb$cache_path <- file.path(staging, "cache")
+  dir.create(staged_pdb$cache_path, recursive = TRUE)
+
+  staged_posterior <- linked_posterior
+  staged_posterior$reference_posterior_name <- name
+  write_pdb(staged_posterior, staged_pdb, overwrite = TRUE)
+  write_pdb(
+    x,
+    staged_pdb,
+    overwrite = FALSE,
+    write_summary_statistics = write_summary_statistics,
+    posterior_name = linked_posterior$name
+  )
+  verify_imported_reference_posterior(staged_pdb, x)
+  for (path in final_files) {
+    dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  }
+
+  staged_files <- pdb_reference_output_paths(staged_pdb, name, summary_types)
+  if (update_posterior) {
+    staged_files <- c(
+      staged_files,
+      pdb_file_path(
+        staged_pdb,
+        "posteriors",
+        paste0(linked_posterior$name, ".json")
+      )
+    )
+  }
+  if (!all(file.exists(staged_files))) {
+    stop(
+      "Staging did not produce all reference-draw and summary-statistic files.",
+      call. = FALSE
+    )
+  }
+  backups <- character()
+  installed <- character()
+  committed <- FALSE
+  on.exit(
+    {
+      if (!committed) {
+        failures <- character()
+        for (path in installed) {
+          if (
+            file.exists(path) &&
+              tryCatch(unlink(path), error = function(error) 1L) != 0L
+          ) {
+            failures <- c(
+              failures,
+              paste0(
+                "Could not remove installed reference-posterior file: ",
+                path
+              )
+            )
+          }
+        }
+        for (original in names(backups)) {
+          backup <- backups[[original]]
+          if (file.exists(backup)) {
+            if (
+              !tryCatch(file.rename(backup, original), error = function(error) {
+                FALSE
+              })
+            ) {
+              failures <- c(
+                failures,
+                paste0(
+                  "Could not restore original reference-posterior file: ",
+                  original,
+                  "; backup retained at: ",
+                  backup
+                )
+              )
+            }
+          }
+        }
+        if (length(failures)) {
+          warning(paste(failures, collapse = "\n"), call. = FALSE)
+        }
+      }
+    },
+    add = TRUE
+  )
+  for (path in final_files[file.exists(final_files)]) {
+    backup <- tempfile(
+      paste0(basename(path), ".import-backup-"),
+      tmpdir = dirname(path)
+    )
+    if (!file.rename(path, backup)) {
+      stop(
+        "Could not stage the existing reference-posterior file.",
+        call. = FALSE
+      )
+    }
+    backups[path] <- backup
+  }
+  for (i in seq_along(final_files)) {
+    if (!file.rename(staged_files[[i]], final_files[[i]])) {
+      stop(
+        "Could not commit the imported reference-posterior files.",
+        call. = FALSE
+      )
+    }
+    installed <- c(installed, final_files[[i]])
+  }
+  verify_imported_reference_posterior(pdb, x, fresh_cache = TRUE)
+  if (!is.null(linked_posterior)) {
+    linked_file <- pdb_file_path(
+      pdb,
+      "posteriors",
+      paste0(linked_posterior$name, ".json")
+    )
+    if (
+      !identical(
+        jsonlite::read_json(linked_file)$reference_posterior_name,
+        name
+      )
+    ) {
+      stop(
+        "Round-trip verification of the posterior reference link failed.",
+        call. = FALSE
+      )
+    }
+  }
+  cached_files <- file.path(
+    pdb$cache_path,
+    c(
+      file.path(
+        "reference_posteriors",
+        "draws",
+        "info",
+        paste0(name, ".info.json")
+      ),
+      file.path(
+        "reference_posteriors",
+        "draws",
+        "draws",
+        paste0(name, ".json")
+      ),
+      unlist(
+        lapply(summary_types, function(type) {
+          c(
+            file.path(
+              "reference_posteriors",
+              "summary_statistics",
+              type,
+              "info",
+              paste0(name, ".info.json")
+            ),
+            file.path(
+              "reference_posteriors",
+              "summary_statistics",
+              type,
+              type,
+              paste0(name, ".json")
+            )
+          )
+        }),
+        use.names = FALSE
+      ),
+      if (update_posterior) {
+        file.path("posteriors", paste0(linked_posterior$name, ".json"))
+      }
+    )
+  )
+  unlink(cached_files[file.exists(cached_files)])
+  for (backup in backups) {
+    if (file.exists(backup)) unlink(backup)
+  }
+  committed <- TRUE
+  invisible(x)
+}
+
+verify_imported_reference_posterior <- function(
+  pdb,
+  expected,
+  fresh_cache = FALSE
+) {
+  if (fresh_cache) {
+    pdb$cache_path <- tempfile("reference-posterior-verify-cache-")
+    dir.create(pdb$cache_path, recursive = TRUE)
+    on.exit(unlink(pdb$cache_path, recursive = TRUE, force = TRUE), add = TRUE)
+  }
+  actual_info <- read_reference_posterior_info(
+    info(expected)$name,
+    type = "draws",
+    pdb = pdb
+  )
+  actual_draws <- read_reference_posterior_draws(info(expected)$name, pdb = pdb)
+  if (
+    !identical(actual_info$name, info(expected)$name) ||
+      !isTRUE(all.equal(
+        actual_info$diagnostics$ndraws,
+        info(expected)$diagnostics$ndraws,
+        check.attributes = FALSE
+      )) ||
+      !isTRUE(all.equal(
+        actual_info$diagnostics$nchains,
+        info(expected)$diagnostics$nchains,
+        check.attributes = FALSE
+      )) ||
+      !identical(
+        posterior::variables(actual_draws),
+        posterior::variables(expected)
+      ) ||
+      !isTRUE(all.equal(
+        as.numeric(posterior::as_draws_array(actual_draws)),
+        as.numeric(posterior::as_draws_array(expected)),
+        tolerance = 1e-12
+      ))
+  ) {
+    stop(
+      "Round-trip verification of the imported reference posterior failed.",
+      call. = FALSE
+    )
+  }
+  check_reference_posterior_draws(actual_draws)
+  invisible(TRUE)
 }
 
 rstan_fit_stan_args <- function(fit) {
