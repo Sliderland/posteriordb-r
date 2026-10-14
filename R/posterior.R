@@ -45,6 +45,8 @@ posterior.character <- function(x, pdb = pdb_default(), ...) {
 #' @rdname posterior
 #' @export
 as.posterior.list <- function(x, pdb = pdb_default(), ...) {
+  supplied_model_code <- x$pdb_model_code
+  supplied_data <- x$pdb_data
   if (!is.null(x$pdb_model_code) & !is.null(x$pdb_data)) {
     # We setup the posterior object from a data and model object
     mci <- info(x$pdb_model_code)
@@ -68,15 +70,31 @@ as.posterior.list <- function(x, pdb = pdb_default(), ...) {
     x$added_date <- Sys.Date()
   }
   if (is.null(x$dimensions)) {
-    suppressWarnings(
-      otpt <- utils::capture.output(
-        so <- run_stan.pdb_posterior(
-          x,
-          stan_args = list(iter = 2, warmup = 0, chains = 1)
-        )
+    if (is.null(supplied_model_code) || is.null(supplied_data)) {
+      stop(
+        "Posterior dimensions are missing. Supply unconstrained parameter counts or provide `pdb_model_code` and `pdb_data` so they can be inferred.",
+        call. = FALSE
       )
+    }
+    code <- if (inherits(supplied_model_code, "pdb_model_code")) {
+      as.character(supplied_model_code)
+    } else {
+      supplied_model_code
+    }
+    if (
+      inherits(supplied_model_code, "pdb_model_code") &&
+        !identical(framework(supplied_model_code), "stan")
+    ) {
+      stop(
+        "Unconstrained dimension inference currently supports Stan model code only.",
+        call. = FALSE
+      )
+    }
+    x$dimensions <- infer_posterior_dimensions(
+      code,
+      supplied_data,
+      backend = "rstan"
     )
-    stop("posterior dimensions are missing.")
   }
   x <- x[pdb_posterior_must_include()]
 
@@ -130,6 +148,7 @@ assert_pdb_posterior <- function(x) {
   }
   checkmate::assert_list(x$dimensions)
   checkmate::assert_named(x$dimensions)
+  x$dimensions <- validate_posterior_dimension_counts(x$dimensions)
   checkmate::assert_class(x$added_date, "Date")
   checkmate::assert_class(x$data_info$added_date, "Date")
   checkmate::assert_class(x$model_info$added_date, "Date")
