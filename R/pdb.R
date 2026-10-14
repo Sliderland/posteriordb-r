@@ -816,6 +816,7 @@ pdb_cache_dir <- function(pdb, path, ...) {
 #' @noRd
 #' @rdname pdb_cache_dir
 #' @keywords internal
+#' @exportS3Method
 pdb_cache_dir.pdb_local <- function(pdb, path, ...) {
   fns <- dir(pdb_file_path(pdb, path), full.names = FALSE)
   fns <- fns[!dir.exists(pdb_file_path(pdb, path, fns))]

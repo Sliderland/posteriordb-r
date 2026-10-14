@@ -274,6 +274,7 @@ github_download <- function(download_url, to, pat, overwrite) {
 #' @noRd
 #' @rdname pdb_cache_dir
 #' @keywords internal
+#' @exportS3Method
 pdb_cache_dir.pdb_github <- function(pdb, path, ...) {
   if (!requireNamespace("httr", quietly = TRUE)) {
     stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
