@@ -902,6 +902,7 @@ read_json_from_pdb <- function(fn, path, pdb, ...) {
 #' @rdname read_info_json
 #' @noRd
 #' @keywords internal
+#' @exportS3Method
 read_info_json.character <- function(x, path, pdb, ...) {
   checkmate::assert_class(pdb, "pdb")
   fn <- x
@@ -929,6 +930,7 @@ read_info_json.character <- function(x, path, pdb, ...) {
 #' @rdname read_info_json
 #' @noRd
 #' @keywords internal
+#' @exportS3Method
 read_info_json.pdb_posterior <- function(x, path, pdb = NULL, ...) {
   if (path == "posteriors") {
     nm <- x$name
