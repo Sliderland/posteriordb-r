@@ -176,3 +176,24 @@ test_that("GitHub directory caching pairs file names and URLs and reports failur
     "cached"
   )
 })
+
+test_that("local caching preserves source files when the cache aliases the database", {
+  parent <- withr::local_tempdir("overlapping-directory-cache-")
+  root <- file.path(parent, "database")
+  dir.create(file.path(root, "posteriors"), recursive = TRUE)
+  source <- file.path(root, "posteriors/value.json")
+  writeLines("{}", source)
+  paths <- c(root, file.path(root, "."))
+  alias <- file.path(parent, "alias")
+  if (file.symlink(root, alias)) {
+    paths <- c(paths, alias)
+  }
+  for (cache in paths) {
+    connection <- structure(
+      list(pdb_local_endpoint = root, cache_path = cache),
+      class = c("pdb_local", "pdb")
+    )
+    expect_silent(pdb_cache_dir(connection, "posteriors"))
+    expect_identical(readLines(source), "{}")
+  }
+})

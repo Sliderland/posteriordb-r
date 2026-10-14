@@ -271,7 +271,7 @@ assert_reference_posterior_info <- function(x) {
       "versions"
     )
   )
-  checkmate::assert_string(x$name)
+  assert_pdb_resource_name(x$name)
 
   checkmate::assert_true(
     x$inference$method %in% c("stan_sampling", "analytical")
@@ -378,6 +378,11 @@ print.pdb_reference_posterior_info <- function(x, ...) {
 
 supported_reference_posterior_types <- function() {
   c("draws", supported_summary_statistic_types())
+}
+
+reference_posterior_type_path <- function(type) {
+  checkmate::assert_choice(type, supported_reference_posterior_types())
+  if (type == "draws") type else paste("summary_statistics", type, sep = "/")
 }
 
 #' Thin draws to reduce their size and autocorrelation of the chains.

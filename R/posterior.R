@@ -26,6 +26,12 @@ as.posterior <- function(x, pdb = pdb_default(), ...) {
 posterior.character <- function(x, pdb = pdb_default(), ...) {
   checkmate::assert_string(x)
   checkmate::assert_class(pdb, "pdb")
+  if (...length()) {
+    warning(
+      "Extra arguments to posterior name lookup will be disregarded.",
+      call. = FALSE
+    )
+  }
   x <- handle_aliases(x, type = "posteriors", pdb)
   po <- read_info_json(x, "posteriors", pdb)
   pdb(po) <- pdb
@@ -116,6 +122,12 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_class(x, "pdb_posterior")
   checkmate::assert_list(x)
   checkmate::assert_names(names(x), must.include = pdb_posterior_must_include())
+  for (field in c("name", "data_name", "model_name")) {
+    assert_pdb_resource_name(x[[field]])
+  }
+  if (!is.null(x$reference_posterior_name)) {
+    assert_pdb_resource_name(x$reference_posterior_name)
+  }
   checkmate::assert_list(x$dimensions)
   checkmate::assert_named(x$dimensions)
   checkmate::assert_class(x$added_date, "Date")

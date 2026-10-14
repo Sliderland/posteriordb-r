@@ -48,7 +48,7 @@ test_that("data info constructor ", {
     data_file = "data/data/.json",
     added_by = "Phil Clemson"
   )
-  expect_error(di <- as.pdb_data_info(x))
+  expect_error(di <- as.pdb_data_info(x), "data_file")
   x$data_file <- NULL
   expect_silent(di <- as.pdb_data_info(x))
   x$data_file <- "data/data/wells_data2.json"
@@ -125,4 +125,26 @@ test_that("unused non-Stan implementation details are preserved and ignored", {
 
   expect_identical(model$model_implementations$pymc$pymc_version, ">=5.0")
   expect_identical(model$model_implementations$stan$stan_version, ">=2.26.0")
+})
+
+test_that("empty optional string arrays from JSON are normalized", {
+  testthat::local_mocked_bindings(
+    read_json_from_pdb = function(...) {
+      list(
+        name = "empty-fields",
+        added_date = "2026-09-28",
+        references = list(),
+        urls = list(),
+        keywords = list()
+      )
+    },
+    .package = "posteriordb"
+  )
+  fake_pdb <- structure(list(), class = c("pdb_local", "pdb"))
+
+  info <- posteriordb:::read_info_json("empty-fields", "posteriors", fake_pdb)
+
+  expect_identical(info$references, character())
+  expect_identical(info$urls, character())
+  expect_identical(info$keywords, character())
 })

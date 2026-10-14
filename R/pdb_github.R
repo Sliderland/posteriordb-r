@@ -131,15 +131,17 @@ model_names.pdb_github <- function(pdb, ...) {
   basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
-#' @rdname data_names
+#' @rdname reference_posterior_names
 #' @export
-reference_posterior_names.pdb_github <- function(pdb, ...) {
+reference_posterior_names.pdb_github <- function(pdb, type, ...) {
+  path <- paste(
+    "reference_posteriors",
+    reference_posterior_type_path(type),
+    "info",
+    sep = "/"
+  )
   pns <- github_dir(
-    gh_path = github_path(
-      pdb,
-      type = "contents",
-      path = "reference_posteriors/draws/info"
-    ),
+    gh_path = github_path(pdb, type = "contents", path = path),
     pdb = pdb,
     files_only = TRUE
   )
