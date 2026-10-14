@@ -69,8 +69,10 @@ pdb_stan_code(x, ...)
 Extract and construct model code objects
 }
 \details{
-Character-code construction preserves the requested framework
-  (default `stan`) and requires a matching non-NULL implementation in `info`.
+A posterior with embedded code returns it for the matching
+  framework. Other frameworks use the attached database, if available.
+  Character-code construction preserves the requested framework (default
+  `stan`) and requires a matching non-NULL implementation in `info`.
   Construction keeps the code unchanged; it does not compile or translate it.
   Stored code is read from the selected implementation's `model_code`
   path. Model info that does not record a path uses the
