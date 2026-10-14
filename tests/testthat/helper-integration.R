@@ -45,6 +45,11 @@ skip_stan_integration <- function() {
   )
 }
 
+# Corpus check tests use `default` unless PDB_TEST_ALL_POSTERIORS=true selects every posterior.
+test_posterior_names <- function(pdb, default) {
+  if (identical(Sys.getenv("PDB_TEST_ALL_POSTERIORS"), "true")) posterior_names(pdb) else default
+}
+
 skip_github_integration <- function() {
   testthat::skip_if_not(
     identical(Sys.getenv("PDB_TEST_GITHUB"), "true"),
