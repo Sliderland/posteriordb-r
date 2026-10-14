@@ -143,6 +143,7 @@ test_that("failed ZIP staging leaves every original file intact", {
         actual_zip(zipfile, files, ...)
         if (failure == "payload") {
           bytes <- readBin(zipfile, "raw", n = file.info(zipfile)$size)
+          # Bytes 27-30 of the local file header hold the name and extra-field lengths.
           name_length <- sum(as.integer(bytes[27:28]) * c(1, 256))
           extra_length <- sum(as.integer(bytes[29:30]) * c(1, 256))
           payload <- 31L + name_length + extra_length
@@ -260,6 +261,7 @@ test_that("data and model renames update the complete local PDB graph", {
     expect_identical(stored_info$name, "data_new-model_old")
   }
   expect_equal(get_data("data_new", pdb)$y, c(1, 2))
+  expect_error(get_data("data_old", pdb), "does not exist")
 
   expect_silent(rename_pdb("model_old", "model_new", type = "model", pdb = pdb))
   expect_false(file.exists(file.path(
@@ -649,4 +651,38 @@ test_that("info objects need an explicit connection to be renamed", {
     fixture$root,
     "models/info/model_new.info.json"
   )))
+})
+
+test_that("model renames leave implementation paths named after other files", {
+  fixture <- make_rename_fixture()
+  info_path <- file.path(fixture$root, "models/info/model_old.info.json")
+  stored <- jsonlite::read_json(info_path)
+  stored$model_implementations$pymc <- list(model_code = "models/pymc/shared.py")
+  jsonlite::write_json(stored, info_path, pretty = TRUE, auto_unbox = TRUE)
+  dir.create(file.path(fixture$root, "models/pymc"))
+  writeLines("# shared", file.path(fixture$root, "models/pymc/shared.py"))
+  rename_pdb("model_old", "model_new", type = "model", pdb = fixture$pdb)
+  renamed <- jsonlite::read_json(
+    file.path(fixture$root, "models/info/model_new.info.json")
+  )
+  expect_identical(
+    renamed$model_implementations$pymc$model_code,
+    "models/pymc/shared.py"
+  )
+  expect_true(file.exists(file.path(fixture$root, "models/pymc/shared.py")))
+})
+
+test_that("renamed objects returned in memory carry the new names", {
+  fixture <- make_rename_fixture()
+  renamed_info <- rename_pdb(
+    data_info("data_old", pdb = fixture$pdb),
+    "data_new",
+    pdb = fixture$pdb
+  )
+  expect_identical(renamed_info$data_file, "data/data/data_new.json")
+  renamed_posterior <- rename_pdb(
+    posterior("data_new-model_old", fixture$pdb),
+    "posterior_new"
+  )
+  expect_identical(renamed_posterior$reference_posterior_name, "posterior_new")
 })
