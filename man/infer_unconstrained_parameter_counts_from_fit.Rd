@@ -42,5 +42,5 @@ and the fit should be sampled with \code{sig_figs = 18}. Values rounded to
 fewer digits can violate parameter constraints and be rejected.
 }
 \seealso{
-\code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}}
+\code{\link[=infer_posterior_dimensions]{infer_posterior_dimensions()}}, \code{\link[=reconstruct_stan_output]{reconstruct_stan_output()}}
 }

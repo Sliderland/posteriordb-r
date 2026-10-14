@@ -1,0 +1,633 @@
+- [Create and contribute a reference-draw
+  bundle](#create-and-contribute-a-reference-draw-bundle)
+  - [Which function do I need?](#which-function-do-i-need)
+  - [End-to-end example: eight
+    schools](#end-to-end-example-eight-schools)
+  - [What is in a bundle](#what-is-in-a-bundle)
+  - [Supply metadata](#supply-metadata)
+    - [Data](#data)
+  - [Reuse existing records](#reuse-existing-records)
+  - [Check the draws](#check-the-draws)
+    - [When a check fails](#when-a-check-fails)
+  - [Choose variables](#choose-variables)
+  - [Write the bundle](#write-the-bundle)
+    - [Write the objects one at a
+      time](#write-the-objects-one-at-a-time)
+  - [Import a fit for an existing
+    posterior](#import-a-fit-for-an-existing-posterior)
+  - [Add BibTeX references](#add-bibtex-references)
+  - [Limitations](#limitations)
+  - [Related tools](#related-tools)
+
+<!-- CREATE_PDB_BUNDLE.md is generated from CREATE_PDB_BUNDLE.Rmd. Please edit that file. -->
+
+# Create and contribute a reference-draw bundle
+
+A PosteriorDB contribution has four linked parts: the **data**, the
+**model code**, the **posterior** that names both, and the **reference
+draws** for that posterior. `create_pdb_bundle()` builds all four from a
+Stan fit you have already sampled, checks the draws, and returns them as
+one R list. Nothing is written until you call `write_pdb()`.
+
+``` r
+bundle <- create_pdb_bundle(fit, data = stan_data,
+  data_info = list(name = "my_data", title = "My data"),
+  model_info = list(name = "my_model", title = "My model", framework = "stan"))
+bundle$diagnostics$status          # did the draws pass?
+write_pdb(bundle, pdb_local("/path/to/posteriordb/posterior_database"))
+```
+
+`create_pdb_bundle()` accepts RStan `stanfit` objects. If you sampled
+with CmdStanR, or only want to add draws to a posterior that is already
+in the database, use `import_reference_posterior_draws()` instead; see
+[Import a fit for an existing
+posterior](#import-a-fit-for-an-existing-posterior).
+
+## Which function do I need?
+
+| You have | You want | Use |
+|----|----|----|
+| A `stanfit`, its data, and nothing in the database yet | Data, model, posterior and draws | `create_pdb_bundle()` then `write_pdb()` |
+| A `stanfit` and some records already in the database | The missing records and draws | `create_pdb_bundle()` with existing objects or names |
+| A `stanfit` or CmdStanR fit, and the posterior already exists | Reference draws only | `import_reference_posterior_draws()` |
+| A fit, and you only want to look at diagnostics | A report, nothing saved | `reference_draw_diagnostics()` |
+
+Two similarly named functions do different jobs:
+
+- `as_reference_posterior_draws(fit, posterior, pdb)` (underscores)
+  converts a completed fit and runs the acceptance checks.
+- `as.reference_posterior_draws(draws, info)` (dots) only attaches
+  metadata to draws you prepared yourself. It does not check them.
+
+## End-to-end example: eight schools
+
+This example samples the non-centered eight-schools model, builds a
+bundle, checks it, writes it to a local database checkout, and reads it
+back. You need RStan and a working C++ toolchain. Replace the database
+path and contributor name, and choose data and model names that are not
+already used in your database. If the data, model or posterior is
+already in your database, see [Reuse existing
+records](#reuse-existing-records) instead of creating new ones.
+
+The citation key `rubin1981estimation` must already be in the database
+bibliography; see [Add BibTeX references](#add-bibtex-references) if you
+need to add one.
+
+``` r
+library(posteriordb)
+library(rstan)
+
+# 1. Connect to your local PosteriorDB checkout.
+database_path <- "/path/to/posteriordb/posterior_database"
+pdbl <- pdb_local(database_path)
+stopifnot("rubin1981estimation" %in% bibliography_keys(pdbl))
+
+# 2. Sample, keeping the exact input list used for sampling.
+eight_schools <- list(
+  J = 8L,
+  y = c(28L, 8L, -3L, 7L, -1L, 1L, 18L, 12L),
+  sigma = c(15L, 10L, 16L, 11L, 9L, 11L, 10L, 18L)
+)
+stan_file <- system.file(
+  "test_files/eight_schools_noncentered.stan", package = "posteriordb"
+)
+stan_model <- rstan::stan_model(file = stan_file, auto_write = FALSE)
+fit <- rstan::sampling(
+  stan_model, data = eight_schools,
+  chains = 10, iter = 20000, warmup = 10000, thin = 10,
+  seed = 4711, control = list(adapt_delta = 0.99), refresh = 0
+)
+# 1,000 retained draws per chain: 10,000 draws in total.
+
+# 3. Build the linked objects in memory and check the draws.
+bundle <- create_pdb_bundle(
+  fit, data = eight_schools, added_by = "Your Name",
+  data_info = list(
+    name = "test_eight_schools_data",
+    title = "Eight schools treatment estimates",
+    description = "Treatment estimates and standard errors for eight schools.",
+    references = "rubin1981estimation"
+  ),
+  model_info = list(
+    name = "test_eight_schools_model",
+    title = "Non-centered eight schools model",
+    framework = "stan",
+    description = "A hierarchical model with a non-centered parameterization.",
+    references = "rubin1981estimation"
+  ),
+  posterior_info = list(references = "rubin1981estimation"),
+  reference_info = list(comments = "Eight schools bundle contribution."),
+  pdb = pdbl
+)
+bundle$posterior$name
+bundle$posterior$dimensions
+# theta_trans = 8, mu = 1, tau = 1
+
+# 4. Inspect the checks before writing anything.
+bundle$diagnostics$status
+bundle$diagnostics$failures
+assert_checked_reference_posterior_draws(bundle$reference_draws)
+
+# 5. Write the bundle and look at what was written.
+write_result <- write_pdb(bundle, pdbl, overwrite = FALSE)
+write_result[c("written", "reused", "reference_draws_written",
+               "summary_statistics_written", "skipped_reason")]
+bundle <- write_result$bundle
+
+# 6. Read the saved contribution back.
+read_cache <- tempfile("readback-")
+dir.create(read_cache)
+read_pdb <- pdb_local(database_path, cache_path = read_cache)
+saved_posterior <- posterior(bundle$posterior$name, pdb = read_pdb)
+check_pdb_posterior(saved_posterior, run_stan_code_checks = FALSE)
+saved_draws <- reference_posterior_draws(saved_posterior)
+posterior::variables(posterior::as_draws_array(saved_draws))
+# theta_trans[1:8], mu, tau and theta[1:8]
+```
+
+The assertion in step 4 stops the script if any check failed. These
+sampling settings give the required number of draws, but no settings can
+guarantee that every check passes; see [When a check
+fails](#when-a-check-fails).
+
+Finally, review the changes in your database checkout, commit them
+there, and open a pull request against PosteriorDB. The R package and
+the PosteriorDB database are separate repositories; the contribution
+files belong in the database.
+
+``` sh
+git -C /path/to/posteriordb status --short
+git -C /path/to/posteriordb diff
+```
+
+`git diff` does not show the contents of new, untracked files, so open
+the new metadata and Stan source as well.
+
+## What is in a bundle
+
+``` r
+bundle$data
+bundle$model_code
+bundle$posterior
+bundle$reference_draws
+bundle$summary_statistics$mean_value
+bundle$summary_statistics$mean_squared_value
+bundle$diagnostics
+bundle$provenance
+```
+
+The posterior carries its data, model code and reference draws with it,
+so `get_data()`, `model_code()` and `reference_posterior_draws()` work
+on `bundle$posterior` before anything is saved. `bundle$provenance`
+records the fit class, the selected variables and the sampling settings
+read from the fit. `bundle$summary_statistics` is filled in only when
+the draws pass their checks; otherwise it is `NULL`.
+
+> **`dimensions` are parameter counts, not shapes.** In
+> `bundle$posterior$dimensions`, each entry is the number of
+> *unconstrained* parameters for one model parameter. A `matrix[2, 3] B`
+> has `B = 6`, and a `simplex[3]` has 2, even though three values are
+> saved for it. Transformed parameters and generated quantities are
+> saved as draws but have no entry in `dimensions`. In the eight-schools
+> example there are 18 saved columns and 10 unconstrained parameters.
+
+## Supply metadata
+
+`data_info` and `model_info` each need a `name` and a `title`. Names
+become file names, so they cannot contain slashes. Use underscores
+between words, as in `eight_schools_noncentered`, to match the rest of
+the database. Avoid hyphens: a posterior is named
+`data_name-model_name`, so a hyphen inside a data or model name makes
+the posterior name ambiguous.
+
+| Argument | Required fields | Optional fields |
+|----|----|----|
+| `data_info` | `name`, `title` | `description`, `references`, `urls`, `keywords` |
+| `model_info` | `name`, `title` | `description`, `references`, `urls`, `keywords`, `prior`, `licence`, `framework` or `model_implementations` |
+| `posterior_info` | none | `references`, `urls`, `keywords` |
+| `reference_info` | none | `comments` |
+
+`added_by` and `added_date` apply to all four objects. `added_by`
+defaults to your system user name and `added_date` to today. Any of the
+four lists can carry its own `added_by` or `added_date` to override the
+shared value for that object.
+
+Only `fit`, `data`, `added_by` and `added_date` can be passed by
+position. Pass everything else by name; unknown or misspelled arguments
+and unsupported metadata fields are errors.
+
+For the model, `framework = "stan"` is enough. The model file is stored
+as `models/stan/<name>.stan` with the Stan version requirement
+`">=2.26.0"`. To record a different requirement, supply the
+implementation yourself:
+
+``` r
+model_info = list(
+  name = "normal",
+  title = "Normal model",
+  model_implementations = list(stan = list(
+    model_code = "models/stan/normal.stan",
+    stan_version = ">=2.35.0"
+  ))
+)
+```
+
+`references` are citation keys from the database bibliography, not
+BibTeX text. `model_info$prior` is optional descriptive metadata, for
+example `prior = list(keywords = "stan_recommended_35dbfe6")`; priors
+are not inferred from the Stan code.
+
+The posterior name, its links to the data and model, and its
+`dimensions` are worked out for you. You may supply them in
+`posterior_info`, but only values that match are accepted.
+
+### Data
+
+Pass the exact named list you gave to Stan, after any preprocessing. Use
+`list()` for a model with no data. The package records the list you
+supply; it cannot confirm that this was the data used for the fit, and
+it cannot recover data from the fit.
+
+## Reuse existing records
+
+If the data, model or posterior is already in the database, pass it
+instead of describing it again, either as an object or by its saved
+name:
+
+``` r
+pdbl <- pdb_local("/path/to/posteriordb/posterior_database")
+bundle <- create_pdb_bundle(
+  fit,
+  data = "existing_data",
+  model_code = "existing_model",
+  pdb = pdbl
+)
+```
+
+- If you pass only `posterior`, its linked data and model code are
+  looked up for you.
+- Leave out the `*_info` list for anything you reuse. If you supply
+  both, you get a warning and the existing record’s metadata is used.
+- An existing model’s Stan source must match the source in the fit, and
+  an existing posterior’s `dimensions` must match the counts inferred
+  from the fit. Posteriors that store output shapes in `dimensions`
+  rather than unconstrained counts fail this check.
+
+When you write the bundle, reused records are left exactly as they are;
+see [Write the bundle](#write-the-bundle).
+
+## Check the draws
+
+`check = TRUE` is the default. The checks run during construction and
+the report is stored in the bundle:
+
+``` r
+bundle$diagnostics$metrics   # the measured values
+bundle$diagnostics$status    # one TRUE/FALSE per check
+bundle$diagnostics$failures  # which variables or chains failed
+```
+
+Reference draws are accepted when all of these hold:
+
+| Check | Requirement |
+|----|----|
+| Number of draws | Exactly 10,000 retained draws |
+| Number of chains | At least 4 |
+| Lag-1 autocorrelation | Mean absolute value across chains at most 0.05, for every retained variable |
+| R-hat | At most 1.01, for every retained variable |
+| E-FMI | At least 0.2, for every chain |
+| Divergent transitions | None |
+
+Bulk and tail ESS and tree depth are reported but do not decide
+acceptance.
+
+A failed check does not raise an error. You still get the bundle back,
+with the failures recorded, so that you can inspect them. Draws that
+failed, or that have not been checked, cannot be written.
+
+To build the objects first and check later, use `check = FALSE` and then
+`check_reference_posterior_draws()`. The sampler diagnostics are kept in
+the bundle, so nothing is resampled:
+
+``` r
+unchecked <- create_pdb_bundle(
+  fit,
+  data = eight_schools,
+  data_info = list(name = "test_eight_schools_data", title = "Eight schools data"),
+  model_info = list(name = "test_eight_schools_model", title = "Eight schools model"),
+  check = FALSE
+)
+is.null(unchecked$diagnostics)  # TRUE
+
+bundle <- check_reference_posterior_draws(unchecked)
+bundle$diagnostics$status
+```
+
+A bundle is always checked against the full set of requirements. To look
+at a single check on a fit, for example while tuning sampler settings,
+use the standalone functions. They work on RStan and CmdStanR fits:
+
+``` r
+report <- reference_draw_diagnostics(fit, checks = "mean_lag1_ac")
+report$metrics
+report$thresholds
+report$failures
+passes_reference_draw_checks(fit, checks = c("mean_lag1_ac", "r_hat"))
+```
+
+Passing a selected check does not make draws writable; only the full
+check does.
+
+### When a check fails
+
+Fix the sampling, then build a new bundle from the new fit.
+
+| Failed check | What usually helps |
+|----|----|
+| Number of draws | Choose `chains`, `iter`, `warmup` and `thin` so that exactly 10,000 draws are retained |
+| Lag-1 autocorrelation | Thin more, with correspondingly more iterations |
+| R-hat | Longer warmup or more iterations; check for multimodality |
+| E-FMI | Reparameterize the model |
+| Divergent transitions | Raise `adapt_delta`, or reparameterize |
+
+Every retained variable is checked, including transformed parameters and
+generated quantities. A constant output has no defined R-hat or
+autocorrelation and therefore fails; exclude it as described below.
+
+## Choose variables
+
+By default a bundle keeps every saved model output except `lp__`:
+parameters, transformed parameters and generated quantities. Use
+`include` and `exclude` to change that. Both take base names, so
+`include = "theta"` selects all eight saved elements of `theta`.
+
+Parameters (the variables in the Stan `parameters` block) are always
+kept, because they are needed to reproduce the other outputs. Excluding
+one is an error.
+
+| Value | In `include` | In `exclude` |
+|----|----|----|
+| `NULL` (default) | Keep everything | Remove nothing |
+| `"all"` | Keep everything | Keep only the parameters |
+| `"none"` or `character(0)` | Keep only the parameters | Remove nothing |
+| Names | Keep these, plus the parameters | Remove these |
+
+``` r
+# Everything except one derived output:
+create_pdb_bundle(fit, data = stan_data, data_info = data_info,
+                  model_info = model_info, exclude = "exp_mu")
+
+# Parameters only:
+create_pdb_bundle(fit, data = stan_data, data_info = data_info,
+                  model_info = model_info, include = "none")
+```
+
+Things to watch for:
+
+- `c()` is `NULL` in R, so `include = c()` keeps everything. Use
+  `"none"` or `character(0)` to keep only the parameters.
+- Naming the same variable in both `include` and `exclude` is an error.
+- Unknown, duplicated or empty names are errors. `lp__` is never kept.
+- Checks and summary statistics cover what you keep. Acceptance says
+  nothing about outputs you left out.
+- Selection does not change `dimensions`, which always describe the
+  model’s parameters.
+
+The same `include` and `exclude` rules are used by
+`import_reference_posterior_draws()`, `as_reference_posterior_draws()`,
+`compute_reference_posterior_draws()`, `reference_draw_diagnostics()`
+and `infer_posterior_dimensions()`. For import and compute, variables
+listed in the posterior’s `dimensions` are also always kept. The
+diagnostic and dimension functions have no mandatory variables, so a
+selection that leaves nothing is an error there.
+
+In earlier versions of the package,
+`compute_reference_posterior_draws()` kept only the variables listed in
+the posterior’s `dimensions`. It now keeps every saved output, so an
+existing script may return more variables, and may fail a check because
+of one of them. Use `include = "none"` to keep only the parameters and
+the variables listed in `dimensions`.
+
+Be careful when narrowing the selection for a reparameterized model. The
+checks only cover the variables you keep, and the quantity you care
+about is often not in the `parameters` block. In the non-centered
+eight-schools model the sampled parameter is `theta_trans`, while the
+school effects `theta` are a transformed parameter. `theta_trans` can
+pass every check while `theta` does not. With `include = "none"`,
+`theta` is neither checked nor saved, so acceptance would say nothing
+about it. Keep the transformed quantities you intend to report so that
+they are checked too.
+
+After construction you can still narrow or thin reference draws with
+`subset(draws, variable = ...)` and `posterior::thin_draws()`. Both
+clear the recorded check results, so check the draws again before
+writing them.
+
+## Write the bundle
+
+One call writes the whole bundle:
+
+``` r
+write_result <- write_pdb(bundle, pdbl, overwrite = FALSE)
+write_result$written
+write_result$reused
+write_result$reference_draws_written
+write_result$summary_statistics_written
+write_result$skipped_reason
+bundle <- write_result$bundle
+```
+
+What gets written:
+
+- **New data, model and posterior records** are written.
+- **Records you reused from this database** are left in place and listed
+  in `write_result$reused`. They are never overwritten, whatever
+  `overwrite` is set to. If a reused posterior has no reference draws
+  linked yet, the link is filled in once the draws are written. If it is
+  already linked to different reference draws, the write is refused.
+- **Reference draws and the two summary statistics** (`mean_value` and
+  `mean_squared_value`) are written only if every check passed. If the
+  bundle has not been checked yet, it is checked first.
+
+> **A failed check does not stop the write.** The data, model and
+> posterior are still written, and only the draws and summaries are
+> skipped. `write_result$reference_draws_written` is then `FALSE` and
+> `write_result$skipped_reason` says why. If you want all or nothing,
+> call
+> `assert_checked_reference_posterior_draws(bundle$reference_draws)`
+> first, as in the end-to-end example.
+
+Before anything is written, every destination file is checked:
+
+- With `overwrite = FALSE` (the default), an existing file for a new
+  record stops the whole write, and the error lists every file in the
+  way. Nothing is written.
+- With `overwrite = TRUE`, those files are replaced and listed in
+  `write_result$collisions` and `write_result$overwritten`. This
+  replaces whatever is stored under those names; it does not merge
+  metadata.
+- A record reused from a *different* database is copied in if the
+  destination has no files with that name. If it does, the write is
+  refused under both settings.
+
+The files are written one after another: data, model, posterior, then
+draws and summaries. If a disk or serialization error interrupts the
+write, the files already written stay in place and the error message
+lists the completed parts. Check `git status` in your database checkout,
+fix the cause, and write again; files left from the first attempt need
+`overwrite = TRUE`.
+
+### Write the objects one at a time
+
+You can also write each object yourself. The posterior must be saved
+before its reference draws:
+
+``` r
+assert_checked_reference_posterior_draws(bundle$reference_draws)
+write_pdb(bundle$data, pdbl, overwrite = FALSE)
+write_pdb(bundle$model_code, pdbl, overwrite = FALSE)
+write_pdb(bundle$posterior, pdbl, overwrite = FALSE)
+write_pdb(bundle$reference_draws, pdbl, overwrite = FALSE)
+```
+
+Writing reference draws also writes both summary statistics. To write
+them separately:
+
+``` r
+write_pdb(bundle$reference_draws, pdbl, write_summary_statistics = FALSE)
+write_pdb(bundle$summary_statistics$mean_value, pdbl)
+write_pdb(bundle$summary_statistics$mean_squared_value, pdbl)
+```
+
+`mean_squared_value` is the mean of the squared draws, not a standard
+deviation.
+
+To check a posterior object, saved or not, use
+`check_pdb_posterior(bundle$posterior, run_stan_code_checks = FALSE)`.
+Use `check_pdb(pdbl)` to check a whole database.
+
+## Import a fit for an existing posterior
+
+When the posterior is already in the database and you only need to add
+reference draws, use `import_reference_posterior_draws()`. It accepts
+RStan and CmdStanR fits:
+
+``` r
+pdbl <- pdb_local("/path/to/posteriordb/posterior_database")
+imported_draws <- import_reference_posterior_draws(
+  fit,
+  posterior = "existing_data-existing_model",
+  pdb = pdbl,
+  write = TRUE,
+  overwrite = FALSE
+)
+```
+
+The importer always runs the full checks, and with `write = TRUE` it
+writes only if they pass. It writes the draws and both summary
+statistics (`write_summary_statistics = FALSE` skips the summaries) and
+links them to the posterior. The existing data, model and posterior
+records are not otherwise changed. Unlike the bundle writer, the import
+is all or nothing: if any step fails, the original files are restored,
+and you are warned if any could not be.
+
+- The fit’s unconstrained parameter counts must match the posterior’s
+  `dimensions`. The importer does not confirm that the fit used the
+  model source and data linked to that posterior.
+- A posterior with no linked reference draws gets the new link. A
+  posterior already linked to different reference draws is refused.
+- `include` and `exclude` work as described in [Choose
+  variables](#choose-variables).
+- With `write = FALSE`, or with `as_reference_posterior_draws()`, you
+  get the checked draws back and nothing is written.
+
+For CmdStanR fits, sample with `sig_figs = 18` and keep the model and
+data files next to the fit. The parameter counts are computed by CmdStan
+from the saved draws, and values rounded to the default six significant
+figures can violate parameter constraints and be rejected.
+
+## Add BibTeX references
+
+`references` fields hold citation keys. A key must be in the database’s
+`bibliography/references.bib` before you check or write an object that
+cites it. `append_reference()` adds entries in any of three forms:
+
+``` r
+pdbl <- pdb_local("/path/to/posteriordb/posterior_database")
+
+# BibTeX text: exactly one entry with a citation key.
+append_reference(
+  "@misc{my-study, title={My study}, year={2026}}", pdb = pdbl
+)
+
+# A .bib file: one or more entries.
+append_reference("new-references.bib", pdb = pdbl)
+
+# An R bibentry object: one or more entries.
+ref <- utils::bibentry(
+  "Misc", key = "my-software", title = "My model implementation",
+  year = "2026"
+)
+append_reference(ref, pdb = pdbl)
+```
+
+Duplicate keys (ignoring case) and duplicate entries are rejected
+without changing the bibliography. List the available keys with
+`bibliography_keys(pdbl)`, and look one up with
+`bibliography_entry("my-study", pdb = pdbl)`.
+
+## Limitations
+
+- `create_pdb_bundle()` accepts completed RStan HMC (NUTS) fits. It does
+  not accept CmdStanR fits, optimization or variational results, or fits
+  merged from several runs.
+- The Stan source saved in the fit must be self-contained; source that
+  uses `#include` is rejected.
+- A variable must be saved completely to be kept. Zero-sized outputs
+  cannot be kept; exclude them.
+- The package cannot confirm that the data you supply produced the fit.
+- Version information in a bundle describes the R session that built it.
+  The Stan version requirement recorded for the model (`">=2.26.0"` by
+  default) is not a record of the version used for sampling.
+- If a `stanfit` was saved and reloaded in a new R session, the model
+  may be recompiled to work out the parameter counts. The fit is not
+  resampled. RStan may print
+  `the number of chains is less than 1; sampling not done` while this
+  happens; that is expected.
+
+Use a separate copy of the database when experimenting with writes.
+
+## Related tools
+
+These functions work with reference draws but are not part of building a
+bundle. Each has its own help page.
+
+| Task | Function |
+|----|----|
+| Sample reference draws for several existing posteriors in one run | `sequential_batch_workflow()` |
+| Recompute transformed parameters and generated quantities from saved parameter draws | `reconstruct_stan_output()`, `reconstruct_posterior_output()` |
+| Work out a model’s unconstrained parameter counts | `infer_posterior_dimensions()`, `infer_unconstrained_parameter_counts_from_fit()` |
+| Link reference draws that are already saved to a posterior | `link_reference_posterior()` |
+| Rename saved data, a model or a posterior | `rename_pdb()` |
+| List saved reference draws or summaries | `reference_posterior_names(pdbl, type = "draws")` |
+
+For example, to recompute `theta` for the eight-schools bundle from its
+saved parameters:
+
+``` r
+reconstructed <- reconstruct_stan_output(
+  draws = bundle$reference_draws,
+  model = bundle$model_code,
+  data = bundle$data,
+  variables = "theta"
+)
+reconstructed$draws
+```
+
+Deterministic outputs are reproduced to numerical precision when the
+model and data match.
+
+Random generated quantities are drawn again, not recovered, even with
+the seed used for sampling. Setting `seed` makes a reconstruction
+repeatable. To keep the values from the original run, keep those
+quantities in the reference draws.
