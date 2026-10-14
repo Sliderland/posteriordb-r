@@ -177,6 +177,48 @@ test_that("GitHub directory caching pairs file names and URLs and reports failur
   )
 })
 
+test_that("local directory caching reports copy failures and removes partial files", {
+  root <- withr::local_tempdir("local-directory-cache-")
+  for (path in c("posteriors", "cache")) {
+    dir.create(file.path(root, path))
+  }
+  source <- file.path(root, "posteriors/value.json")
+  writeLines(
+    '{"name":"value","data_name":"data","model_name":"model","keywords":"needle"}',
+    source
+  )
+  original <- readLines(source)
+  connection <- structure(
+    list(pdb_local_endpoint = root, cache_path = file.path(root, "cache")),
+    class = c("pdb_local", "pdb")
+  )
+  failure <- "false"
+  testthat::local_mocked_bindings(pdb_file_copy = function(
+    pdb,
+    from,
+    to,
+    overwrite
+  ) {
+    writeLines("partial", to)
+    if (failure == "throw") {
+      stop("interrupted copy")
+    }
+    FALSE
+  })
+  for (mode in c("false", "throw")) {
+    failure <- mode
+    expect_error(
+      search_posteriors(connection, "needle", fields = "posterior"),
+      if (mode == "false") "Could not copy" else "interrupted copy"
+    )
+    expect_identical(
+      list.files(file.path(root, "cache/posteriors")),
+      character()
+    )
+  }
+  expect_identical(readLines(source), original)
+})
+
 test_that("local caching preserves source files when the cache aliases the database", {
   parent <- withr::local_tempdir("overlapping-directory-cache-")
   root <- file.path(parent, "database")
