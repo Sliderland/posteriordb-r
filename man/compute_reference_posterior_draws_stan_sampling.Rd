@@ -3,15 +3,34 @@
 %   R/compute_reference_posterior_draws_stan_sampling.R
 \name{compute_reference_posterior_draws_stan_sampling}
 \alias{compute_reference_posterior_draws_stan_sampling}
-\title{Compute a Reference Posteriors using Rstan}
+\title{Compute reference draws using a Stan sampling backend}
 \usage{
-compute_reference_posterior_draws_stan_sampling(rpi, pdb)
+compute_reference_posterior_draws_stan_sampling(
+  rpi,
+  pdb,
+  backend = c("rstan", "cmdstanr"),
+  include = NULL,
+  exclude = NULL
+)
 }
 \arguments{
 \item{rpi}{a [reference_posterior_info] object.}
 
 \item{pdb}{a [pdb] object.}
+
+\item{backend}{Stan sampler backend, either `"rstan"` or `"cmdstanr"`.}
+
+\item{include}{Base names of saved variables to keep. The default `NULL`
+(or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+`character(0)`) keeps only the required variables: the model's
+parameters and any variable listed in the posterior's `dimensions`.
+A base name selects all of that variable's elements.}
+
+\item{exclude}{Base names of saved variables to drop. The default `NULL`
+(or `"none"`) drops nothing; `"all"` drops everything except the
+required variables. Excluding a required variable, naming a variable in
+both `include` and `exclude`, or using an unknown name is an error.}
 }
 \description{
-Compute a Reference Posteriors using Rstan
+Compute reference draws using a Stan sampling backend
 }

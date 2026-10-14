@@ -5,13 +5,42 @@
 \alias{compute_reference_posterior_draws}
 \title{Compute a Reference Posteriors for a reference posterior info object}
 \usage{
-compute_reference_posterior_draws(rpi, pdb = pdb_default())
+compute_reference_posterior_draws(
+  rpi,
+  pdb = pdb_default(),
+  backend = c("rstan", "cmdstanr"),
+  include = NULL,
+  exclude = NULL
+)
 }
 \arguments{
 \item{rpi}{a [reference_posterior_info] object.}
 
 \item{pdb}{a [pdb] object.}
+
+\item{backend}{Stan sampler backend, either `"rstan"` or `"cmdstanr"`.}
+
+\item{include}{Base names of saved variables to keep. The default `NULL`
+(or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+`character(0)`) keeps only the required variables: the model's
+parameters and any variable listed in the posterior's `dimensions`.
+A base name selects all of that variable's elements.}
+
+\item{exclude}{Base names of saved variables to drop. The default `NULL`
+(or `"none"`) drops nothing; `"all"` drops everything except the
+required variables. Excluding a required variable, naming a variable in
+both `include` and `exclude`, or using an unknown name is an error.}
 }
 \description{
 Compute a Reference Posteriors for a reference posterior info object
+}
+\details{
+With `backend = "cmdstanr"`, RStan-style sampler arguments are
+  translated: `iter` and `warmup` become `iter_sampling` and
+  `iter_warmup`, and `cores` becomes `parallel_chains`. In `control`,
+  `adapt_delta`, `max_treedepth`, `adapt_engaged` and `metric` keep their
+  names, `stepsize` becomes `step_size`, and `adapt_init_buffer`,
+  `adapt_term_buffer` and `adapt_window` lose the `adapt_` prefix. Any
+  other `control` entry is an error. CmdStanR's own argument names can
+  also be used directly, but give each setting only once.
 }

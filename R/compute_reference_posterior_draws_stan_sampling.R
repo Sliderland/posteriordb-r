@@ -2,52 +2,115 @@
 #'
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
+#' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
+#' @param include Base names of saved variables to keep. The default `NULL`
+#'   (or `"all"`) keeps every saved output except `lp__`. `"none"` (or
+#'   `character(0)`) keeps only the required variables: the model's
+#'   parameters and any variable listed in the posterior's `dimensions`.
+#'   A base name selects all of that variable's elements.
+#' @param exclude Base names of saved variables to drop. The default `NULL`
+#'   (or `"none"`) drops nothing; `"all"` drops everything except the
+#'   required variables. Excluding a required variable, naming a variable in
+#'   both `include` and `exclude`, or using an unknown name is an error.
+#' @details With `backend = "cmdstanr"`, RStan-style sampler arguments are
+#'   translated: `iter` and `warmup` become `iter_sampling` and
+#'   `iter_warmup`, and `cores` becomes `parallel_chains`. In `control`,
+#'   `adapt_delta`, `max_treedepth`, `adapt_engaged` and `metric` keep their
+#'   names, `stepsize` becomes `step_size`, and `adapt_init_buffer`,
+#'   `adapt_term_buffer` and `adapt_window` lose the `adapt_` prefix. Any
+#'   other `control` entry is an error. CmdStanR's own argument names can
+#'   also be used directly, but give each setting only once.
 #'
 #' @export
-compute_reference_posterior_draws <- function(rpi, pdb = pdb_default()) {
+compute_reference_posterior_draws <- function(
+  rpi,
+  pdb = pdb_default(),
+  backend = c("rstan", "cmdstanr"),
+  include = NULL,
+  exclude = NULL
+) {
   checkmate::assert_class(pdb, "pdb")
   assert_reference_posterior_info(x = rpi)
+  backend <- match.arg(backend)
   if (rpi$inference$method == "stan_sampling") {
-    rp <- compute_reference_posterior_draws_stan_sampling(rpi, pdb)
+    rp <- compute_reference_posterior_draws_stan_sampling(
+      rpi,
+      pdb,
+      backend,
+      include = include,
+      exclude = exclude
+    )
   } else {
     stop("Currently not implemented")
   }
   rp
 }
 
-#' Compute a Reference Posteriors using Rstan
+#' Compute reference draws using a Stan sampling backend
 #'
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
+#' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
+#' @inheritParams compute_reference_posterior_draws
 #'
-compute_reference_posterior_draws_stan_sampling <- function(rpi, pdb) {
+compute_reference_posterior_draws_stan_sampling <- function(
+  rpi,
+  pdb,
+  backend = c("rstan", "cmdstanr"),
+  include = NULL,
+  exclude = NULL
+) {
   checkmate::assert_class(pdb, "pdb")
   assert_reference_posterior_info(x = rpi)
+  backend <- match.arg(backend)
+  validate_variable_selections(include, exclude)
   po <- posterior(rpi$name, pdb = pdb)
   pdn <- posterior_dimension_names(x = po$dimensions)
 
-  # Add versions
-  rpi$versions <- pdb_stan_sampling_versions()
-
-  # Run Stan
   stan_object <- run_stan.pdb_posterior(
     po,
-    stan_args = rpi$inference$method_arguments
+    stan_args = rpi$inference$method_arguments,
+    backend = backend
   )
-
-  # Compute the diagnostics from the stan object and add it to the slot
+  extracted <- extract_external_stan_fit(stan_object)
+  selected <- resolve_import_variable_selection(
+    extracted$draws,
+    union(pdn, fitted_parameter_names(stan_object)),
+    include,
+    exclude
+  )
+  draws <- filter_external_posterior_draws(extracted$draws, selected)
+  keep_draw_names <- posterior::variables(draws)
   rpi$diagnostics <- compute_stan_sampling_diagnostics(
-    x = stan_object,
-    keep_dimensions = pdn
+    x = draws,
+    keep_dimensions = keep_draw_names,
+    sampler_diagnostics = extracted$sampler_diagnostics,
+    expected_fraction_of_missing_information = extracted$metadata$expected_fraction_of_missing_information,
+    max_treedepth = extracted$metadata$max_treedepth
   )
+  rpi$versions <- stan_fit_sampling_versions(extracted$metadata)
+  rpd <- as.reference_posterior_draws(
+    x = posterior::as_draws_list(draws),
+    info = rpi,
+    pdb = pdb
+  )
+  subset(rpd, variable = keep_draw_names)
+}
 
-  # Create rpd object
-  rpd <- as.reference_posterior_draws(x = stan_object, info = rpi, pdb = pdb)
-
-  # Subset to relevant parameters (that are used)
-  rpd <- subset(rpd, variable = pdn)
-
-  rpd
+stan_fit_sampling_versions <- function(metadata) {
+  versions <- pdb_stan_sampling_versions(include_rstan = FALSE)
+  versions$r_version <- metadata$r_version %||% versions$r_version
+  versions$posterior_version <- metadata$posterior_version %||%
+    paste("posterior", utils::packageVersion("posterior"))
+  for (name in c(
+    "rstan_version",
+    "cmdstanr_version",
+    "cmdstan_version",
+    "stan_version"
+  )) {
+    if (!is.null(metadata[[name]])) versions[[name]] <- metadata[[name]]
+  }
+  versions
 }
 
 
@@ -71,22 +134,29 @@ as.reference_posterior_draws.stanfit <- function(
 #' The function extracts and computes the relevant diagnostics
 #'
 #' @param x a [stanfit] object.
-#' @param keep_dimensions a regular expression to choose dimensions to keep
+#' @param keep_dimensions exact names of retained posterior variables
 #'
 #' @keywords internal
 #' @noRd
-compute_stan_sampling_diagnostics <- function(x, keep_dimensions) {
+compute_stan_sampling_diagnostics <- function(
+  x,
+  keep_dimensions,
+  sampler_diagnostics = NULL,
+  expected_fraction_of_missing_information = NULL,
+  max_treedepth = NULL
+) {
   checkmate::assert_character(keep_dimensions)
 
   d <- list()
-  pd <- posterior::as_draws(x)
-  pds <- posterior::summarise_draws(pd)
-  checkmate::assert_subset(keep_dimensions, pds$variable)
-
-  keep_idx <- pds$variable %in% keep_dimensions
+  pd <- posterior::subset_draws(
+    posterior::as_draws(x),
+    variable = keep_dimensions
+  )
+  vars <- posterior::variables(pd)
+  checkmate::assert_set_equal(keep_dimensions, vars)
 
   # diagnostic_information
-  d$diagnostic_information <- list(names = pds$variable[keep_idx])
+  d$diagnostic_information <- list(names = vars)
 
   # ndraws
   d$ndraws <- posterior::ndraws(pd)
@@ -94,51 +164,127 @@ compute_stan_sampling_diagnostics <- function(x, keep_dimensions) {
   # nchains
   d$nchains <- posterior::nchains(pd)
 
-  # ESS bulk
-  d$effective_sample_size_bulk <- pds$ess_bulk[keep_idx]
+  d$effective_sample_size_bulk <- reference_variable_diagnostic(
+    pd,
+    posterior::ess_bulk
+  )
+  d$effective_sample_size_tail <- reference_variable_diagnostic(
+    pd,
+    posterior::ess_tail
+  )
+  d$r_hat <- reference_variable_diagnostic(pd, posterior::rhat)
 
-  # ESS tail
-  d$effective_sample_size_tail <- pds$ess_tail[keep_idx]
+  # Mean absolute lag-1 autocorrelation across chains. This is kept as a
+  # separate diagnostic from ESS because ESS is informative but is not part
+  # of the reference-draw acceptance policy.
+  d$mean_lag1_ac <- reference_lag1_ac(pd)
 
-  # r_hat
-  d$r_hat <- pds$rhat[keep_idx]
+  # Sampler diagnostics are extracted at the external-fit boundary.  The
+  # fallback keeps the existing internally-sampled workflow unchanged.
+  if (is.null(sampler_diagnostics) && inherits(x, "stanfit")) {
+    sampler_diagnostics <- sampler_params_to_draws_array(
+      rstan::get_sampler_params(x, inc_warmup = FALSE)
+    )
+  }
 
-  # divergent_transitions
-  hmc_params <- rstan::get_sampler_params(x, inc_warmup = FALSE)
-  d$divergent_transitions <- unlist(lapply(hmc_params, function(x) {
-    sum(x[, "divergent__"])
-  }))
+  d$divergent_transitions <- rep(NA_real_, d$nchains)
+  if (!is.null(sampler_diagnostics)) {
+    sampler_variables <- posterior::variables(sampler_diagnostics)
+    if ("divergent__" %in% sampler_variables) {
+      d$divergent_transitions <- sampler_divergence_counts(sampler_diagnostics)
+    }
+
+    if ("treedepth__" %in% sampler_variables && !is.null(max_treedepth)) {
+      d$max_treedepth_exceeded <- vapply(
+        seq_len(posterior::nchains(sampler_diagnostics)),
+        function(i) {
+          sum(sampler_diagnostics[, i, "treedepth__"] >= max_treedepth)
+        },
+        numeric(1)
+      )
+    }
+
+    sampler_summary <- posterior::summarise_draws(sampler_diagnostics)
+    d$sampler_parameter_summaries <- lapply(
+      seq_len(nrow(sampler_summary)),
+      function(i) {
+        row <- sampler_summary[i, , drop = FALSE]
+        as.list(row)
+      }
+    )
+    names(d$sampler_parameter_summaries) <- sampler_summary$variable
+  }
 
   # expected_fraction_of_missing_information
-  d$expected_fraction_of_missing_information <- rstan::get_bfmi(x)
+  if (
+    is.null(expected_fraction_of_missing_information) && inherits(x, "stanfit")
+  ) {
+    expected_fraction_of_missing_information <- rstan::get_bfmi(x)
+  }
+  d$expected_fraction_of_missing_information <-
+    expected_fraction_of_missing_information %||% rep(NA_real_, d$nchains)
 
   d
 }
 
+# Convert rstan's list of per-chain sampler parameter matrices to a posterior
+# draws object.  Keeping this conversion here gives future fit extractors a
+# stable, posterior-compatible boundary for sampler diagnostics.
+sampler_params_to_draws_array <- function(sampler_params) {
+  if (is.null(sampler_params) || length(sampler_params) == 0L) {
+    return(NULL)
+  }
+  if (!all(vapply(sampler_params, is.matrix, logical(1)))) {
+    return(NULL)
+  }
 
-#' Construct dimension names from a posterior dimension list
+  n_draws <- unique(vapply(sampler_params, nrow, integer(1)))
+  variable_names <- unique(lapply(sampler_params, colnames))
+  if (length(n_draws) != 1L || length(variable_names) != 1L) {
+    return(NULL)
+  }
+  variable_names <- variable_names[[1L]]
+  if (is.null(variable_names)) {
+    return(NULL)
+  }
+
+  values <- array(
+    NA_real_,
+    dim = c(n_draws, length(sampler_params), length(variable_names)),
+    dimnames = list(
+      iteration = NULL,
+      chain = as.character(seq_along(sampler_params)),
+      variable = variable_names
+    )
+  )
+  for (chain_index in seq_along(sampler_params)) {
+    values[, chain_index, ] <- sampler_params[[chain_index]]
+  }
+  posterior::as_draws_array(values)
+}
+
+
+#' Get parameter names from PosteriorDB unconstrained dimension counts
 #'
-#' @param x a dimensions slot from a [pdb_posterior]
+#' Returns the base parameter names. Each value in the dimensions list must
+#' be one positive integer unconstrained-coordinate count, not a constrained
+#' output shape. Names are not expanded into indexed draw columns.
+#'
+#' @param x A named dimensions list or numeric vector containing
+#'   positive integer unconstrained parameter counts.
+#' @return A character vector of base names, in dimensions-list order.
+#' @seealso [infer_posterior_dimensions()]
+#' @keywords internal
+#' @md
 posterior_dimension_names <- function(x) {
-  checkmate::assert_list(x)
-  checkmate::assert_named(x)
-  for (i in seq_along(x)) {
-    checkmate::assert_int(x[[i]])
-  }
-
-  dn <- list()
-  for (i in seq_along(x)) {
-    if (x[[i]] > 1L) {
-      dn[[i]] <- paste0(names(x)[i], "[", 1:x[[i]], "]")
-    } else {
-      dn[[i]] <- names(x)[i]
-    }
-  }
-  return(unlist(dn))
+  x <- validate_posterior_dimension_counts(x)
+  names(x)
 }
 
 #' Extract relevant stan versions
-pdb_stan_sampling_versions <- function() {
+#'
+#' @param include_rstan Whether to include the installed RStan version when available.
+pdb_stan_sampling_versions <- function(include_rstan = TRUE) {
   M <- file.path(
     Sys.getenv("HOME"),
     ".R",
@@ -149,8 +295,7 @@ pdb_stan_sampling_versions <- function() {
   } else {
     "[Could not find Makevar file]"
   }
-  list(
-    rstan_version = paste("rstan", utils::packageVersion("rstan")),
+  versions <- list(
     r_Makevars = paste(Mfile, collapse = "\n"),
     r_version = R.version$version.string,
     r_session = paste(
@@ -158,4 +303,8 @@ pdb_stan_sampling_versions <- function() {
       collapse = "\n"
     )
   )
+  if (include_rstan && requireNamespace("rstan", quietly = TRUE)) {
+    versions$rstan_version <- paste("rstan", utils::packageVersion("rstan"))
+  }
+  versions
 }
