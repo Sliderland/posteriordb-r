@@ -17,7 +17,14 @@ write_pdb(x, pdb, overwrite = FALSE, ...)
 
 \method{write_pdb}{pdb_reference_posterior_info}(x, pdb, overwrite = FALSE, type, ...)
 
-\method{write_pdb}{pdb_reference_posterior_draws}(x, pdb, overwrite = FALSE, ...)
+\method{write_pdb}{pdb_reference_posterior_draws}(
+  x,
+  pdb,
+  overwrite = FALSE,
+  write_summary_statistics = TRUE,
+  posterior_name = NULL,
+  ...
+)
 
 \method{write_pdb}{pdb_reference_posterior_summary_statistic}(x, pdb, overwrite = FALSE, ...)
 
@@ -43,7 +50,59 @@ write_pdb(x, pdb, overwrite = FALSE, ...)
 \item{...}{further arguments supplied to methods.}
 
 \item{type}{supported reference posterior types.}
+
+\item{write_summary_statistics}{When writing reference draws or a bundle,
+also write the summary statistics (`mean_value` and
+`mean_squared_value`).}
+
+\item{posterior_name}{When writing reference draws, the saved posterior to
+link them to. Only needed when that posterior has no reference link yet
+and a different name from the draws.}
+}
+\value{
+Invisibly `TRUE`. For a `pdb_reference_bundle`, invisibly a list
+  with the checked `bundle`; the names of the `written`, `reused` and
+  `overwritten` objects; `collisions`, the destination files that already
+  existed; `reference_draws_written` and `summary_statistics_written`; and
+  `skipped_reason` or `diagnostic_error` when the draws were not written.
 }
 \description{
 a function to simplify writing to a local pdb.
+}
+\details{
+**Reference draws.** Draws can be written only after they have passed
+[check_reference_posterior_draws()], and only when their posterior is
+already saved in `pdb`. That posterior must either link to the draws
+already, or have no reference link and the same name as the draws (or be
+named in `posterior_name`), in which case the link is filled in. Both
+summary statistics are computed and written too unless
+`write_summary_statistics = FALSE`. Writing does not run the checks again.
+
+**Bundles.** For a `pdb_reference_bundle` from [create_pdb_bundle()], the
+draws are checked first if they have not been. New data, model and
+posterior objects are written. Reference draws and summary statistics are
+written only if every check passed; otherwise the other objects are still
+written and the result says what was skipped. Objects reused from `pdb`
+are left as they are, except that a reused posterior with no reference
+link is linked to the new draws. A reused posterior linked to different
+draws is an error. Objects reused from another database are copied if
+`pdb` has no files with that name, and are an error otherwise. Summary
+statistics already in the bundle are written as they are; after changing a
+bundle's draws, call [check_reference_posterior_draws()] to recompute them.
+
+**Existing files.** Every destination file for a bundle is checked before
+anything is written. With `overwrite = FALSE` an existing file is an error
+and nothing is written. With `overwrite = TRUE` existing files for new
+objects are replaced.
+
+**Names and paths.** Names must be a single path component: no slashes,
+and not `.` or `..`. Use underscores rather than hyphens in data and model
+names, because posteriors are named `data_name-model_name`. Destinations
+that resolve outside the database through symbolic links are rejected.
+
+**If a write fails.** Objects are written one after another. A disk or
+serialization error stops the write and leaves the files already written
+in place. The error names the file and, for a bundle, lists the completed
+objects. Check the changes in your database checkout, fix the cause, and
+write again, using `overwrite = TRUE` for files left by the first attempt.
 }

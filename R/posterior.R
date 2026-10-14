@@ -96,7 +96,13 @@ as.posterior.list <- function(x, pdb = pdb_default(), ...) {
       backend = "rstan"
     )
   }
-  x <- x[pdb_posterior_must_include()]
+  retained_fields <- c(
+    pdb_posterior_must_include(),
+    "urls",
+    "references",
+    "keywords"
+  )
+  x <- x[intersect(names(x), retained_fields)]
 
   pdb(x) <- pdb
   class(x) <- "pdb_posterior"
@@ -153,6 +159,9 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_class(x$data_info$added_date, "Date")
   checkmate::assert_class(x$model_info$added_date, "Date")
   checkmate::assert_list(x$model_info, min.len = 1)
+  checkmate::assert_character(x$urls, null.ok = TRUE)
+  checkmate::assert_character(x$references, null.ok = TRUE)
+  checkmate::assert_character(x$keywords, null.ok = TRUE)
 
   checkmate::assert_class(pdb(x), "pdb")
   invisible(x)

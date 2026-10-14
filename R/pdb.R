@@ -965,20 +965,20 @@ write_to_path <- function(
   info = TRUE,
   overwrite = FALSE
 ) {
-  checkmate::assert_subset(
-    class(x)[1],
-    choices = c(
-      "character",
-      "pdb_posterior",
-      "pdb_model_info",
-      "pdb_data_info",
-      "pdb_data",
-      "pdb_model_code",
-      "pdb_reference_posterior_draws",
-      "pdb_reference_posterior_info",
-      supported_summary_statistic_classes()
-    )
-  )
+  checkmate::assert_true(any(
+    class(x) %in%
+      c(
+        "character",
+        "pdb_posterior",
+        "pdb_model_info",
+        "pdb_data_info",
+        "pdb_data",
+        "pdb_model_code",
+        "pdb_reference_posterior_draws",
+        "pdb_reference_posterior_info",
+        supported_summary_statistic_classes()
+      )
+  ))
   checkmate::assert_string(path)
   checkmate::assert_class(pdb, "pdb_local")
   checkmate::assert_choice(type, c("json", "txt", supported_frameworks()))
@@ -995,24 +995,33 @@ write_to_path <- function(
     nm <- name
   }
 
-  if (info) {
-    nm <- paste0(nm, ".info.", type)
-  } else {
-    nm <- paste0(nm, ".", type)
-  }
-
-  path <- strsplit(path, "/")[[1]]
-  dp <- file.path(pdb_endpoint(pdb), do.call(file.path, as.list(path)))
-  fp <- file.path(dp, nm)
-  zfp <- paste0(fp, ".zip")
+  output_path <- pdb_write_output_path(
+    pdb,
+    path,
+    type,
+    nm,
+    zip = zip,
+    info = info
+  )
+  fp <- if (zip) sub("[.]zip$", "", output_path) else output_path
+  dp <- dirname(fp)
   if (!checkmate::test_directory_exists(dp)) {
     dir.create(dp, recursive = TRUE)
   }
-  if (zip) {
-    checkmate::assert_path_for_output(zfp, overwrite = overwrite)
-  } else {
-    checkmate::assert_path_for_output(fp, overwrite = overwrite)
-  }
+  write_complete <- FALSE
+  on.exit(
+    {
+      if (!write_complete) {
+        message(
+          "Write did not complete for '",
+          output_path,
+          "'. Files already written are retained. Inspect local changes before retrying."
+        )
+      }
+    },
+    add = TRUE
+  )
+  checkmate::assert_path_for_output(output_path, overwrite = overwrite)
 
   if (type == "json") {
     out <- jsonlite::toJSON(
@@ -1035,10 +1044,58 @@ write_to_path <- function(
   writeLines(text = out, con = fp, useBytes = TRUE)
 
   if (zip) {
-    zip(files = fp, zipfile = zfp, flags = "-jq")
-    file.remove(fp)
+    status <- utils::zip(files = fp, zipfile = output_path, flags = "-jq")
+    if (status != 0L || !file.exists(output_path)) {
+      stop(
+        "ZIP creation failed; the JSON payload is retained at: ",
+        fp,
+        call. = FALSE
+      )
+    }
+    if (!file.remove(fp)) {
+      stop("Archive written, but JSON cleanup failed at: ", fp, call. = FALSE)
+    }
   }
+  write_complete <- TRUE
   return(invisible(TRUE))
+}
+
+# Return the final file path used by `write_to_path()`. Keeping path
+# construction here lets bundle preflight inspect the same destinations as
+# the existing S3 writers without creating directories or files.
+pdb_write_output_path <- function(
+  pdb,
+  path,
+  type,
+  name,
+  zip = FALSE,
+  info = TRUE
+) {
+  checkmate::assert_class(pdb, "pdb_local")
+  checkmate::assert_string(path)
+  assert_pdb_resource_name(type)
+  assert_pdb_resource_name(name)
+  checkmate::assert_flag(zip)
+  checkmate::assert_flag(info)
+  filename <- if (info) {
+    paste0(name, ".info.", type)
+  } else {
+    paste0(name, ".", type)
+  }
+  relative <- file.path(path, filename)
+  filepath <- pdb_local_resource_path(pdb, relative)
+  # ZIP writes also create and remove the uncompressed JSON beside the archive.
+  if (zip) pdb_local_resource_path(pdb, paste0(relative, ".zip")) else filepath
+}
+
+# Writers check every destination before writing any, so an existing file
+# cannot leave a partial write behind.
+assert_no_existing_outputs <- function(paths, overwrite) {
+  existing <- paths[file.exists(paths)]
+  if (!overwrite && length(existing)) {
+    stop("File already exists: ", existing[[1L]], call. = FALSE)
+  }
+  invisible(paths)
 }
 
 # Resolve existing ancestors so missing directories cannot hide an escaping
@@ -1099,20 +1156,6 @@ write_json_to_path <- function(
   overwrite = FALSE
 ) {
   write_to_path(x, path, pdb, type = "json", name, zip, info, overwrite)
-}
-#' @rdname write_to_path
-#' @keywords internal
-write_txt_to_path <- function(
-  x,
-  path,
-  pdb,
-  type,
-  name = NULL,
-  zip = FALSE,
-  info = TRUE,
-  overwrite = FALSE
-) {
-  write_to_path(x, path, pdb, type = "txt", name, zip, info, overwrite)
 }
 #' @rdname write_to_path
 #' @keywords internal
