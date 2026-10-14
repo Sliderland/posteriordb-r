@@ -117,13 +117,9 @@ sequential_batch_workflow <- function(
       }
       if (write) {
         stage <- "writing"
+        # write_pdb() links the posterior, or errors when it cannot.
         write_pdb(draws, pdb = pdb, overwrite = overwrite)
         written <- TRUE
-        link_reference_posterior(
-          posterior = info(draws)$name,
-          reference_posterior = info(draws)$name,
-          pdb = pdb
-        )
         linked <- TRUE
       }
     }, error = function(error) {

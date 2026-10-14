@@ -7,8 +7,7 @@
 link_reference_posterior(
   posterior,
   reference_posterior = NULL,
-  pdb = pdb_default(),
-  verify = TRUE
+  pdb = pdb_default()
 )
 }
 \arguments{
@@ -20,8 +19,6 @@ link_reference_posterior(
 \item{pdb}{a local destination connection. An explicitly supplied connection
 is used even for object input. When omitted, use the object's connection
 for a posterior object, or [pdb_default()] for a name.}
-
-\item{verify}{verify the written link by reading the posterior JSON.}
 }
 \value{
 The updated [pdb_posterior] object, invisibly.

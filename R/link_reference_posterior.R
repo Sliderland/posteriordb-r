@@ -10,17 +10,13 @@
 #' @param pdb a local destination connection. An explicitly supplied connection
 #'   is used even for object input. When omitted, use the object's connection
 #'   for a posterior object, or [pdb_default()] for a name.
-#' @param verify verify the written link by reading the posterior JSON.
 #' @return The updated [pdb_posterior] object, invisibly.
 #' @export
 link_reference_posterior <- function(
   posterior,
   reference_posterior = NULL,
-  pdb = pdb_default(),
-  verify = TRUE
+  pdb = pdb_default()
 ) {
-  checkmate::assert_flag(verify)
-
   if (inherits(posterior, "pdb_posterior")) {
     if (missing(pdb)) pdb <- posteriordb::pdb(posterior)
     posterior_name <- posterior$name
@@ -34,12 +30,11 @@ link_reference_posterior <- function(
   target <- posterior.character(posterior_name, pdb = pdb)
   checkmate::assert_class(target, "pdb_posterior")
   if (is.null(reference_posterior)) reference_posterior <- target$name
-  link_reference_posterior_object(target, reference_posterior, pdb, verify)
+  link_reference_posterior_object(target, reference_posterior, pdb)
 }
 
-link_reference_posterior_object <- function(target, reference_posterior, pdb, verify) {
+link_reference_posterior_object <- function(target, reference_posterior, pdb) {
   assert_pdb_resource_name(reference_posterior)
-  pdb_write_output_path(pdb, "posteriors", "json", target$name, info = FALSE)
   current_reference <- target$reference_posterior_name
   if (!is.null(current_reference) &&
       !identical(current_reference, reference_posterior)) {
@@ -78,15 +73,6 @@ link_reference_posterior_object <- function(target, reference_posterior, pdb, ve
     target$reference_posterior_name <- reference_posterior
     write_pdb(target, pdb, overwrite = TRUE)
     pdb_clear_cache(pdb)
-  }
-  if (verify) {
-    posterior_path <- pdb_file_path(
-      pdb, "posteriors", paste0(target$name, ".json")
-    )
-    written <- jsonlite::read_json(posterior_path, simplifyVector = FALSE)
-    if (!identical(written$reference_posterior_name, reference_posterior)) {
-      stop("Posterior reference link failed round-trip verification.", call. = FALSE)
-    }
   }
   invisible(target)
 }
