@@ -215,8 +215,12 @@ pn <- function(x, ...) {
 
 #' @export
 pn.pdb_local <- function(x, ...) {
-  pns <- dir(pdb_file_path(x, "posteriors"))
-  remove_file_extension(pns)
+  pns <- list.files(
+    pdb_file_path(x, "posteriors"),
+    pattern = "\\.json$",
+    full.names = TRUE
+  )
+  basename(remove_file_extension(pns[!dir.exists(pns)]))
 }
 
 #' @export
@@ -276,13 +280,12 @@ model_names <- function(pdb = pdb_default(), ...) {
 #' @rdname model_names
 #' @export
 model_names.pdb_local <- function(pdb = pdb_default(), ...) {
-  pns <- dir(
+  pns <- list.files(
     pdb_file_path(pdb, "models", "info"),
-    recursive = TRUE,
-    full.names = FALSE
+    pattern = "\\.info\\.json$",
+    full.names = TRUE
   )
-  pns <- pns[grepl(pns, pattern = "\\.info\\.json$")]
-  basename(remove_file_extension(pns))
+  basename(sub("[.]info[.]json$", "", pns[!dir.exists(pns)]))
 }
 
 #' Get all existing data names from a posterior database
@@ -298,13 +301,12 @@ data_names <- function(pdb = pdb_default(), ...) {
 #' @rdname data_names
 #' @export
 data_names.pdb_local <- function(pdb = pdb_default(), ...) {
-  pns <- dir(
+  pns <- list.files(
     pdb_file_path(pdb, "data", "info"),
-    recursive = TRUE,
-    full.names = FALSE
+    pattern = "\\.info\\.json$",
+    full.names = TRUE
   )
-  pns <- pns[grepl(pns, pattern = "\\.info\\.json$")]
-  basename(remove_file_extension(pns))
+  basename(sub("[.]info[.]json$", "", pns[!dir.exists(pns)]))
 }
 
 #' Get all existing reference posterior names from a posterior database
@@ -326,13 +328,12 @@ reference_posterior_names.pdb_local <- function(
   type,
   ...
 ) {
-  pns <- dir(
+  pns <- list.files(
     pdb_file_path(pdb, "reference_posteriors", type, "info"),
-    recursive = TRUE,
-    full.names = FALSE
+    pattern = "\\.info\\.json$",
+    full.names = TRUE
   )
-  pns <- pns[grepl(pns, pattern = "\\.info\\.json$")]
-  basename(remove_file_extension(pns))
+  basename(sub("[.]info[.]json$", "", pns[!dir.exists(pns)]))
 }
 
 
@@ -503,14 +504,18 @@ pdb_list_files_in_cache <- function(
   checkmate::assert_flag(all.files)
   checkmate::assert_flag(full.names)
   checkmate::assert_flag(recursive)
+  directory <- pdb_cache_path(pdb, path)
   fns <- list.files(
-    pdb_cache_path(pdb, path),
+    directory,
     all.files = all.files,
     full.names = full.names,
     recursive = recursive
   )
   if (!file_ext) {
-    fns <- remove_file_extension(fns)
+    paths <- if (full.names) fns else file.path(directory, fns)
+    suffix <- if (endsWith(path, "/info")) ".info.json" else ".json"
+    fns <- fns[endsWith(fns, suffix) & !dir.exists(paths)]
+    fns <- substr(fns, 1L, nchar(fns) - nchar(suffix))
   }
   fns
 }
@@ -630,6 +635,7 @@ pdb_cache_dir <- function(pdb, path, ...) {
 #' @noRd
 #' @rdname pdb_cache_dir
 #' @keywords internal
+#' @exportS3Method
 pdb_cache_dir.pdb_local <- function(pdb, path, ...) {
   fns <- dir(pdb_file_path(pdb, path), full.names = FALSE)
   froms <- file.path(path, fns)

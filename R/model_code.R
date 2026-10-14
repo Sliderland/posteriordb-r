@@ -7,6 +7,15 @@
 #' @param ... further arguments supplied to methods.
 #'
 #' @seealso framework()
+#' @details Character-code construction preserves the requested framework
+#'   (default `stan`) and requires a matching non-NULL implementation in `info`.
+#'   Construction keeps the code unchanged; it does not compile or translate it.
+#'   Stored code is read from the selected implementation's `model_code`
+#'   path. Model info that does not record a path uses the
+#'   conventional `models/<framework>/<name>.<extension>` location.
+#'   For posterior or model-info inputs, the supplied object's implementation
+#'   metadata selects the file for both code and file-path access. A posterior
+#'   can look up additional implementations through its attached database.
 #'
 #' @export
 model_code <- function(x, ...) {
@@ -23,27 +32,37 @@ as.model_code <- function(x, info, ...) {
 #' @rdname model_code
 #' @export
 model_code.pdb_posterior <- function(x, framework, ...) {
-  model_code(x$model_name, framework, pdb = pdb(x), ...)
+  if (is.null(x$model_info$model_implementations[[framework]])) {
+    return(model_code(x$model_name, framework, pdb = pdb(x), ...))
+  }
+  model_code(x$model_info, framework, pdb = pdb(x), ...)
 }
 
 #' @rdname model_code
 #' @export
 model_code.character <- function(x, framework, pdb = pdb_default(), ...) {
   checkmate::assert_string(x)
-  scfp <- model_code_file_path(x, framework, pdb, ...)
-  out <- paste0(readLines(scfp), collapse = "\n")
-  class(out) <- c("pdb_model_code", "character")
-  framework(out) <- framework
-  info(out) <- model_info(x, pdb = pdb)
-  pdb(out) <- pdb
-  assert_model_code(out)
-  out
+  model_code(model_info(x, pdb = pdb), framework, pdb = pdb, ...)
 }
 
 #' @rdname model_code
 #' @export
 model_code.pdb_model_info <- function(x, framework, pdb = pdb_default(), ...) {
-  model_code(x$name, framework, pdb, ...)
+  scfp <- model_code_file_path(x, framework, pdb, ...)
+  out <- paste0(
+    withCallingHandlers(readLines(scfp), warning = function(w) {
+      if (grepl("incomplete final line", conditionMessage(w), fixed = TRUE)) {
+        invokeRestart("muffleWarning")
+      }
+    }),
+    collapse = "\n"
+  )
+  class(out) <- c("pdb_model_code", "character")
+  framework(out) <- framework
+  info(out) <- x
+  pdb(out) <- pdb
+  assert_model_code(out)
+  out
 }
 
 #' @rdname model_code
@@ -54,9 +73,9 @@ as.model_code.stanmodel <- function(x, info, ...) {
 
 #' @rdname model_code
 #' @export
-as.model_code.character <- function(x, info, framework, ...) {
+as.model_code.character <- function(x, info, framework = "stan", ...) {
   class(x) <- "pdb_model_code"
-  framework(x) <- "stan"
+  framework(x) <- framework
   info(x) <- info
   assert_model_code(x)
   x
@@ -80,12 +99,10 @@ model_code_file_path <- function(x, ...) {
 #' @rdname model_code
 #' @export
 model_code_file_path.pdb_posterior <- function(x, framework, ...) {
-  checkmate::assert_choice(framework, names(x$model_info$model_implementations))
-  mcfp <- pdb_cached_local_file_path(
-    pdb(x),
-    x$model_info$model_implementations[[framework]]$model_code
-  )
-  mcfp
+  if (is.null(x$model_info$model_implementations[[framework]])) {
+    return(model_code_file_path(x$model_name, framework, pdb = pdb(x), ...))
+  }
+  model_code_file_path(x$model_info, framework, pdb = pdb(x), ...)
 }
 
 #' @rdname model_code
@@ -96,7 +113,11 @@ model_code_file_path.pdb_model_info <- function(
   pdb = pdb_default(),
   ...
 ) {
-  model_code_file_path(x$name, framework, pdb, ...)
+  pdb_cached_local_file_path(
+    pdb,
+    model_implementation_file_path(x, framework),
+    unzip = FALSE
+  )
 }
 
 #' @rdname model_code
@@ -107,18 +128,22 @@ model_code_file_path.character <- function(
   pdb = pdb_default(),
   ...
 ) {
-  if (framework %in% c("pymc", "pymc3")) {
-    ft <- "py"
-  } else if (framework == "stan") {
-    ft <- "stan"
-  }
-  fn <- paste0(x, ".", ft)
-  mcfp <- pdb_cached_local_file_path(
-    pdb = pdb,
-    path = file.path("models", framework, fn),
-    unzip = FALSE
-  )
-  mcfp
+  model_code_file_path(model_info(x, pdb = pdb), framework, pdb = pdb, ...)
+}
+
+model_implementation_file_path <- function(x, framework) {
+  checkmate::assert_class(x, "pdb_model_info")
+  checkmate::assert_choice(framework, supported_frameworks())
+  implementation <- x$model_implementations[[framework]]
+  checkmate::assert_list(implementation)
+  path <- implementation$model_code %||%
+    file.path(
+      "models",
+      framework,
+      paste0(x$name, ".", supported_frameworks_file_extension(framework))
+    )
+  checkmate::assert_string(path)
+  path
 }
 
 #' @export
@@ -156,6 +181,7 @@ assert_model_code <- function(x) {
   checkmate::assert_string(x)
   checkmate::assert_choice(framework(x), choices = supported_frameworks())
   checkmate::assert_class(info(x), "pdb_model_info")
+  checkmate::assert_list(info(x)$model_implementations[[framework(x)]])
 }
 
 #' Identify the framework for a given [model_code]
@@ -191,9 +217,7 @@ framework.pdb_model_code <- function(x) {
 #' @rdname framework
 #' @export
 `framework<-.pdb_model_code` <- function(x, value) {
-  checkmate::assert_choice(value, supported_frameworks())
-  x <- `framework<-.character`(x, value)
-  x
+  `framework<-.character`(x, value)
 }
 
 supported_frameworks <- function() c("stan", "pymc3", "pymc", "tfp", "pyro")
