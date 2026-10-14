@@ -14,6 +14,28 @@ test_that("connection subclasses retain their database type and cache identity",
   }
 })
 
+test_that("subclassed metadata writes the same JSON through the public writer", {
+  root <- tempfile("subclass-write-")
+  dir.create(root)
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  connection <- structure(
+    list(pdb_local_endpoint = root),
+    class = c("pdb_local", "pdb")
+  )
+  metadata <- as.data_info(list(
+    name = "fixture",
+    title = "Fixture",
+    added_by = "test",
+    added_date = Sys.Date()
+  ))
+  write_pdb(metadata, connection)
+  path <- file.path(root, "data/info/fixture.info.json")
+  expected <- readLines(path)
+  class(metadata) <- c("custom_metadata", class(metadata))
+  expect_silent(write_pdb(metadata, connection, overwrite = TRUE))
+  expect_identical(readLines(path), expected)
+})
+
 test_that("summary subclasses retain the exact summary type", {
   metadata <- as.reference_posterior_info(list(
     name = "fixture",
