@@ -116,7 +116,7 @@ infer_posterior_dimensions <- function(
 #' For CmdStanR fits, the model and output files must still be available,
 #' and the fit should be sampled with `sig_figs = 18`. Values rounded to
 #' fewer digits can violate parameter constraints and be rejected.
-#' @seealso [infer_posterior_dimensions()]
+#' @seealso [infer_posterior_dimensions()], [reconstruct_stan_output()]
 #' @md
 #' @export
 infer_unconstrained_parameter_counts_from_fit <- function(

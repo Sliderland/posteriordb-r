@@ -2,6 +2,8 @@ context("test-README.md")
 
 test_that("README.md works as stated", {
   skip_on_cran()
+  skip_if_not_installed("rmarkdown")
+  skip_if_not(rmarkdown::pandoc_available())
   if (on_github_actions()) {
     skip_on_os("windows")
   }
@@ -17,6 +19,7 @@ test_that("README.md works as stated", {
   expect_silent(rmarkdown::render(
     input = readme_path,
     output_file = "tmp.md",
+    output_dir = withr::local_tempdir(),
     output_format = rmarkdown::md_document(variant = "gfm"),
     quiet = TRUE
   ))
