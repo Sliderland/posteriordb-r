@@ -17,6 +17,78 @@ resource_path_fixture <- function() {
   )
 }
 
+resource_path_objects <- function(pdb) {
+  annotation <- list(
+    title = "Fixture",
+    added_by = "test",
+    added_date = Sys.Date()
+  )
+  dat <- as.pdb_data(
+    list(n = 1L),
+    info = as.pdb_data_info(
+      c(list(name = "data.v1-a"), annotation)
+    )
+  )
+  code <- as.pdb_model_code(
+    "parameters { real theta; }",
+    framework = "stan",
+    info = as.pdb_model_info(c(
+      list(name = "model.v1-a", framework = "stan"),
+      annotation
+    ))
+  )
+  # Supplied acceptance metadata exercises the writer contract, not diagnostics.
+  ri <- as.pdb_reference_posterior_info(list(
+    name = "data.v1-a-model.v1-a",
+    inference = list(method = "analytical", method_arguments = list()),
+    diagnostics = list(ndraws = 10000L, nchains = 4L),
+    checks_made = stats::setNames(
+      rep(list(TRUE), 6),
+      c(
+        "ndraws_is_10k",
+        "nchains_is_gte_4",
+        "abs_mean_lag1_ac_below_0_05",
+        "r_hat_below_1_01",
+        "efmi_above_0_2",
+        "no_divergent_transitions"
+      )
+    ),
+    comments = "Fixture",
+    added_by = "test",
+    added_date = Sys.Date(),
+    versions = NULL
+  ))
+  set.seed(123)
+  draws <- as.pdb_reference_posterior_draws(
+    posterior::as_draws_list(
+      array(rnorm(10000), c(2500, 4, 1), dimnames = list(NULL, NULL, "theta"))
+    ),
+    info = ri
+  )
+  po <- as.pdb_posterior(
+    list(
+      pdb_data = dat,
+      pdb_model_code = code,
+      dimensions = list(theta = 1L),
+      reference_posterior_name = ri$name,
+      added_by = "test",
+      added_date = Sys.Date()
+    ),
+    pdb = pdb
+  )
+  structure(
+    list(
+      data = dat,
+      model_code = code,
+      posterior = po,
+      reference_draws = draws,
+      diagnostics = list(checked = TRUE),
+      provenance = list()
+    ),
+    class = "pdb_reference_bundle"
+  )
+}
+
 resource_path_snapshot <- function(parent) {
   paths <- list.files(
     parent,
@@ -37,6 +109,20 @@ resource_path_snapshot <- function(parent) {
     paths
   )
 }
+
+test_that("rename preflight checks all paths before staging", {
+  fixture <- resource_path_fixture()
+  bundle <- resource_path_objects(fixture$pdb)
+  write_pdb(bundle$data, fixture$pdb)
+  destination <- file.path(fixture$root, "data/info/renamed.info.json")
+  skip_if_not(file.symlink(file.path(fixture$outside, "sentinel"), destination))
+  before <- resource_path_snapshot(fixture$parent)
+  expect_error(
+    rename_pdb(info(bundle$data), "renamed", pdb = fixture$pdb),
+    "outside the database"
+  )
+  expect_identical(resource_path_snapshot(fixture$parent), before)
+})
 
 test_that("a contained file cannot conceal an escaping parent directory", {
   fixture <- resource_path_fixture()
