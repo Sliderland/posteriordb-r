@@ -1,3 +1,66 @@
+test_that("a well-sampled RStan fit is accepted, bundled, and written", {
+  fit <- stan_bundle_rstan_fit("accepted")
+  saved <- stan_bundle_saved_draws(fit)
+  bundle <- stan_bundle_create(fit, "accepted")
+
+  expect_true(all(unlist(bundle$diagnostics$status)))
+  expect_null(info(bundle$reference_draws)$checks_made$check_failed)
+  expect_identical(
+    bundle$posterior$dimensions,
+    list(theta_trans = 8L, mu = 1L, tau = 1L)
+  )
+  expect_equal(
+    posterior::as_draws_array(bundle$reference_draws),
+    saved,
+    ignore_attr = TRUE
+  )
+
+  database <- stan_bundle_pdb()
+  result <- suppressMessages(write_pdb(bundle, database))
+  expect_true(result$reference_draws_written)
+  stored <- reference_posterior_draws(posterior(
+    bundle$posterior$name,
+    database
+  ))
+  expect_silent(assert_checked_reference_posterior_draws(stored))
+  expect_equal(posterior::as_draws_array(stored), saved, ignore_attr = TRUE)
+
+  imported <- stan_bundle_import(fit, "accepted")
+  expect_null(info(imported)$checks_made$check_failed)
+  expect_silent(assert_checked_reference_posterior_draws(imported))
+})
+
+test_that("a poorly sampled RStan fit is marked failed and its draws are not written", {
+  fit <- stan_bundle_rstan_fit("rejected")
+  bundle <- stan_bundle_create(fit, "rejected")
+
+  expect_false(bundle$diagnostics$status$divergent_transitions)
+  expect_false(bundle$diagnostics$status$mean_lag1_ac)
+  expect_true(bundle$diagnostics$status$ndraws)
+  expect_match(
+    info(bundle$reference_draws)$checks_made$check_failed,
+    "mean_lag1_ac.*divergent_transitions"
+  )
+
+  database <- stan_bundle_pdb()
+  result <- suppressMessages(write_pdb(bundle, database))
+  expect_false(result$reference_draws_written)
+  expect_length(
+    list.files(
+      pdb_file_path(database, "reference_posteriors"),
+      recursive = TRUE
+    ),
+    0L
+  )
+
+  imported <- stan_bundle_import(fit, "rejected")
+  expect_match(info(imported)$checks_made$check_failed, "mean_lag1_ac")
+  expect_error(
+    assert_checked_reference_posterior_draws(imported),
+    "checks_made"
+  )
+})
+
 test_that("a poorly sampled CmdStanR fit is rejected by import", {
   fit <- stan_bundle_cmdstan_fit("rejected")
   imported <- stan_bundle_import(fit, "rejected")

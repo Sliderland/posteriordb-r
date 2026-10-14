@@ -192,6 +192,15 @@ stan_bundle_import <- function(fit, case) {
   suppressWarnings(import_reference_posterior_draws(fit, object, connection))
 }
 
+stan_bundle_pdb <- function(.local_envir = parent.frame()) {
+  root <- withr::local_tempdir(.local_envir = .local_envir)
+  for (folder in c("data", "models", "posteriors", "alias", "cache")) {
+    dir.create(file.path(root, folder))
+  }
+  writeLines("{}", file.path(root, "alias", "posteriors.json"))
+  pdb_local(root, cache_path = file.path(root, "cache"))
+}
+
 # Saved draws without the log density, as an independent comparison.
 stan_bundle_saved_draws <- function(draws) {
   draws <- posterior::as_draws_array(draws)

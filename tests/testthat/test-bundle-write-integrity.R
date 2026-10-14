@@ -8,6 +8,424 @@ bundle_integrity_pdb <- function() {
   pdb_local(root, cache_path = file.path(root, "cache"))
 }
 
+bundle_integrity_extraction <- function(divergence = 0L) {
+  set.seed(123)
+  draws <- posterior::as_draws_array(array(
+    rnorm(10000),
+    c(2500, 4, 1),
+    dimnames = list(NULL, NULL, "theta")
+  ))
+  sampler <- array(
+    0,
+    c(2500, 4, 2),
+    dimnames = list(NULL, NULL, c("divergent__", "treedepth__"))
+  )
+  sampler[1, 1, "divergent__"] <- divergence
+  list(
+    draws = draws,
+    sampler_diagnostics = posterior::as_draws_array(sampler),
+    metadata = list(
+      expected_fraction_of_missing_information = rep(.5, 4),
+      max_treedepth = 10
+    ),
+    dimensions = list(theta = 1L),
+    source = "parameters { real theta; } model { theta ~ normal(0,1); }",
+    fit_class = "stanfit",
+    import_versions = list()
+  )
+}
+
+bundle_integrity_snapshot <- function(pdb) {
+  files <- list.files(pdb$pdb_local_endpoint, recursive = TRUE)
+  files <- files[!grepl("^cache/", files)]
+  stats::setNames(
+    lapply(file.path(pdb$pdb_local_endpoint, files), function(path) {
+      readBin(path, "raw", n = file.info(path)$size)
+    }),
+    files
+  )
+}
+
+test_that("public bundle reuse preserves origins and rejects cross-database collisions", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  fit <- structure(list(), class = "stanfit")
+  source <- bundle_integrity_pdb()
+  original <- create_pdb_bundle(
+    fit,
+    data = list(n = 1L),
+    data_info = list(name = "reuse-data", title = "Inputs"),
+    model_info = list(name = "reuse-model", title = "Model"),
+    pdb = source
+  )
+  suppressMessages(write_pdb(
+    original,
+    source,
+    write_summary_statistics = FALSE
+  ))
+
+  for (component in c("data", "model_code")) {
+    destination <- bundle_integrity_pdb()
+    collision <- if (component == "data") {
+      as.pdb_data(list(n = 2L), info = info(original$data))
+    } else {
+      as.pdb_model_code(
+        paste0(extracted$source, "\n// destination model"),
+        info = info(original$model_code),
+        framework = "stan"
+      )
+    }
+    write_pdb(collision, destination)
+    before <- bundle_integrity_snapshot(destination)
+    args <- list(
+      fit = fit,
+      data = list(n = 1L),
+      data_info = list(name = "reuse-data", title = "Inputs"),
+      model_info = list(name = "reuse-model", title = "Model"),
+      pdb = destination
+    )
+    args[[component]] <- original[[component]]
+    args[[if (component == "data") "data_info" else "model_info"]] <- NULL
+    bundle <- do.call(create_pdb_bundle, args)
+    expect_identical(pdb(bundle[[component]]), source)
+    expect_identical(bundle_integrity_snapshot(destination), before)
+    for (overwrite in c(FALSE, TRUE)) {
+      expect_error(
+        write_pdb(
+          bundle,
+          destination,
+          overwrite = overwrite,
+          write_summary_statistics = FALSE
+        ),
+        "unsafe reused-object collision"
+      )
+      expect_identical(bundle_integrity_snapshot(destination), before)
+    }
+  }
+
+  # Genuine same-database reuse and copying into an empty database still work.
+  for (destination in list(source, bundle_integrity_pdb())) {
+    reused <- create_pdb_bundle(
+      fit,
+      posterior = posterior(original$posterior$name, source),
+      pdb = destination
+    )
+    expect_identical(pdb(reused$posterior), source)
+    result <- suppressMessages(write_pdb(
+      reused,
+      destination,
+      overwrite = TRUE,
+      write_summary_statistics = FALSE
+    ))
+    expect_true(result$reference_draws_written)
+    pdb_clear_cache(destination)
+    stored <- posterior(original$posterior$name, destination)
+    expect_identical(get_data(stored)$n, 1L)
+    expect_identical(
+      stored$reference_posterior_name,
+      info(reused$reference_draws)$name
+    )
+    expect_equal(
+      as.numeric(posterior::as_draws_array(reference_posterior_draws(stored))),
+      as.numeric(extracted$draws),
+      tolerance = 1e-12
+    )
+  }
+})
+
+test_that("reused models keep their other implementations", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  fit <- structure(list(), class = "stanfit")
+  database <- bundle_integrity_pdb()
+  original <- create_pdb_bundle(
+    fit,
+    data = list(),
+    data_info = list(name = "multi-data", title = "Inputs"),
+    model_info = list(name = "multi-model", title = "Model"),
+    pdb = database
+  )
+  suppressMessages(write_pdb(
+    original,
+    database,
+    write_summary_statistics = FALSE
+  ))
+  info_path <- pdb_file_path(
+    database,
+    "models",
+    "info",
+    "multi-model.info.json"
+  )
+  stored <- jsonlite::read_json(info_path)
+  for (pymc in list(list(model_code = "models/pymc/multi-model.py"), NULL)) {
+    stored$model_implementations["pymc"] <- list(pymc)
+    jsonlite::write_json(stored, info_path, auto_unbox = TRUE, null = "null")
+    pdb_clear_cache(database)
+    reused <- create_pdb_bundle(
+      fit,
+      posterior = posterior(original$posterior$name, database),
+      pdb = database
+    )
+    expect_named(
+      info(reused$model_code)$model_implementations,
+      c("stan", "pymc")
+    )
+  }
+  # New models stay Stan-only.
+  expect_error(
+    create_pdb_bundle(
+      fit,
+      data = list(),
+      data_info = list(name = "new-data", title = "Inputs"),
+      model_info = list(
+        name = "new-model",
+        title = "Model",
+        model_implementations = list(
+          stan = list(model_code = "models/stan/new-model.stan"),
+          pymc = list(model_code = "models/pymc/new-model.py")
+        )
+      )
+    ),
+    "subset"
+  )
+
+  expect_true(same_dimension_counts(list(a = 1, b = 2L), list(b = 2, a = 1L)))
+  expect_false(same_dimension_counts(list(a = 1L), list(a = 2L)))
+  expect_false(same_dimension_counts(list(a = 1L), list(a = 1L, b = 1L)))
+  expect_false(same_dimension_counts(list(a = 1L, b = 1L), list(a = 1L)))
+})
+
+test_that("accepted reused posteriors fill empty links and reject different links", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  fit <- structure(list(), class = "stanfit")
+  database <- bundle_integrity_pdb()
+  original <- create_pdb_bundle(
+    fit,
+    data = list(),
+    data_info = list(name = "link-data", title = "Inputs"),
+    model_info = list(name = "link-model", title = "Model"),
+    pdb = database
+  )
+  write_pdb(original$data, database)
+  write_pdb(original$model_code, database)
+  unlinked <- original$posterior
+  unlinked["reference_posterior_name"] <- list(NULL)
+  unlinked$embedded_reference_draws <- NULL
+  write_pdb(unlinked, database)
+  reused <- create_pdb_bundle(
+    fit,
+    posterior = posterior(unlinked$name, database),
+    pdb = database
+  )
+  expect_true(all(unlist(reused$diagnostics$status)))
+  posterior_path <- pdb_file_path(
+    database,
+    "posteriors",
+    paste0(unlinked$name, ".json")
+  )
+
+  suppressMessages(write_pdb(
+    reused,
+    database,
+    write_summary_statistics = FALSE
+  ))
+  expect_identical(
+    jsonlite::read_json(posterior_path)$reference_posterior_name,
+    info(reused$reference_draws)$name
+  )
+
+  link <- "different-reference"
+  stored <- jsonlite::read_json(posterior_path)
+  stored["reference_posterior_name"] <- list(link)
+  jsonlite::write_json(
+    stored,
+    posterior_path,
+    auto_unbox = TRUE,
+    null = "null"
+  )
+  before <- bundle_integrity_snapshot(database)
+  for (overwrite in c(FALSE, TRUE)) {
+    expect_error(
+      write_pdb(
+        reused,
+        database,
+        overwrite = overwrite,
+        write_summary_statistics = FALSE
+      ),
+      "matching persisted reference link"
+    )
+    expect_identical(bundle_integrity_snapshot(database), before)
+  }
+})
+
+test_that("failed bundle writes omit missing reference links and preserve stored references", {
+  extracted <- bundle_integrity_extraction(divergence = 1L)
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  fit <- structure(list(), class = "stanfit")
+  database <- bundle_integrity_pdb()
+  make <- function() {
+    create_pdb_bundle(
+      fit,
+      data = list(),
+      data_info = list(name = "failed-data", title = "Inputs"),
+      model_info = list(name = "failed-model", title = "Model"),
+      pdb = database
+    )
+  }
+  failed <- make()
+  result <- suppressMessages(write_pdb(failed, database))
+  expect_false(result$reference_draws_written)
+  expect_setequal(result$written, c("data", "model_code", "posterior"))
+  expect_length(
+    list.files(
+      pdb_file_path(database, "reference_posteriors"),
+      recursive = TRUE
+    ),
+    0L
+  )
+  pdb_clear_cache(database)
+  stored <- posterior(failed$posterior$name, database)
+  expect_null(stored$reference_posterior_name)
+  expect_identical(
+    result$bundle$posterior$reference_posterior_name,
+    info(failed$reference_draws)$name
+  )
+  expect_length(get_data(stored), 0L)
+
+  # A bundle built without a database also writes its unlinked posterior.
+  standalone <- create_pdb_bundle(
+    fit,
+    data = list(),
+    data_info = list(name = "standalone-data", title = "Inputs"),
+    model_info = list(name = "standalone-model", title = "Model")
+  )
+  result <- suppressMessages(write_pdb(standalone, database))
+  expect_setequal(result$written, c("data", "model_code", "posterior"))
+  pdb_clear_cache(database)
+  expect_null(
+    posterior(standalone$posterior$name, database)$reference_posterior_name
+  )
+
+  # A reused unlinked record also stays unlinked when its candidate fails.
+  reused <- create_pdb_bundle(fit, posterior = stored, pdb = database)
+  before <- bundle_integrity_snapshot(database)
+  suppressMessages(write_pdb(reused, database))
+  expect_identical(bundle_integrity_snapshot(database), before)
+
+  # The mocked extractor reads `extracted` when called.
+  extracted <- bundle_integrity_extraction()
+  accepted <- make()
+  expect_message(
+    write_pdb(
+      accepted,
+      database,
+      overwrite = TRUE,
+      write_summary_statistics = FALSE
+    ),
+    "will be replaced"
+  )
+  # Preserve even a different existing reference link when replacing a failed candidate.
+  stored <- accepted$posterior
+  stored$reference_posterior_name <- "older-reference"
+  stored$embedded_reference_draws <- NULL
+  older_draws <- accepted$reference_draws
+  metadata <- info(older_draws)
+  metadata$name <- "older-reference"
+  info(older_draws) <- metadata
+  write_pdb(metadata, database, type = "draws")
+  write_json_to_path(
+    older_draws,
+    "reference_posteriors/draws/draws",
+    database,
+    zip = TRUE,
+    info = FALSE
+  )
+  write_pdb(stored, database, overwrite = TRUE)
+  write_pdb(
+    older_draws,
+    database,
+    overwrite = TRUE,
+    write_summary_statistics = FALSE
+  )
+  reference_before <- bundle_integrity_snapshot(database)
+  reference_before <- reference_before[grepl(
+    "^reference_posteriors/",
+    names(reference_before)
+  )]
+  extracted <- bundle_integrity_extraction(divergence = 1L)
+  suppressMessages(write_pdb(make(), database, overwrite = TRUE))
+  pdb_clear_cache(database)
+  expect_identical(
+    posterior(stored$name, database)$reference_posterior_name,
+    "older-reference"
+  )
+  after <- bundle_integrity_snapshot(database)
+  expect_identical(after[names(reference_before)], reference_before)
+})
+
+test_that("I/O failures retain completed bundle components and report partial writes", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(
+    structure(list(), class = "stanfit"),
+    data = list(n = 1L),
+    data_info = list(name = "partial-data", title = "Inputs"),
+    model_info = list(name = "partial-model", title = "Model"),
+    pdb = database
+  )
+  original_write <- writeLines
+  testthat::local_mocked_bindings(
+    writeLines = function(text, con, ...) {
+      if (grepl("partial-model[.]stan$", con)) {
+        stop("injected payload I/O failure")
+      }
+      original_write(text, con, ...)
+    },
+    .package = "base"
+  )
+  messages <- character()
+  error <- tryCatch(
+    withCallingHandlers(
+      write_pdb(bundle, database, write_summary_statistics = FALSE),
+      message = function(message) {
+        messages <<- c(messages, conditionMessage(message))
+        invokeRestart("muffleMessage")
+      }
+    ),
+    error = identity
+  )
+  expect_match(conditionMessage(error), "injected payload I/O failure")
+  expect_true(any(grepl("Completed components: data", messages, fixed = TRUE)))
+  expect_true(any(grepl("partial-model", messages, fixed = TRUE)))
+  expect_true(any(grepl("retained", messages, fixed = TRUE)))
+  expect_identical(get_data("partial-data", database)$n, 1L)
+  expect_true(file.exists(pdb_file_path(
+    database,
+    "models/info/partial-model.info.json"
+  )))
+  expect_false(file.exists(pdb_file_path(
+    database,
+    "models/stan/partial-model.stan"
+  )))
+  expect_false(file.exists(pdb_file_path(
+    database,
+    "posteriors",
+    paste0(bundle$posterior$name, ".json")
+  )))
+})
+
 test_that("failed ZIP creation retains the JSON payload and is reported as failure", {
   database <- bundle_integrity_pdb()
   object <- as.pdb_data(
@@ -76,6 +494,237 @@ test_that("failed JSON cleanup reports the saved archive and retains both files"
     utils::unzip(archive, list = TRUE)$Name,
     "cleanup-failure.json"
   )
+})
+
+test_that("reference links are saved only after successful draw writes", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(
+    structure(list(), class = "stanfit"),
+    data = list(),
+    data_info = list(name = "delayed-data", title = "Inputs"),
+    model_info = list(name = "delayed-model", title = "Model"),
+    pdb = database
+  )
+  path <- pdb_file_path(
+    database,
+    "posteriors",
+    paste0(bundle$posterior$name, ".json")
+  )
+  stored_link <- function() jsonlite::read_json(path)$reference_posterior_name
+  before <- bundle_integrity_snapshot(database)
+  expect_error(
+    write_pdb(
+      bundle$reference_draws,
+      database,
+      write_summary_statistics = FALSE
+    ),
+    "no posterior"
+  )
+  expect_identical(bundle_integrity_snapshot(database), before)
+  original_zip <- utils::zip
+  fail_zip <- TRUE
+  testthat::local_mocked_bindings(
+    zip = function(files, ...) {
+      if (
+        fail_zip &&
+          grepl("reference_posteriors/draws/draws", files, fixed = TRUE)
+      ) {
+        return(1L)
+      }
+      original_zip(files = files, ...)
+    },
+    .package = "utils"
+  )
+
+  expect_error(
+    suppressMessages(write_pdb(
+      bundle,
+      database,
+      write_summary_statistics = FALSE
+    )),
+    "ZIP creation failed"
+  )
+  expect_null(stored_link())
+  expect_error(
+    suppressMessages(write_pdb(
+      bundle$reference_draws,
+      database,
+      overwrite = TRUE,
+      write_summary_statistics = FALSE
+    )),
+    "ZIP creation failed"
+  )
+  expect_null(stored_link())
+
+  # Populate the cache before the standalone write updates the saved link.
+  expect_null(
+    posterior(bundle$posterior$name, database)$reference_posterior_name
+  )
+  fail_zip <- FALSE
+  expect_silent(write_pdb(
+    bundle$reference_draws,
+    database,
+    overwrite = TRUE,
+    write_summary_statistics = FALSE
+  ))
+  expect_identical(stored_link(), info(bundle$reference_draws)$name)
+  expect_identical(
+    posterior(bundle$posterior$name, database)$reference_posterior_name,
+    info(bundle$reference_draws)$name
+  )
+  expect_identical(
+    bundle$posterior$reference_posterior_name,
+    info(bundle$reference_draws)$name
+  )
+
+  unlinked <- bundle$posterior
+  unlinked["reference_posterior_name"] <- list(NULL)
+  unlinked$embedded_reference_draws <- NULL
+  write_pdb(unlinked, database, overwrite = TRUE)
+  renamed <- bundle$reference_draws
+  info(renamed)$name <- "distinct-reference"
+  expect_silent(write_pdb(
+    renamed,
+    database,
+    posterior_name = unlinked$name,
+    write_summary_statistics = FALSE
+  ))
+  expect_identical(stored_link(), "distinct-reference")
+  before <- bundle_integrity_snapshot(database)
+  expect_error(
+    write_pdb(
+      bundle$reference_draws,
+      database,
+      overwrite = TRUE,
+      posterior_name = unlinked$name,
+      write_summary_statistics = FALSE
+    ),
+    "different existing link"
+  )
+  expect_identical(bundle_integrity_snapshot(database), before)
+
+  write_pdb(unlinked, database, overwrite = TRUE)
+  testthat::local_mocked_bindings(
+    write_pdb.pdb_reference_posterior_summary_statistic = function(...) {
+      stop("injected summary failure")
+    }
+  )
+  expect_error(
+    write_pdb(bundle$reference_draws, database, overwrite = TRUE),
+    "injected summary failure"
+  )
+  expect_identical(stored_link(), info(bundle$reference_draws)$name)
+})
+
+test_that("bundle writes reuse and validate summaries without recomputing them", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(
+    structure(list(), class = "stanfit"),
+    data = list(),
+    data_info = list(name = "summary-data", title = "Inputs"),
+    model_info = list(name = "summary-model", title = "Model"),
+    pdb = database
+  )
+  compute <- summary_statistics_from_checked_reference_draws
+  calls <- 0L
+  testthat::local_mocked_bindings(
+    summary_statistics_from_checked_reference_draws = function(x) {
+      calls <<- calls + 1L
+      compute(x)
+    }
+  )
+  malformed <- bundle
+  metadata <- info(malformed$summary_statistics$mean_value)
+  metadata$name <- "wrong-reference"
+  info(malformed$summary_statistics$mean_value) <- metadata
+  before <- bundle_integrity_snapshot(database)
+  expect_error(write_pdb(malformed, database), "info\\$name")
+  expect_identical(bundle_integrity_snapshot(database), before)
+
+  result <- suppressMessages(write_pdb(bundle, database))
+  expect_true(result$summary_statistics_written)
+  expect_identical(result$bundle$summary_statistics, bundle$summary_statistics)
+  expect_identical(calls, 0L)
+  bundle$summary_statistics <- NULL
+  result <- suppressMessages(write_pdb(bundle, database, overwrite = TRUE))
+  expect_true(result$summary_statistics_written)
+  expect_identical(calls, 1L)
+})
+
+test_that("reused objects with only some destination files are rejected", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  fit <- structure(list(), class = "stanfit")
+  source <- bundle_integrity_pdb()
+  original <- create_pdb_bundle(
+    fit,
+    data = list(n = 1L),
+    data_info = list(name = "split-data", title = "Inputs"),
+    model_info = list(name = "split-model", title = "Model"),
+    pdb = source
+  )
+  write_pdb(original$data, source)
+  destination <- bundle_integrity_pdb()
+  write_pdb(info(original$data), destination)
+  before <- bundle_integrity_snapshot(destination)
+  bundle <- create_pdb_bundle(
+    fit,
+    data = original$data,
+    model_info = list(name = "split-model", title = "Model"),
+    pdb = destination
+  )
+  expect_error(
+    write_pdb(
+      bundle,
+      destination,
+      overwrite = TRUE,
+      write_summary_statistics = FALSE
+    ),
+    "only some of its expected files"
+  )
+  expect_identical(bundle_integrity_snapshot(destination), before)
+})
+
+test_that("bundle writes reject attached summaries that do not match their draws", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(
+    structure(list(), class = "stanfit"),
+    data = list(),
+    data_info = list(name = "mismatch-data", title = "Inputs"),
+    model_info = list(name = "mismatch-model", title = "Model"),
+    pdb = database
+  )
+  summaries <- bundle$summary_statistics
+  swapped <- bundle
+  swapped$summary_statistics <- stats::setNames(
+    rev(summaries),
+    names(summaries)
+  )
+  renamed <- bundle
+  renamed$summary_statistics$mean_value$names <- "other"
+  rediagnosed <- bundle
+  metadata <- info(rediagnosed$summary_statistics$mean_value)
+  metadata$diagnostics$r_hat[] <- 2
+  info(rediagnosed$summary_statistics$mean_value) <- metadata
+  before <- bundle_integrity_snapshot(database)
+  expect_error(write_pdb(swapped, database), "summary_statistic_type")
+  expect_error(write_pdb(renamed, database), "permutation")
+  expect_error(write_pdb(rediagnosed, database), "info\\$diagnostics")
+  expect_identical(bundle_integrity_snapshot(database), before)
 })
 
 test_that("a nonzero ZIP status is a failure even when an archive exists", {
