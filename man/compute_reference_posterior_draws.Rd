@@ -5,13 +5,45 @@
 \alias{compute_reference_posterior_draws}
 \title{Compute a Reference Posteriors for a reference posterior info object}
 \usage{
-compute_reference_posterior_draws(rpi, pdb = pdb_default())
+compute_reference_posterior_draws(
+  rpi,
+  pdb = pdb_default(),
+  backend = c("rstan", "cmdstanr"),
+  include = NULL,
+  exclude = NULL
+)
 }
 \arguments{
 \item{rpi}{a [reference_posterior_info] object.}
 
 \item{pdb}{a [pdb] object.}
+
+\item{backend}{Stan sampler backend, either `"rstan"` or `"cmdstanr"`.}
+
+\item{include}{Saved base variable names to add to the required parameter
+block and posterior dimensions. The default `NULL`, or `"all"`, retains
+every saved output except `lp__`. `"none"` or `character(0)` retains only
+required variables. All indexed columns of selected variables are kept.}
+
+\item{exclude}{Saved base variable names to omit from optional outputs.
+`NULL`, `character(0)`, or `"none"` excludes nothing. `"all"` removes all
+optional outputs. Explicit exclusions of required parameter-block or
+dimension-listed variables, or names appearing in both selectors, are
+configuration errors. `"all"` and `"none"` are reserved when used alone.
+The returned draws and their variable diagnostics use the same selection.}
 }
 \description{
 Compute a Reference Posteriors for a reference posterior info object
+}
+\details{
+With CmdStanR, `iter`/`warmup` become `iter_sampling`/`iter_warmup`
+  and `cores` becomes `parallel_chains`. Supported nested RStan controls
+  are `adapt_delta`, `max_treedepth`, `stepsize`, `adapt_engaged`, `metric`,
+  `adapt_init_buffer`, `adapt_term_buffer`, and `adapt_window`.
+  `stepsize` becomes `step_size`; adaptation buffers/window lose the
+  `adapt_` prefix. Other controls raise an error rather than being discarded.
+  Supply each setting once: aliases or nested controls cannot override an
+  explicit native setting. Native CmdStanR arguments can be supplied directly.
+  NULL `iter`, `warmup`, and `control` entries are omitted. Explicit native
+  `diagnostics = NULL` remains supported; do not also supply `validate_csv`.
 }
