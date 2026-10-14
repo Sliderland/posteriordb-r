@@ -3,15 +3,7 @@
 #' @param rpi a [reference_posterior_info] object.
 #' @param pdb a [pdb] object.
 #' @param backend Stan sampler backend, either `"rstan"` or `"cmdstanr"`.
-#' @param include Base names of saved variables to keep. The default `NULL`
-#'   (or `"all"`) keeps every saved output except `lp__`. `"none"` (or
-#'   `character(0)`) keeps only the required variables: the model's
-#'   parameters and any variable listed in the posterior's `dimensions`.
-#'   A base name selects all of that variable's elements.
-#' @param exclude Base names of saved variables to drop. The default `NULL`
-#'   (or `"none"`) drops nothing; `"all"` drops everything except the
-#'   required variables. Excluding a required variable, naming a variable in
-#'   both `include` and `exclude`, or using an unknown name is an error.
+#' @inheritParams as_reference_posterior_draws
 #' @details With `backend = "cmdstanr"`, RStan-style sampler arguments are
 #'   translated: `iter` and `warmup` become `iter_sampling` and
 #'   `iter_warmup`, and `cores` becomes `parallel_chains`. In `control`,
