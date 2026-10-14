@@ -14,7 +14,7 @@
 #' @param pdb a \code{pdb} object.
 #' @param ... further arguments to supply to \code{dplyr::filter()}
 #' @export
-filter_posteriors <- function(pdb = pdb_default(), ...){
+filter_posteriors <- function(pdb = pdb_default(), ...) {
   pdb_filter(path = "posteriors", pdb = pdb, ...)
 }
 
@@ -85,13 +85,22 @@ search_posteriors <- function(
     )
   }
   posterior_ids <- vapply(
-    posterior_records, `[[`, character(1), "name"
+    posterior_records,
+    `[[`,
+    character(1),
+    "name"
   )
   data_ids <- vapply(
-    posterior_records, `[[`, character(1), "data_name"
+    posterior_records,
+    `[[`,
+    character(1),
+    "data_name"
   )
   model_ids <- vapply(
-    posterior_records, `[[`, character(1), "model_name"
+    posterior_records,
+    `[[`,
+    character(1),
+    "model_name"
   )
 
   keyword_matches <- list()
@@ -136,8 +145,10 @@ search_posteriors <- function(
     names(hits) <- fields
     matched_in <- fields[lengths(hits) > 0L]
 
-    if (!length(matched_in) ||
-        (match == "all" && length(matched_in) != length(fields))) {
+    if (
+      !length(matched_in) ||
+        (match == "all" && length(matched_in) != length(fields))
+    ) {
       return(NULL)
     }
 
@@ -211,8 +222,13 @@ pdb_search_keyword_info <- function(names, info_fun, query) {
 #'
 #' @keywords internal
 #' @param pdb a pdb connection
-pdb_filter <- function(path, pdb, ...){
-  if (!requireNamespace("dplyr", quietly = TRUE)) stop("The `dplyr` package is required for filtering posteriors.", call. = FALSE)
+pdb_filter <- function(path, pdb, ...) {
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop(
+      "The `dplyr` package is required for filtering posteriors.",
+      call. = FALSE
+    )
+  }
   checkmate::assert_class(pdb, "pdb")
   checkmate::assert_choice(path, c("posteriors", "models/info", "data/info"))
 
@@ -222,7 +238,7 @@ pdb_filter <- function(path, pdb, ...){
 
   nms <- unique(dat_tbl$name)
   obj_list <- list()
-  for(i in seq_along(nms)) {
+  for (i in seq_along(nms)) {
     obj_list[[i]] <- posterior(nms[i], pdb = pdb)
   }
   obj_list
