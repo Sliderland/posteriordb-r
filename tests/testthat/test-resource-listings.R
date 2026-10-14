@@ -95,3 +95,84 @@ test_that("GitHub resource listings preserve dotted names and exclude directorie
   expect_identical(data_names(connection), character())
   expect_identical(reference_posterior_names(connection, "draws"), character())
 })
+
+test_that("GitHub directory caching pairs file names and URLs and reports failures", {
+  skip_if_not_installed("httr")
+  cache <- withr::local_tempdir("github-directory-cache-")
+  connection <- structure(
+    list(
+      cache_path = cache,
+      github = list(
+        username = "fixture",
+        repo = "database",
+        subdir = "posterior_database",
+        ref = "fixture-ref"
+      )
+    ),
+    class = c("pdb_github", "pdb")
+  )
+  testthat::local_mocked_bindings(
+    gh = function(...) {
+      list(
+        list(name = "nested", type = "dir", download_url = NULL),
+        list(
+          name = "value.json",
+          type = "file",
+          download_url = "https://fixture/value.json"
+        )
+      )
+    },
+    .package = "gh"
+  )
+  calls <- list()
+  failure <- NULL
+  testthat::local_mocked_bindings(github_download = function(
+    download_url,
+    to,
+    pat,
+    overwrite
+  ) {
+    calls[[length(calls) + 1L]] <<- list(
+      url = download_url,
+      name = basename(to),
+      overwrite = overwrite
+    )
+    if (identical(failure, "invalid")) {
+      stop("invalid download URL")
+    }
+    writeLines("payload", to)
+    if (identical(failure, "throw")) {
+      stop("interrupted download")
+    }
+    !identical(failure, "false")
+  })
+  suppressMessages(pdb_cache_dir(connection, "posteriors"))
+  expect_identical(
+    calls,
+    list(list(
+      url = "https://fixture/value.json",
+      name = "value.json",
+      overwrite = FALSE
+    ))
+  )
+  expect_identical(list.files(file.path(cache, "posteriors")), "value.json")
+  for (mode in c("false", "throw")) {
+    unlink(file.path(cache, "posteriors/value.json"))
+    failure <- mode
+    expect_error(
+      suppressMessages(pdb_cache_dir(connection, "posteriors")),
+      if (mode == "false") "Could not download" else "interrupted download"
+    )
+    expect_identical(list.files(file.path(cache, "posteriors")), character())
+  }
+  writeLines("cached", file.path(cache, "posteriors/value.json"))
+  failure <- "invalid"
+  expect_error(
+    suppressMessages(pdb_cache_dir(connection, "posteriors")),
+    "invalid download URL"
+  )
+  expect_identical(
+    readLines(file.path(cache, "posteriors/value.json")),
+    "cached"
+  )
+})

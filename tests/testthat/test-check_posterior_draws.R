@@ -1,6 +1,7 @@
 context("test-check_posterior_draws")
 
 test_that("test-check_posterior_draws", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
 
@@ -25,6 +26,7 @@ test_that("test-check_posterior_draws", {
 })
 
 test_that("check_pdb_posterior works", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
 

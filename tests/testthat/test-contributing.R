@@ -3,6 +3,7 @@ context("test-contributing")
 # This test the contribution pipeline presented in CONTRIBUTING.md.
 
 test_that("test that all steps of the contribution pipeline works as expected", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdbl <- pdb_local())
 

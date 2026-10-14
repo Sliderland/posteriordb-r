@@ -8,3 +8,4 @@ tmp*
 TODO.tdl
 sandbox/*
 inst/doc
+/scripts/
