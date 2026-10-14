@@ -1,3 +1,50 @@
+# TODO: switch parse_bibtex_text() from the bibtex_keys() tokenizer to
+# count_bibtex_entries(). Line numbers refer to the file BEFORE any of these
+# edits, so work bottom-to-top.
+#
+# 1. DELETE the whole function `bibtex_keys()` (starts line 263, "bibtex_keys <-
+#    function(x) {", ends at its closing "}" on line ~355, just above
+#    `count_bibtex_entries` at line 357). Nothing else calls it; grep first.
+#
+# 2. In `parse_bibtex_text()` (line 183), edit the final check (lines 249-259):
+#      if (length(parsed) != length(keys) || anyNA(parsed_keys) || !identical(parsed_keys, keys))
+#    becomes
+#      if (length(parsed) != n_entries || anyNA(parsed_keys))
+#    (`anyNA(parsed_keys)` already covers empty/missing keys: the vapply above
+#    it returns NA_character_ for them.) Keep the stop() body unchanged.
+#
+# 3. In `parse_bibtex_text()`, DELETE the commented-out old tryCatch (lines
+#    208-217, "# parsed <- tryCatch(" through "# )").
+#    Optionally add `call. = FALSE` to the message handler's stop() on line 235.
+#
+# 4. In `parse_bibtex_text()`, DELETE the duplicate-key check (lines 193-201,
+#    "if (anyDuplicated(tolower(keys))) { ... }"). It needs `keys`, which no
+#    longer exists. Duplicates are still caught by assert_unique_bibliography()
+#    called at line 107 inside `append_reference.bibentry()`, which also runs
+#    for file/string input because `append_reference.character()` forwards to
+#    it at line 78. Nothing in tests/ asserts the old "duplicate citation
+#    key(s)" wording (checked with grep), but run the tests to confirm.
+#
+# 5. In `parse_bibtex_text()`, replace lines 189-192:
+#      keys <- bibtex_keys(x)
+#      if (length(keys) == 0L && !allow_empty) {
+#        stop(label, " does not contain a keyed BibTeX entry.", call. = FALSE)
+#      }
+#    with
+#      n_entries <- count_bibtex_entries(x)
+#      if (n_entries == 0L && !allow_empty) {
+#        stop(label, " does not contain a keyed BibTeX entry.", call. = FALSE)
+#      }
+#
+# 6. `count_bibtex_entries()` (line 357) stays as is.
+#
+# 7. Run tests/testthat/test-bibliography.R. The cases at lines 116, 120, 128
+#    and 147 expect "invalid or unsupported" errors, and they need to keep
+#    passing. Also try by hand: a stray "@ not an entry" line, an
+#    @article(...) entry with parentheses, an entry with an empty key, and an
+#    entry missing a required field. All four must error. Then delete this
+#    comment.
+
 #' Get the bibliography of a posterior database
 #'
 #' @param pdb a posterior database connection
@@ -60,11 +107,14 @@ append_reference.character <- function(ref, pdb, ...) {
   if (is_file) {
     checkmate::assert_file_exists(ref, access = "r")
     parsed <- parse_bibtex_text(
-      paste(readLines(ref, warn = FALSE), collapse = "\n"), path = ref
+      paste(readLines(ref, warn = FALSE), collapse = "\n"),
+      path = ref
     )
   } else {
-    if (grepl("\\.bib$", ref, ignore.case = TRUE) &&
-        !grepl("@", ref, fixed = TRUE)) {
+    if (
+      grepl("\\.bib$", ref, ignore.case = TRUE) &&
+        !grepl("@", ref, fixed = TRUE)
+    ) {
       stop("BibTeX file does not exist: ", ref, call. = FALSE)
     }
     parsed <- parse_bibtex_text(ref)
@@ -95,7 +145,8 @@ append_reference.bibentry <- function(ref, pdb, ...) {
   } else {
     parse_bibtex_text(
       paste(readLines(reference_path, warn = FALSE), collapse = "\n"),
-      path = reference_path, allow_empty = TRUE,
+      path = reference_path,
+      allow_empty = TRUE,
       label = "The existing bibliography"
     )
   }
@@ -110,8 +161,10 @@ append_reference.bibentry <- function(ref, pdb, ...) {
 
   cache_path <- file.path(pdb$cache_path, "bibliography", "references.bib")
   if (file.exists(cache_path) && !file.remove(cache_path)) {
-    stop("Reference was appended, but the cached bibliography could not be ",
-      "invalidated at ", cache_path,
+    stop(
+      "Reference was appended, but the cached bibliography could not be ",
+      "invalidated at ",
+      cache_path,
       call. = FALSE
     )
   }
@@ -128,19 +181,32 @@ append_bibliography_atomically <- function(path, suffix) {
   replacement <- tempfile("references-bib-", tmpdir = dirname(path))
   backup <- tempfile("references-bib-backup-", tmpdir = dirname(path))
   committed <- FALSE
-  on.exit({
-    if (file.exists(replacement)) unlink(replacement)
-    if (!committed && file.exists(backup)) {
-      restored <- !file.exists(path) && tryCatch(
-        file.rename(backup, path), error = function(error) FALSE
-      )
-      if (!restored) {
-        warning("Could not restore the original bibliography to '", path,
-          "'; backup retained at '", backup, "'.", call. = FALSE)
+  on.exit(
+    {
+      if (file.exists(replacement)) {
+        unlink(replacement)
       }
-    }
-    if (committed && file.exists(backup)) unlink(backup)
-  }, add = TRUE)
+      if (!committed && file.exists(backup)) {
+        restored <- !file.exists(path) &&
+          tryCatch(
+            file.rename(backup, path),
+            error = function(error) FALSE
+          )
+        if (!restored) {
+          warning(
+            "Could not restore the original bibliography to '",
+            path,
+            "'; backup retained at '",
+            backup,
+            "'.",
+            call. = FALSE
+          )
+        }
+      }
+      if (committed && file.exists(backup)) unlink(backup)
+    },
+    add = TRUE
+  )
 
   con <- file(replacement, open = "wb")
   on.exit(if (!is.null(con)) try(close(con), silent = TRUE), add = TRUE)
@@ -149,7 +215,10 @@ append_bibliography_atomically <- function(path, suffix) {
   con <- NULL
 
   if (!file.rename(path, backup)) {
-    stop("Could not stage the existing bibliography for replacement.", call. = FALSE)
+    stop(
+      "Could not stage the existing bibliography for replacement.",
+      call. = FALSE
+    )
   }
   if (!file.rename(replacement, path)) {
     stop("Could not commit the updated bibliography.", call. = FALSE)
@@ -158,17 +227,23 @@ append_bibliography_atomically <- function(path, suffix) {
   invisible(TRUE)
 }
 
-parse_bibtex_text <- function(x, path = NULL, allow_empty = FALSE,
-                              label = "`ref`") {
+parse_bibtex_text <- function(
+  x,
+  path = NULL,
+  allow_empty = FALSE,
+  label = "`ref`"
+) {
   keys <- bibtex_keys(x)
   if (length(keys) == 0L && !allow_empty) {
     stop(label, " does not contain a keyed BibTeX entry.", call. = FALSE)
   }
   if (anyDuplicated(tolower(keys))) {
     stop(
-      label, " contains duplicate citation key(s): ",
+      label,
+      " contains duplicate citation key(s): ",
       paste(duplicate_pairs(tolower(keys), keys), collapse = ", "),
-      ".", call. = FALSE
+      ".",
+      call. = FALSE
     )
   }
 
@@ -177,24 +252,55 @@ parse_bibtex_text <- function(x, path = NULL, allow_empty = FALSE,
     on.exit(unlink(path), add = TRUE)
     writeLines(x, path, useBytes = TRUE)
   }
-  parsed <- tryCatch(
-    suppressWarnings(bibtex::read.bib(path)),
+  # parsed <- tryCatch(
+  #   suppressWarnings(bibtex::read.bib(path)),
+  #   error = function(e) {
+  #     stop(
+  #       label,
+  #       " contains an invalid or unsupported BibTeX entry.",
+  #       call. = FALSE
+  #     )
+  #   }
+  # )
+  parsed <- withCallingHandlers(
+    bibtex::read.bib(path),
     error = function(e) {
-      stop(label, " contains an invalid or unsupported BibTeX entry.",
+      stop(
+        label,
+        " contains an invalid or unsupported BibTeX entry.",
         call. = FALSE
       )
+    },
+    warning = function(w) {
+      stop(
+        label,
+        " contains an invalid or unsupported BibTeX entry.",
+        call. = FALSE
+      )
+    },
+    message = function(m) {
+      stop(label, " contains an invalid or unsupported BibTeX entry")
     }
   )
-  parsed_keys <- unname(vapply(unclass(parsed), function(entry) {
-    key <- attr(entry, "key")
-    if (length(key) != 1L || is.na(key) || !nzchar(key)) {
-      return(NA_character_)
-    }
-    key
-  }, character(1L)))
-  if (length(parsed) != length(keys) || anyNA(parsed_keys) ||
-      !identical(parsed_keys, keys)) {
-    stop(label, " contains an invalid or unsupported BibTeX entry.",
+  parsed_keys <- unname(vapply(
+    unclass(parsed),
+    function(entry) {
+      key <- attr(entry, "key")
+      if (length(key) != 1L || is.na(key) || !nzchar(key)) {
+        return(NA_character_)
+      }
+      key
+    },
+    character(1L)
+  ))
+  if (
+    length(parsed) != length(keys) ||
+      anyNA(parsed_keys) ||
+      !identical(parsed_keys, keys)
+  ) {
+    stop(
+      label,
+      " contains an invalid or unsupported BibTeX entry.",
       call. = FALSE
     )
   }
@@ -210,7 +316,9 @@ bibtex_keys <- function(x) {
 
   while (i <= n) {
     if (chars[i] == "%") {
-      while (i <= n && chars[i] != "\n") i <- i + 1L
+      while (i <= n && chars[i] != "\n") {
+        i <- i + 1L
+      }
     }
     if (i > n || chars[i] != "@") {
       i <- i + 1L
@@ -218,15 +326,21 @@ bibtex_keys <- function(x) {
     }
 
     j <- i + 1L
-    while (j <= n && chars[j] %in% whitespace) j <- j + 1L
+    while (j <= n && chars[j] %in% whitespace) {
+      j <- j + 1L
+    }
     type_start <- j
-    while (j <= n && grepl("^[A-Za-z]$", chars[j])) j <- j + 1L
+    while (j <= n && grepl("^[A-Za-z]$", chars[j])) {
+      j <- j + 1L
+    }
     if (j == type_start) {
       i <- i + 1L
       next
     }
     type <- tolower(paste(chars[type_start:(j - 1L)], collapse = ""))
-    while (j <= n && chars[j] %in% whitespace) j <- j + 1L
+    while (j <= n && chars[j] %in% whitespace) {
+      j <- j + 1L
+    }
     if (j > n || !chars[j] %in% c("{", "(")) {
       i <- i + 1L
       next
@@ -236,11 +350,18 @@ bibtex_keys <- function(x) {
     closing <- if (opening == "{") "}" else ")"
     j <- j + 1L
     if (!type %in% c("comment", "preamble", "string")) {
-      while (j <= n && chars[j] %in% whitespace) j <- j + 1L
+      while (j <= n && chars[j] %in% whitespace) {
+        j <- j + 1L
+      }
       key_start <- j
-      while (j <= n && !chars[j] %in% c(",", closing)) j <- j + 1L
-      key <- if (j == key_start) "" else
+      while (j <= n && !chars[j] %in% c(",", closing)) {
+        j <- j + 1L
+      }
+      key <- if (j == key_start) {
+        ""
+      } else {
         trimws(paste(chars[key_start:(j - 1L)], collapse = ""))
+      }
       keys <- c(keys, key)
     }
 
@@ -253,16 +374,24 @@ bibtex_keys <- function(x) {
         j <- j + 2L
         next
       }
-      if (type != "comment" && char == '"' &&
-          (opening == "(" && braces == 0L ||
-           opening == "{" && depth == 1L)) {
+      if (
+        type != "comment" &&
+          char == '"' &&
+          (opening == "(" && braces == 0L || opening == "{" && depth == 1L)
+      ) {
         quoted <- !quoted
       } else if (!quoted && opening == "{") {
-        if (char == "{") depth <- depth + 1L
+        if (char == "{") {
+          depth <- depth + 1L
+        }
         if (char == "}") depth <- depth - 1L
       } else if (!quoted && opening == "(") {
-        if (char == "{") braces <- braces + 1L
-        if (char == "}" && braces > 0L) braces <- braces - 1L
+        if (char == "{") {
+          braces <- braces + 1L
+        }
+        if (char == "}" && braces > 0L) {
+          braces <- braces - 1L
+        }
         if (char == ")" && braces == 0L) depth <- depth - 1L
       }
       j <- j + 1L
@@ -270,6 +399,17 @@ bibtex_keys <- function(x) {
     i <- j
   }
   keys
+}
+
+count_bibtex_entries <- function(x) {
+  lengths(regmatches(
+    x,
+    gregexpr(
+      "(?im)^[ \t]*@[ \t]*(?!(comment|preamble|string)\\b)[a-z]+[ \t]*[{(]",
+      x,
+      perl = TRUE
+    )
+  ))
 }
 
 assert_unique_bibliography <- function(x) {
@@ -303,10 +443,14 @@ duplicate_pairs <- function(values, keys) {
   if (!length(later)) {
     return(character())
   }
-  vapply(later, function(i) {
-    first <- match(values[i], values)
-    paste0("`", keys[first], "` and `", keys[i], "`")
-  }, character(1L))
+  vapply(
+    later,
+    function(i) {
+      first <- match(values[i], values)
+      paste0("`", keys[first], "` and `", keys[i], "`")
+    },
+    character(1L)
+  )
 }
 
 bibentry_fingerprint <- function(entry) {
