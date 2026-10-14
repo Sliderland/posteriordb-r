@@ -125,6 +125,7 @@ test_that("posterior checking uses supplied standalone and connected content", {
   object$references <- "known"
   stored <- object
   stored$embedded_data <- stored$embedded_model_code <- stored$embedded_reference_draws <- NULL
+  # No reference draws are saved here, so the stored record has no reference link.
   stored["reference_posterior_name"] <- list(NULL)
   for (component in list(object$embedded_data, object$embedded_model_code, stored)) write_pdb(component, connection)
   expect_identical(check_pdb_posterior(posterior(stored$name, connection),
@@ -143,12 +144,8 @@ test_that("posterior checking uses supplied standalone and connected content", {
 })
 
 test_that("posterior checking validates the model getter result", {
-  registerS3method("model_code", "invalid_code_posterior", function(...) NULL,
-    envir = asNamespace("posteriordb"))
-  on.exit(rm("model_code.invalid_code_posterior", envir = get(".__S3MethodsTable__.",
-    asNamespace("posteriordb"))), add = TRUE)
+  testthat::local_mocked_bindings(model_code.pdb_posterior = function(...) NULL)
   object <- standalone_posterior_fixture()
-  class(object) <- c("invalid_code_posterior", class(object))
   expect_error(check_pdb_posterior(object, run_stan_code_checks = FALSE, verbose = FALSE), "pdb_model_code")
 })
 
@@ -172,7 +169,7 @@ test_that("standalone bibliography checks require a connection when citations ex
       cited$data_info$references <- "known"
       info(cited$embedded_data) <- cited$data_info
     }
-    expect_error(check_pdb_posterior(cited, run_stan_code_checks = FALSE, verbose = FALSE), "attach.*database|bibliography")
+    expect_error(check_pdb_posterior(cited, run_stan_code_checks = FALSE, verbose = FALSE), "Attach a database")
     pdb(cited) <- connection
     expect_identical(check_pdb_posterior(cited, run_stan_code_checks = FALSE, verbose = FALSE), TRUE)
     if (component == "posterior") cited$references <- "missing"
@@ -186,4 +183,40 @@ test_that("standalone bibliography checks require a connection when citations ex
     }
     expect_error(check_pdb_posterior(cited, run_stan_code_checks = FALSE, verbose = FALSE), "does not exist.*bibliography")
   }
+})
+
+test_that("embedded content must match the posterior's data and model records", {
+  po <- standalone_posterior_fixture()
+  bad <- po
+  bad$data_info$title <- "Edited title"
+  expect_error(assert_pdb_posterior(bad), "data link")
+  bad <- po
+  bad$model_info$title <- "Edited title"
+  expect_error(assert_pdb_posterior(bad), "model link")
+})
+
+test_that("embedded reference draws must be well formed", {
+  bad <- standalone_posterior_fixture()
+  names(bad$embedded_reference_draws) <- paste0("chain", 1:4)
+  expect_error(assert_pdb_posterior(bad), "Must be NULL")
+})
+
+test_that("posterior checking reads every listed model implementation", {
+  object <- standalone_posterior_fixture()
+  object$model_info$model_implementations$pymc <- list(model_code = "models/pymc/standalone-model.py")
+  info(object$embedded_model_code) <- object$model_info
+  expect_error(check_pdb_posterior(object, run_stan_code_checks = FALSE, verbose = FALSE),
+    "No embedded model code for framework `pymc`")
+})
+
+test_that("posterior checking reads data from the attached database", {
+  object <- standalone_posterior_fixture()
+  pdb(object) <- structure(list(), class = "pdb")
+  object$embedded_data <- NULL
+  # The getter mock stands in for an unreadable saved data file.
+  testthat::local_mocked_bindings(get_data.character = function(x, pdb, ...) {
+    stop("saved data for ", x, " is unreadable")
+  })
+  expect_error(check_pdb_posterior(object, run_stan_code_checks = FALSE, verbose = FALSE),
+    "saved data for standalone-data is unreadable")
 })

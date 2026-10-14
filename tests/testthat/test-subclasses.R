@@ -3,9 +3,9 @@ test_that("connection subclasses retain their database type and cache identity",
     connection <- structure(list(pdb_id = "fixture"), class = c(paste0("pdb_", type), "pdb"))
     child <- connection
     class(child) <- c("custom_connection", class(child))
-    expect_identical(posteriordb:::pdb_type(child), type)
-    expect_identical(posteriordb:::pdb_cache_namespace(child),
-      posteriordb:::pdb_cache_namespace(connection))
+    expect_identical(pdb_type(child), type)
+    expect_identical(pdb_cache_namespace(child),
+      pdb_cache_namespace(connection))
   }
 })
 
@@ -33,8 +33,8 @@ test_that("summary subclasses retain the exact summary type", {
     object <- reference_posterior_summary_statistic(
       stats::setNames(list("theta", 2, .1), c("names", type, "mcse_mean")), metadata, type)
     class(object) <- c("custom_mean_value_mean_squared_value", class(object))
-    expect_identical(posteriordb:::summary_statistic_type(object), type)
-    expect_silent(posteriordb:::assert_reference_posterior_summary_statistic(object))
+    expect_identical(summary_statistic_type(object), type)
+    expect_silent(assert_reference_posterior_summary_statistic(object))
   }
 })
 
@@ -62,18 +62,15 @@ test_that("draw transformations preserve subclasses and clear obsolete evidence"
 
 test_that("draw transformations delegate past subclass methods only once", {
   thin_calls <- subset_calls <- 0L
-  registerS3method("thin_draws", "delegating_draws", function(x, thin, ...) {
+  # Methods defined here are found by S3 dispatch from this test only.
+  thin_draws.delegating_draws <- function(x, thin, ...) {
     thin_calls <<- thin_calls + 1L
     NextMethod(thin = thin * 2L)
-  }, envir = asNamespace("posterior"))
-  registerS3method("subset", "delegating_draws", function(x, ...) {
+  }
+  subset.delegating_draws <- function(x, ...) {
     subset_calls <<- subset_calls + 1L
     NextMethod()
-  }, envir = asNamespace("base"))
-  on.exit({
-    rm("thin_draws.delegating_draws", envir = get(".__S3MethodsTable__.", asNamespace("posterior")))
-    rm("subset.delegating_draws", envir = get(".__S3MethodsTable__.", asNamespace("base")))
-  }, add = TRUE)
+  }
   metadata <- as.reference_posterior_info(list(name = "fixture",
     inference = list(method = "analytical", method_arguments = list()),
     diagnostics = list(ndraws = 64L), checks_made = NULL, comments = NULL,
@@ -93,4 +90,8 @@ test_that("draw transformations delegate past subclass methods only once", {
   selected <- subset(object, variable = "alpha")
   expect_identical(subset_calls, 1L)
   expect_identical(class(selected), class(object))
+  nested <- object
+  class(nested) <- c("outer_draws", class(object))
+  subset(nested, variable = "alpha")
+  expect_identical(subset_calls, 2L)
 })

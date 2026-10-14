@@ -11,6 +11,8 @@ test_that("reconstruction rejects invalid requests before compiling", {
                "unique, non-empty variable names")
   expect_error(reconstruct_stan_output(draws, "model.stan", list(), seed = 0),
                "positive integer")
+  expect_error(reconstruct_stan_output(draws, "model.stan", list(), seed = 1.5),
+               "positive integer")
   expect_error(reconstruct_stan_output(draws, "model.stan", data = NULL),
                "named Stan data list")
   expect_error(reconstruct_stan_output(draws, file.path(tempdir(), "missing-model.stan"), list()),
@@ -75,4 +77,21 @@ test_that("posterior reconstruction follows the saved links", {
   expect_equal(received$data, get_data(po))
   expect_identical(received[c("variables", "seed", "include_unconstrained")],
                    list(variables = "theta", seed = 7L, include_unconstrained = FALSE))
+})
+
+test_that("posterior reconstruction requires a Stan implementation and Stan-sampled draws", {
+  po <- structure(list(name = "p", model_name = "m", reference_posterior_name = "p",
+    model_info = list(model_implementations = list(pymc = list(model_code = "models/pymc/m.py")))),
+    class = "pdb_posterior")
+  method <- "stan_sampling"
+  testthat::local_mocked_bindings(
+    posterior = function(...) po,
+    reference_posterior_draws_info = function(...) list(inference = list(method = method)),
+    reconstruct_stan_output = function(...) stop("reconstruction should not start")
+  )
+  connection <- structure(list(), class = "pdb")
+  expect_error(reconstruct_posterior_output("p", pdb = connection), "no Stan implementation")
+  po$model_info$model_implementations$stan <- list(model_code = "models/stan/m.stan")
+  method <- "analytical"
+  expect_error(reconstruct_posterior_output("p", pdb = connection), "declaring Stan sampling")
 })

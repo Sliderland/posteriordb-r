@@ -8,7 +8,7 @@ batch_reference_info <- function(name) {
 }
 
 test_that("sampling settings are shared, positional, or matched by workflow name", {
-  normalize <- posteriordb:::normalize_sequential_sampling_lists
+  normalize <- normalize_sequential_sampling_lists
   first <- list(iter = 10, chains = 4)
   second <- list(iter = 20, chains = 4)
   expect_identical(normalize(first, c("a", "b")), list(first, first))
@@ -66,4 +66,46 @@ test_that("invalid batch requests are rejected before sampling", {
   analytical$inference$method <- "analytical"
   expect_error(sequential_batch_workflow(list(a = analytical), list(), pdb = connection),
                "stan_sampling")
+})
+
+test_that("checked workflows return checked draws and record check failures", {
+  workflows <- list(a = batch_reference_info("a"), b = batch_reference_info("b"))
+  testthat::local_mocked_bindings(
+    compute_reference_posterior_draws = function(x, pdb, backend) {
+      structure(paste("raw", x$name), info = x)
+    },
+    check_reference_posterior_draws = function(x) {
+      if (info(x)$name == "b") stop("check failed")
+      structure(paste("checked", info(x)$name), info = info(x))
+    }
+  )
+  results <- sequential_batch_workflow(workflows, list(iter = 10),
+                                       pdb = structure(list(), class = "pdb"))
+  expect_identical(as.character(results$a$draws), "checked a")
+  expect_identical(results$b$stage, "checking")
+  expect_identical(results$b$error, "check failed")
+})
+
+test_that("written workflows are linked and require a local database", {
+  workflows <- list(a = batch_reference_info("a"))
+  testthat::local_mocked_bindings(
+    compute_reference_posterior_draws = function(x, pdb, backend) structure("draws", info = x),
+    check_reference_posterior_draws = function(x) x,
+    write_pdb = function(x, pdb, overwrite) invisible(TRUE)
+  )
+  results <- sequential_batch_workflow(workflows, list(iter = 10),
+    pdb = structure(list(), class = c("pdb_local", "pdb")), write = TRUE)
+  expect_true(results$a$written)
+  expect_true(results$a$linked)
+  expect_error(sequential_batch_workflow(workflows, list(), pdb = structure(list(), class = "pdb"),
+                                         write = TRUE), "pdb_local")
+})
+
+test_that("unnamed workflows are named by their reference names", {
+  testthat::local_mocked_bindings(
+    compute_reference_posterior_draws = function(x, pdb, backend) paste("draws for", x$name)
+  )
+  results <- sequential_batch_workflow(list(batch_reference_info("a"), batch_reference_info("b")),
+                                       list(), pdb = structure(list(), class = "pdb"), check = FALSE)
+  expect_named(results, c("a", "b"))
 })

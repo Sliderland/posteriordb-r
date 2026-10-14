@@ -24,7 +24,10 @@ summary_reference_fixture <- function(types = c("mean_value", "mean_squared_valu
     zip = TRUE, info = FALSE)
   write_pdb(object, connection)
   for (type in types) {
-    write_pdb(metadata, connection, type = type)
+    # Each type's metadata is distinguishable from the other's.
+    typed <- metadata
+    typed$comments <- type
+    write_pdb(typed, connection, type = type)
     directory <- file.path(root, "reference_posteriors/summary_statistics", type, type)
     dir.create(directory, recursive = TRUE)
     jsonlite::write_json(stats::setNames(list("theta", 2.5, .01), c("names", type, "mcse_mean")),
@@ -44,10 +47,12 @@ test_that("summary readers use a distinct reference name for payload and metadat
   expect_setequal(names(summaries), types)
   for (type in types) {
     direct <- reference_posterior_summary_statistic(object, type = type)
-    expect_identical(info(direct), metadata)
+    typed <- metadata
+    typed$comments <- type
+    expect_identical(info(direct), typed)
     expect_equal(direct[[type]], 2.5)
     expect_identical(reference_posterior_summary_statistic(object$name, connection, type = type), direct)
-    expect_identical(reference_posterior_summary_statistic(metadata, connection, type = type), direct)
+    expect_identical(reference_posterior_summary_statistic(typed, connection, type = type), direct)
     expect_identical(summaries[[type]], direct)
   }
 })
@@ -58,15 +63,18 @@ test_that("plural summary access omits types without metadata and unlinked poste
   summaries <- reference_posterior_summary_statistics(fixture$object)
   expect_identical(names(summaries), "mean_value")
   expect_equal(summaries$mean_value$mean_value, 2.5)
+  # Without a link, a summary that exists on disk is still not returned.
+  unlinked <- fixture$object
+  unlinked$reference_posterior_name <- NULL
+  expect_identical(reference_posterior_summary_statistics(unlinked), list())
   empty <- summary_reference_fixture(types = character())
-  expect_identical(reference_posterior_summary_statistics(empty$object), list())
-  empty$object$reference_posterior_name <- NULL
-  attr(empty$object, "pdb") <- NULL
   expect_identical(reference_posterior_summary_statistics(empty$object), list())
 })
 
 test_that("plural summary access reports corrupt or incomplete advertised summaries", {
-  for (failure in c("payload", "metadata", "missing_payload")) {
+  expected <- c(payload = "lexical error", metadata = "lexical error",
+    missing_payload = "File does not exist")
+  for (failure in names(expected)) {
     fixture <- summary_reference_fixture(types = "mean_value")
     directory <- file.path(fixture$root, "reference_posteriors/summary_statistics/mean_value")
     payload <- file.path(directory, "mean_value/distinct-reference.json")
@@ -75,7 +83,7 @@ test_that("plural summary access reports corrupt or incomplete advertised summar
     if (failure == "metadata") writeLines("not-json", metadata)
     if (failure == "missing_payload") unlink(payload)
     expect_error(reference_posterior_summary_statistics(fixture$object),
-      "File does not exist|lexical error", info = failure)
+      expected[[failure]], info = failure)
   }
 })
 

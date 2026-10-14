@@ -1,122 +1,3 @@
-empty_local_pdb <- function() {
-  root <- tempfile("posteriordb-import-")
-  dir.create(file.path(root, "data"), recursive = TRUE)
-  dir.create(file.path(root, "models"), recursive = TRUE)
-  dir.create(file.path(root, "posteriors"), recursive = TRUE)
-  dir.create(file.path(root, "cache"))
-  pdb_local(root, cache_path = file.path(root, "cache"))
-}
-
-linked_local_pdb <- function() {
-  pdb <- empty_local_pdb()
-  root <- pdb$pdb_local_endpoint
-  dir.create(file.path(root, "alias"))
-  writeLines("{}", file.path(root, "alias", "posteriors.json"))
-  dir.create(file.path(root, "data", "info"), recursive = TRUE)
-  dir.create(file.path(root, "models", "info"), recursive = TRUE)
-  for (folder in c(
-    "reference_posteriors/draws/info",
-    "reference_posteriors/draws/draws",
-    unlist(
-      lapply(posteriordb:::supported_summary_statistic_types(), function(type) {
-        c(
-          file.path("reference_posteriors", "summary_statistics", type, "info"),
-          file.path("reference_posteriors", "summary_statistics", type, type)
-        )
-      }),
-      use.names = FALSE
-    )
-  )) {
-    dir.create(file.path(root, folder), recursive = TRUE, showWarnings = FALSE)
-  }
-  jsonlite::write_json(
-    list(
-      name = "external-data",
-      data_file = "data/data/external-data.json",
-      title = "External test data",
-      added_by = "testthat",
-      added_date = as.character(Sys.Date())
-    ),
-    file.path(root, "data", "info", "external-data.info.json"),
-    auto_unbox = TRUE,
-    null = "null"
-  )
-  jsonlite::write_json(
-    list(
-      name = "external-model",
-      model_implementations = list(
-        stan = list(
-          model_code = "models/stan/external-model.stan"
-        )
-      ),
-      title = "External test model",
-      added_by = "testthat",
-      added_date = as.character(Sys.Date())
-    ),
-    file.path(root, "models", "info", "external-model.info.json"),
-    auto_unbox = TRUE,
-    null = "null"
-  )
-  jsonlite::write_json(
-    list(
-      name = "external-data-external-model",
-      model_name = "external-model",
-      data_name = "external-data",
-      reference_posterior_name = NULL,
-      dimensions = list(alpha = 1L, beta = 1L),
-      added_by = "testthat",
-      added_date = as.character(Sys.Date())
-    ),
-    file.path(root, "posteriors", "external-data-external-model.json"),
-    auto_unbox = TRUE,
-    null = "null"
-  )
-  pdb
-}
-
-external_fit_fixture <- local({
-  fit <- NULL
-  function() {
-    skip_stan_integration()
-    skip_if_not_installed("rstan")
-    if (is.null(fit)) {
-      model_code <- "
-        parameters {
-          matrix[2, 2] A;
-          real declared;
-          real undeclared;
-        }
-        model {
-          to_vector(A) ~ normal(0, 1);
-          declared ~ normal(0, 1);
-          undeclared ~ normal(0, 1);
-        }
-      "
-      sm <- rstan::stan_model(model_code = model_code)
-      fit <<- suppressWarnings(rstan::sampling(
-        sm,
-        iter = 20,
-        warmup = 10,
-        chains = 2,
-        seed = 1234,
-        refresh = 0
-      ))
-    }
-    fit
-  }
-})
-
-external_posterior_fixture <- function() {
-  structure(
-    list(
-      name = "external-fit-test",
-      reference_posterior_name = NULL,
-      dimensions = list(A = 4L)
-    ),
-    class = "pdb_posterior"
-  )
-}
-
 test_that("an externally sampled stanfit retains all essential parameter variables", {
   fit <- external_fit_fixture()
   po <- external_posterior_fixture()
@@ -143,6 +24,12 @@ test_that("an externally sampled stanfit retains all essential parameter variabl
     ) %in%
       posterior::variables(rpd)
   ))
+  expected <- posterior::subset_draws(
+    posterior::as_draws_array(fit),
+    variable = posterior::variables(rpd),
+    regex = FALSE
+  )
+  expect_equal(posterior::as_draws_array(rpd), expected)
   expect_equal(posterior::ndraws(rpd), 20)
   expect_equal(posterior::nchains(rpd), 2)
   expect_equal(info(rpd)$inference$method_arguments$warmup, 10)
@@ -183,9 +70,13 @@ test_that("matrix dimensions are explicit and missing declarations fail", {
 })
 
 test_that("unsupported import options are rejected before conversion", {
-  fit <- external_fit_fixture()
+  fit <- structure(list(), class = "stanfit")
   po <- external_posterior_fixture()
   pdb <- empty_local_pdb()
+  testthat::local_mocked_bindings(
+    extract_external_stan_fit = function(...) stop("conversion ran"),
+    .package = "posteriordb"
+  )
   expect_error(
     as_reference_posterior_draws(fit, po, pdb = pdb, commments = "typo"),
     "accepts only named"
@@ -225,6 +116,15 @@ test_that("sampler metadata and diagnostics are retained", {
     ) %in%
       names(info(rpd)$diagnostics)
   ))
+  expect_equal(
+    info(rpd)$diagnostics$expected_fraction_of_missing_information,
+    rstan::get_bfmi(fit)
+  )
+  sampler <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
+  expect_equal(
+    info(rpd)$diagnostics$divergent_transitions,
+    vapply(sampler, function(chain) sum(chain[, "divergent__"]), numeric(1))
+  )
 })
 
 test_that("unsupported fit objects fail clearly", {
@@ -262,46 +162,6 @@ test_that("failed checks do not write partial reference-posterior files", {
     "reference_posteriors"
   )))
 })
-
-checked_import_fixture <- function(seed) {
-  set.seed(seed)
-  values <- array(
-    stats::rnorm(2500L * 4L * 2L),
-    dim = c(2500L, 4L, 2L),
-    dimnames = list(NULL, NULL, c("alpha", "beta"))
-  )
-  draws <- posterior::as_draws_list(posterior::as_draws_array(values))
-  summaries <- posterior::summarise_draws(draws)
-  diagnostics <- list(
-    ndraws = 10000L,
-    nchains = 4L,
-    effective_sample_size_bulk = stats::setNames(
-      summaries$ess_bulk,
-      summaries$variable
-    ),
-    effective_sample_size_tail = stats::setNames(
-      summaries$ess_tail,
-      summaries$variable
-    ),
-    r_hat = stats::setNames(summaries$rhat, summaries$variable),
-    mean_lag1_ac = posteriordb:::mean_lag1_ac(draws),
-    divergent_transitions = rep(0, 4L),
-    expected_fraction_of_missing_information = rep(1, 4L)
-  )
-  draw_info <- as.reference_posterior_info(list(
-    name = "external-import-round-trip",
-    inference = list(method = "stan_sampling", method_arguments = list()),
-    diagnostics = diagnostics,
-    checks_made = NULL,
-    comments = "Synthetic writer test",
-    added_by = "testthat",
-    added_date = Sys.Date(),
-    versions = NULL
-  ))
-  check_reference_posterior_draws(
-    as.reference_posterior_draws(draws, info = draw_info)
-  )
-}
 
 test_that("the transactional writer round trips checked draws and refreshes the cache", {
   source_draws <- checked_import_fixture(123)
@@ -423,6 +283,14 @@ test_that("a failed final verification restores both existing files", {
   )
   original_info <- readBin(info_file, "raw", n = file.info(info_file)$size)
   original_draws <- readBin(draw_file, "raw", n = file.info(draw_file)$size)
+  files <- posteriordb:::pdb_reference_output_paths(
+    pdb,
+    info(source_draws)$name,
+    posteriordb:::supported_summary_statistic_types()
+  )
+  original_files <- lapply(files, function(path) {
+    readBin(path, "raw", n = file.info(path)$size)
+  })
   original_verifier <- posteriordb:::verify_imported_reference_posterior
   testthat::local_mocked_bindings(
     verify_imported_reference_posterior = function(
@@ -453,6 +321,12 @@ test_that("a failed final verification restores both existing files", {
   expect_identical(
     readBin(draw_file, "raw", n = file.info(draw_file)$size),
     original_draws
+  )
+  expect_identical(
+    lapply(files, function(path) {
+      readBin(path, "raw", n = file.info(path)$size)
+    }),
+    original_files
   )
 })
 
@@ -493,6 +367,14 @@ test_that("a failed linked import restores the posterior record", {
   expect_identical(
     readBin(post_file, "raw", n = file.info(post_file)$size),
     original_record
+  )
+  expect_length(
+    list.files(
+      file.path(pdb$pdb_local_endpoint, "reference_posteriors"),
+      recursive = TRUE,
+      all.files = TRUE
+    ),
+    0L
   )
   expect_null(jsonlite::read_json(post_file)$reference_posterior_name)
 })
@@ -616,79 +498,7 @@ test_that("incomplete import rollback reports installed and backup paths", {
   }
 })
 
-cmdstanr_fit_fixture <- function(iterations = 40L, chains = 2L) {
-  testthat::skip_if_not_installed("cmdstanr")
-  set.seed(2026)
-  draws <- array(
-    rnorm(iterations * chains * 2L),
-    dim = c(iterations, chains, 2L),
-    dimnames = list(
-      iteration = as.character(seq_len(iterations)),
-      chain = as.character(seq_len(chains)),
-      variable = c("alpha", "undeclared")
-    )
-  )
-  sampler <- array(
-    0,
-    dim = c(iterations, chains, 3L),
-    dimnames = list(
-      iteration = as.character(seq_len(iterations)),
-      chain = as.character(seq_len(chains)),
-      variable = c("divergent__", "treedepth__", "energy__")
-    )
-  )
-  sampler[,, "treedepth__"] <- 3
-  sampler[,, "energy__"] <- abs(rnorm(iterations * chains, 10, 1))
-  fit <- new.env(parent = emptyenv())
-  fit$draws <- function(inc_warmup = FALSE, format = "draws_array", ...) {
-    posterior::as_draws_array(draws)
-  }
-  fit$unconstrain_draws <- function(
-    variables = NULL,
-    format = "draws_array",
-    ...
-  ) {
-    unconstrained <- posterior::as_draws_array(draws)
-    if (!is.null(variables)) {
-      unconstrained <- posterior::subset_draws(
-        unconstrained,
-        variable = variables,
-        regex = FALSE
-      )
-    }
-    unconstrained
-  }
-  fit$variable_skeleton <- function(
-    transformed_parameters = TRUE,
-    generated_quantities = TRUE
-  ) {
-    list(alpha = 0, undeclared = 0)
-  }
-  fit$sampler_diagnostics <- function(
-    inc_warmup = FALSE,
-    format = "draws_array",
-    ...
-  ) {
-    posterior::as_draws_array(sampler)
-  }
-  fit$metadata <- function() {
-    list(
-      num_chains = chains,
-      iter_sampling = iterations,
-      iter_warmup = 10L,
-      thin = 1L,
-      model_name = "cmdstanr-fixture",
-      max_depth = 10L,
-      stan_version_major = 2L,
-      stan_version_minor = 37L,
-      stan_version_patch = 0L
-    )
-  }
-  class(fit) <- c("CmdStanMCMC", "CmdStanFit", "R6")
-  fit
-}
-
-test_that("CmdStanR MCMC fits are imported through their CSV-backed methods", {
+test_that("CmdStanR-like MCMC methods retain import metadata", {
   skip_if_not_installed("cmdstanr")
   fit <- cmdstanr_fit_fixture()
   posterior <- external_posterior_fixture()
@@ -713,6 +523,33 @@ test_that("CmdStanR MCMC fits are imported through their CSV-backed methods", {
   )
 })
 
+test_that("a valid external fit passes import acceptance and can be written", {
+  # The existing fit fixture fixes its seed internally.
+  fit <- cmdstanr_fit_fixture(iterations = 2500L, chains = 4L)
+  fit$variable_skeleton <- function(...) list(alpha = 0, beta = 0)
+  rename_draws <- function(draws) {
+    posterior::rename_variables(draws, beta = "undeclared")
+  }
+  original_draws <- fit$draws
+  original_unconstrained <- fit$unconstrain_draws
+  fit$draws <- function(...) rename_draws(original_draws(...))
+  fit$unconstrain_draws <- function(...) {
+    rename_draws(original_unconstrained(...))
+  }
+  pdb <- linked_local_pdb()
+  imported <- import_reference_posterior_draws(
+    fit,
+    "external-data-external-model",
+    pdb,
+    write = TRUE
+  )
+  expect_null(info(imported)$checks_made$check_failed)
+  expect_silent(assert_checked_reference_posterior_draws(imported))
+  saved <- reference_posterior_draws(
+    posterior("external-data-external-model", pdb)
+  )
+  expect_equal(posterior::as_draws_array(saved), fit$draws())
+})
 
 test_that("CmdStan parameter schema protects saved zero-free-coordinate values", {
   fit <- cmdstanr_fit_fixture()
@@ -794,6 +631,16 @@ test_that("public import shares aliases, protects dimensions, and rejects confli
     expect_identical(posterior::variables(minimal), required)
     expect_named(info(minimal)$diagnostics$r_hat, required)
   }
+  for (include in list("none", character())) {
+    minimal <- as_reference_posterior_draws(
+      fit,
+      object,
+      connection,
+      include = include
+    )
+    expect_identical(posterior::variables(minimal), required)
+    expect_named(info(minimal)$diagnostics$r_hat, required)
+  }
   for (exclude in list(NULL, character(), "none")) {
     full <- import_reference_posterior_draws(
       fit,
@@ -824,4 +671,46 @@ test_that("public import shares aliases, protects dimensions, and rejects confli
     ),
     "Cannot exclude required"
   )
+})
+
+test_that("fit import rejects absent declared variables and accepts supplied dimensions", {
+  fit <- cmdstanr_fit_fixture()
+  po <- external_posterior_fixture()
+  po$dimensions <- list(alpha = 1L, missing = 1L)
+  expect_error(
+    as_reference_posterior_draws(fit, po, empty_local_pdb()),
+    "missing declared posterior variables: missing"
+  )
+  po$dimensions <- NULL
+  imported <- as_reference_posterior_draws(
+    fit,
+    po,
+    empty_local_pdb(),
+    dimensions = list(alpha = 1L)
+  )
+  expect_identical(posterior::variables(imported), c("alpha", "undeclared"))
+})
+
+test_that("fit import retains per-chain sampler results", {
+  fit <- cmdstanr_fit_fixture()
+  sampler <- fit$sampler_diagnostics()
+  sampler[1, 1, "divergent__"] <- 1
+  sampler[1:2, 2, "divergent__"] <- 1
+  fit$sampler_diagnostics <- function(...) sampler
+  po <- external_posterior_fixture()
+  po$dimensions <- list(alpha = 1L)
+  imported <- as_reference_posterior_draws(fit, po, empty_local_pdb())
+  expected <- vapply(
+    1:2,
+    function(chain) {
+      energy <- sampler[, chain, "energy__"]
+      mean(diff(energy)^2) / stats::var(energy)
+    },
+    numeric(1)
+  )
+  expect_equal(
+    info(imported)$diagnostics$expected_fraction_of_missing_information,
+    expected
+  )
+  expect_equal(info(imported)$diagnostics$divergent_transitions, c(1, 2))
 })

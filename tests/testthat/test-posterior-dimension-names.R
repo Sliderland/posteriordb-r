@@ -1,5 +1,3 @@
-context("test-posterior-dimension-names")
-
 test_that("posterior dimensions identify base variables, not draw shapes", {
   names <- posteriordb:::posterior_dimension_names(list(
     A = 4L, B = 2L, x = 3L, mu = 1L, scalar = 1L
@@ -23,12 +21,16 @@ test_that("invalid declarations fail before variable matching", {
   expect_error(dimension_names(list(x = NA_integer_)), "must be one positive integer")
   expect_error(dimension_names(list(x = 1.5)), "must be one positive integer")
   expect_error(dimension_names(list(x = Inf)), "must be one positive integer")
+  expect_error(dimension_names(list(x = TRUE)), "must be one positive integer")
 })
 
 
 test_that("free-coordinate count selection and representations stay canonical", {
   coordinates <- c("weights.1", "weights.2", "M.1.1", "M.2.1", "theta")
   expect_identical(unconstrained_parameter_counts(coordinates),
+    list(weights = 2L, M = 2L, theta = 1L))
+  bracket_coordinates <- c("weights[1]", "weights[2]", "M[1,1]", "M[2,1]", "theta")
+  expect_identical(unconstrained_parameter_counts(bracket_coordinates),
     list(weights = 2L, M = 2L, theta = 1L))
   expect_identical(unconstrained_parameter_counts(coordinates, include = "weights"),
     list(weights = 2L))

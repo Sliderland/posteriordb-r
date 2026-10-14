@@ -1,17 +1,3 @@
-constrained_parameter_fit <- local({
-  fit <- NULL
-  function() {
-    skip_stan_integration()
-    skip_if_not_installed("rstan")
-    if (is.null(fit)) {
-      code <- constrained_parameter_model()
-      fit <<- suppressWarnings(rstan::sampling(rstan::stan_model(model_code = code),
-        data = list(), iter = 12, warmup = 6, chains = 2, seed = 412, refresh = 0))
-    }
-    fit
-  }
-})
-
 test_that("real constrained parameters separate free counts from complete saved shapes", {
   fit <- constrained_parameter_fit()
   counts <- infer_unconstrained_parameter_counts_from_fit(fit)
@@ -24,10 +10,17 @@ test_that("real constrained parameters separate free counts from complete saved 
   expect_true("fixed[1]" %in% vars)
   expect_length(vars, 47L)
   expect_false(any(c("twice_theta", "prediction", "lp__") %in% vars))
+  saved <- posterior::as_draws_array(fit)
+  saved <- posterior::subset_draws(saved,
+    variable = setdiff(posterior::variables(saved), c("twice_theta", "prediction", "lp__")),
+    regex = FALSE)
+  expect_equal(extracted$draws, saved)
   expect_identical(extracted$dimensions, expected)
   expect_equal(extracted$output_shapes$fixed, 1L)
   expect_equal(extracted$output_shapes$M, c(2L, 3L))
   expect_equal(extracted$output_shapes$a, c(2L, 2L))
+  shapes <- fit@par_dims[setdiff(names(fit@par_dims), c("twice_theta", "prediction", "lp__"))]
+  expect_equal(extracted$output_shapes, shapes)
   expect_equal(as.numeric(extracted$draws[, , "fixed[1]"]), rep(1, 12))
   expect_error(extract_rstan_fit_for_bundle(fit, compute_diagnostics = FALSE,
     exclude = "fixed"), "Cannot exclude.*parameter-block")
@@ -48,7 +41,7 @@ test_that("real constrained parameters separate free counts from complete saved 
 })
 
 
-test_that("fit import retains zero-free-coordinate parameters without accepting undefined metrics", {
+test_that("fit import preserves constant coordinates in a rejected short fit", {
   fit <- constrained_parameter_fit()
   connection <- structure(list(), class = c("pdb_local", "pdb"))
   object <- structure(list(name = "constrained-posterior", reference_posterior_name = NULL,
@@ -78,4 +71,23 @@ test_that("RStan bundles recover absent compiled schema without changing draws",
   expect_identical(restored$output_shapes, original$output_shapes)
   expect_equal(restored$draws, original$draws)
   expect_equal(restored$sampler_diagnostics, original$sampler_diagnostics)
+})
+
+test_that("archived schema recovery uses data-dependent parameter sizes", {
+  skip_stan_integration()
+  skip_if_not_installed("rstan")
+  set.seed(123)
+  code <- paste("data { int<lower=1> N; } parameters { vector[N] theta; }",
+    "model { theta ~ normal(0, 1); }")
+  fit <- suppressWarnings(rstan::sampling(rstan::stan_model(model_code = code),
+    data = list(N = 3L), iter = 12, warmup = 6, chains = 2, cores = 1L,
+    seed = 123, refresh = 0))
+  archived <- fit
+  archived@.MISC <- list2env(as.list(fit@.MISC), parent = parent.env(fit@.MISC))
+  archived@.MISC$stan_fit_instance <- NULL
+  restored <- extract_rstan_fit_for_bundle(archived, data = list(N = 3L),
+    compute_diagnostics = FALSE)
+  expect_identical(restored$dimensions, list(theta = 3L))
+  expect_equal(restored$draws, posterior::subset_draws(posterior::as_draws_array(fit),
+    variable = c("theta[1]", "theta[2]", "theta[3]"), regex = FALSE))
 })

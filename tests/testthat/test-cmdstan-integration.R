@@ -39,6 +39,13 @@ test_that("compiled CmdStan CSV imports preserve constrained parameters and hone
   expect_true(nzchar(info(imported)$checks_made$check_failed))
   expect_true(nzchar(info(imported)$versions$cmdstanr_version))
   expect_null(info(imported)$versions$rstan_version)
+  sampler <- fit$sampler_diagnostics(inc_warmup = FALSE, format = "draws_array")
+  expect_equal(attr(imported, "sampler_diagnostics"), sampler)
+  efmi <- vapply(seq_len(posterior::nchains(sampler)), function(chain) {
+    energy <- sampler[, chain, "energy__"]
+    mean(diff(energy)^2) / stats::var(energy)
+  }, numeric(1))
+  expect_equal(info(imported)$diagnostics$expected_fraction_of_missing_information, efmi)
   report <- suppressWarnings(reference_draw_diagnostics(fit))
   expect_equal(info(imported)$diagnostics$mean_lag1_ac, report$metrics$mean_lag1_ac)
   expect_equal(info(imported)$diagnostics$r_hat, report$metrics$r_hat)
@@ -54,4 +61,14 @@ test_that("compiled CmdStan CSV imports preserve constrained parameters and hone
   expect_error(suppressWarnings(import_reference_posterior_draws(fit, object, connection,
     write = TRUE)), "checks failed; nothing was written")
   expect_identical(list.files(root, recursive = TRUE, all.files = TRUE), before)
+  set.seed(123)
+  thin_fit <- suppressWarnings(model$sample(data = list(), chains = 2, parallel_chains = 2,
+    iter_warmup = 6, iter_sampling = 12, thin = 2, save_warmup = TRUE,
+    seed = 123, refresh = 0, sig_figs = 18, output_dir = root))
+  thin_imported <- suppressWarnings(import_reference_posterior_draws(thin_fit, object, connection))
+  arguments <- info(thin_imported)$inference$method_arguments
+  expect_equal(arguments$iter, 18L)
+  expect_equal(arguments$warmup, 6L)
+  expect_equal(arguments$thin, 2L)
+  expect_equal(info(thin_imported)$diagnostics$ndraws, 12L)
 })

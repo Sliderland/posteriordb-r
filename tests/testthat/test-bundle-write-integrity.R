@@ -196,6 +196,7 @@ test_that("reused models keep their other implementations", {
   expect_true(same_dimension_counts(list(a = 1, b = 2L), list(b = 2, a = 1L)))
   expect_false(same_dimension_counts(list(a = 1L), list(a = 2L)))
   expect_false(same_dimension_counts(list(a = 1L), list(a = 1L, b = 1L)))
+  expect_false(same_dimension_counts(list(a = 1L, b = 1L), list(a = 1L)))
 })
 
 test_that("accepted reused posteriors fill empty links and reject different links", {
@@ -240,28 +241,27 @@ test_that("accepted reused posteriors fill empty links and reject different link
     info(reused$reference_draws)$name
   )
 
-  for (link in list("different-reference")) {
-    stored <- jsonlite::read_json(posterior_path)
-    stored["reference_posterior_name"] <- list(link)
-    jsonlite::write_json(
-      stored,
-      posterior_path,
-      auto_unbox = TRUE,
-      null = "null"
+  link <- "different-reference"
+  stored <- jsonlite::read_json(posterior_path)
+  stored["reference_posterior_name"] <- list(link)
+  jsonlite::write_json(
+    stored,
+    posterior_path,
+    auto_unbox = TRUE,
+    null = "null"
+  )
+  before <- bundle_integrity_snapshot(database)
+  for (overwrite in c(FALSE, TRUE)) {
+    expect_error(
+      write_pdb(
+        reused,
+        database,
+        overwrite = overwrite,
+        write_summary_statistics = FALSE
+      ),
+      "matching persisted reference link"
     )
-    before <- bundle_integrity_snapshot(database)
-    for (overwrite in c(FALSE, TRUE)) {
-      expect_error(
-        write_pdb(
-          reused,
-          database,
-          overwrite = overwrite,
-          write_summary_statistics = FALSE
-        ),
-        "matching persisted reference link"
-      )
-      expect_identical(bundle_integrity_snapshot(database), before)
-    }
+    expect_identical(bundle_integrity_snapshot(database), before)
   }
 })
 
@@ -321,14 +321,18 @@ test_that("failed bundle writes omit missing reference links and preserve stored
   suppressMessages(write_pdb(reused, database))
   expect_identical(bundle_integrity_snapshot(database), before)
 
+  # The mocked extractor reads `extracted` when called.
   extracted <- bundle_integrity_extraction()
   accepted <- make()
-  suppressMessages(write_pdb(
-    accepted,
-    database,
-    overwrite = TRUE,
-    write_summary_statistics = FALSE
-  ))
+  expect_message(
+    write_pdb(
+      accepted,
+      database,
+      overwrite = TRUE,
+      write_summary_statistics = FALSE
+    ),
+    "will be replaced"
+  )
   # Preserve even a different existing reference link when replacing a failed candidate.
   stored <- accepted$posterior
   stored$reference_posterior_name <- "older-reference"
@@ -445,7 +449,7 @@ test_that("failed ZIP creation retains the JSON payload and is reported as failu
     ),
     error = identity
   )
-  expect_s3_class(error, "error")
+  expect_match(conditionMessage(error), "ZIP creation failed")
   expect_true(any(grepl("zip-failure", messages, fixed = TRUE)))
   expect_true(file.exists(pdb_file_path(
     database,
@@ -653,4 +657,98 @@ test_that("bundle writes reuse and validate summaries without recomputing them",
   result <- suppressMessages(write_pdb(bundle, database, overwrite = TRUE))
   expect_true(result$summary_statistics_written)
   expect_identical(calls, 1L)
+})
+
+test_that("reused objects with only some destination files are rejected", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  fit <- structure(list(), class = "stanfit")
+  source <- bundle_integrity_pdb()
+  original <- create_pdb_bundle(
+    fit,
+    data = list(n = 1L),
+    data_info = list(name = "split-data", title = "Inputs"),
+    model_info = list(name = "split-model", title = "Model"),
+    pdb = source
+  )
+  write_pdb(original$data, source)
+  destination <- bundle_integrity_pdb()
+  write_pdb(info(original$data), destination)
+  before <- bundle_integrity_snapshot(destination)
+  bundle <- create_pdb_bundle(
+    fit,
+    data = original$data,
+    model_info = list(name = "split-model", title = "Model"),
+    pdb = destination
+  )
+  expect_error(
+    write_pdb(
+      bundle,
+      destination,
+      overwrite = TRUE,
+      write_summary_statistics = FALSE
+    ),
+    "only some of its expected files"
+  )
+  expect_identical(bundle_integrity_snapshot(destination), before)
+})
+
+test_that("bundle writes reject attached summaries that do not match their draws", {
+  extracted <- bundle_integrity_extraction()
+  testthat::local_mocked_bindings(extract_rstan_fit_for_bundle = function(...) {
+    extracted
+  })
+  database <- bundle_integrity_pdb()
+  bundle <- create_pdb_bundle(
+    structure(list(), class = "stanfit"),
+    data = list(),
+    data_info = list(name = "mismatch-data", title = "Inputs"),
+    model_info = list(name = "mismatch-model", title = "Model"),
+    pdb = database
+  )
+  summaries <- bundle$summary_statistics
+  swapped <- bundle
+  swapped$summary_statistics <- stats::setNames(rev(summaries), names(summaries))
+  renamed <- bundle
+  renamed$summary_statistics$mean_value$names <- "other"
+  rediagnosed <- bundle
+  metadata <- info(rediagnosed$summary_statistics$mean_value)
+  metadata$diagnostics$r_hat[] <- 2
+  info(rediagnosed$summary_statistics$mean_value) <- metadata
+  before <- bundle_integrity_snapshot(database)
+  expect_error(write_pdb(swapped, database), "summary_statistic_type")
+  expect_error(write_pdb(renamed, database), "permutation")
+  expect_error(write_pdb(rediagnosed, database), "info\\$diagnostics")
+  expect_identical(bundle_integrity_snapshot(database), before)
+})
+
+test_that("a nonzero ZIP status is a failure even when an archive exists", {
+  database <- bundle_integrity_pdb()
+  object <- as.pdb_data(
+    list(n = 1L),
+    info = as.pdb_data_info(list(
+      name = "zip-status",
+      title = "Inputs",
+      added_by = "test",
+      added_date = Sys.Date()
+    ))
+  )
+  original_zip <- utils::zip
+  testthat::local_mocked_bindings(
+    zip = function(...) {
+      original_zip(...)
+      1L
+    },
+    .package = "utils"
+  )
+  expect_error(
+    suppressMessages(write_pdb(object, database)),
+    "ZIP creation failed"
+  )
+  expect_true(file.exists(pdb_file_path(
+    database,
+    "data/data/zip-status.json"
+  )))
 })
