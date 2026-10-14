@@ -1,19 +1,15 @@
 remove_file_extension <- function(x) {
   checkmate::assert_character(x, pattern = "\\..{1,5}$")
-  unlist(lapply(strsplit(x, "\\."), function(x) x[1]))
+  tools::file_path_sans_ext(x)
 }
 
 get_file_extension <- function(x) {
   checkmate::assert_character(x, pattern = "\\..{1,5}$")
-  unlist(lapply(strsplit(x, "\\."), function(x) x[2]))
+  tools::file_ext(x)
 }
 
 stop2 <- function(...) {
   stop(..., call. = FALSE)
-}
-
-warning2 <- function(...) {
-  warning(..., call. = FALSE)
 }
 
 # cat with without separating elements
@@ -37,3 +33,5 @@ print_list <- function(x, pad = "  ") {
     }
   }
 }
+
+`%||%` <- function(x, y) if (is.null(x)) y else x

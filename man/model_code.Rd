@@ -32,7 +32,7 @@ as.model_code(x, info, ...)
 
 \method{as.model_code}{stanmodel}(x, info, ...)
 
-\method{as.model_code}{character}(x, info, framework, ...)
+\method{as.model_code}{character}(x, info, framework = "stan", ...)
 
 pdb_model_code(x, ...)
 
@@ -67,6 +67,17 @@ pdb_stan_code(x, ...)
 }
 \description{
 Extract and construct model code objects
+}
+\details{
+Character-code construction preserves the requested framework
+  (default `stan`) and requires a matching non-NULL implementation in `info`.
+  Construction keeps the code unchanged; it does not compile or translate it.
+  Stored code is read from the selected implementation's `model_code`
+  path. Model info that does not record a path uses the
+  conventional `models/<framework>/<name>.<extension>` location.
+  For posterior or model-info inputs, the supplied object's implementation
+  metadata selects the file for both code and file-path access. A posterior
+  can look up additional implementations through its attached database.
 }
 \seealso{
 framework()

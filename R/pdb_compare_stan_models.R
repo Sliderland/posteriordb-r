@@ -18,11 +18,10 @@ pdb_compare_stan_models <- function(
     collapse = "\n"
   ))
 
-  if (digest::sha1(mc1) == digest::sha1(mc2)) {
+  if (identical(mc1, mc2)) {
     warning("The exact same model code is compared.", call. = FALSE)
   }
 
-  # Do hash-check and warn if the exact same code is used
   utils::capture.output(
     sm1 <- suppressWarnings(run_stan.pdb_posterior(
       po,
