@@ -1,5 +1,3 @@
-context("test-rename-pdb")
-
 make_rename_fixture <- function() {
   parent <- tempfile("posteriordb-rename-")
   root <- file.path(parent, "database")
