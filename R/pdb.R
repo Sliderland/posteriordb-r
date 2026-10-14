@@ -1087,6 +1087,16 @@ pdb_write_output_path <- function(
   if (zip) pdb_local_resource_path(pdb, paste0(relative, ".zip")) else filepath
 }
 
+# Writers check every destination before writing any, so an existing file
+# cannot leave a partial write behind.
+assert_no_existing_outputs <- function(paths, overwrite) {
+  existing <- paths[file.exists(paths)]
+  if (!overwrite && length(existing)) {
+    stop("File already exists: ", existing[[1L]], call. = FALSE)
+  }
+  invisible(paths)
+}
+
 # Resolve existing ancestors so missing directories cannot hide an escaping
 # symlink. This checks the filesystem before mutation; it does not lock it.
 pdb_local_resource_path <- function(pdb, path) {

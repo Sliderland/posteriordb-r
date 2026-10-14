@@ -531,14 +531,17 @@ write_pdb.pdb_reference_posterior_draws <- function(
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
   reference_posterior_name <- info(x)$name
-  pdb_reference_output_paths(
-    pdb,
-    reference_posterior_name,
-    if (write_summary_statistics) {
-      supported_summary_statistic_types()
-    } else {
-      character()
-    }
+  assert_no_existing_outputs(
+    pdb_reference_output_paths(
+      pdb,
+      reference_posterior_name,
+      if (write_summary_statistics) {
+        supported_summary_statistic_types()
+      } else {
+        character()
+      }
+    ),
+    overwrite = overwrite
   )
   posterior_paths <- reference_draw_posterior_paths(pdb, reference_posterior_name,
     posterior_name)
@@ -631,12 +634,15 @@ write_pdb.pdb_reference_posterior_summary_statistic <- function(
   assert_reference_posterior_summary_statistic(x)
   assert_checked_summary_statistics_draws(x)
   sstype <- summary_statistic_type(x)
-  pdb_write_output_path(
-    pdb,
-    paste0("reference_posteriors/summary_statistics/", sstype, "/", sstype),
-    "json",
-    info(x)$name,
-    info = FALSE
+  assert_no_existing_outputs(
+    pdb_write_output_path(
+      pdb,
+      paste0("reference_posteriors/summary_statistics/", sstype, "/", sstype),
+      "json",
+      info(x)$name,
+      info = FALSE
+    ),
+    overwrite = overwrite
   )
   write_pdb(info(x), pdb = pdb, overwrite = overwrite, type = sstype)
   write_json_to_path(
@@ -660,13 +666,16 @@ write_pdb.pdb_reference_posterior_summary_statistic <- function(
 #' @export
 write_pdb.pdb_data <- function(x, pdb, overwrite = FALSE, ...) {
   assert_data(x)
-  pdb_write_output_path(
-    pdb,
-    "data/data",
-    "json",
-    info(x)$name,
-    zip = TRUE,
-    info = FALSE
+  assert_no_existing_outputs(
+    pdb_write_output_path(
+      pdb,
+      "data/data",
+      "json",
+      info(x)$name,
+      zip = TRUE,
+      info = FALSE
+    ),
+    overwrite = overwrite
   )
   write_pdb(info(x), pdb = pdb, overwrite = overwrite)
   write_json_to_path(
@@ -727,12 +736,15 @@ write_pdb.stanmodel <- function(x, pdb, overwrite = FALSE, ...) {
 #' @export
 write_pdb.pdb_model_code <- function(x, pdb, overwrite = FALSE, ...) {
   assert_model_code(x)
-  pdb_write_output_path(
-    pdb,
-    paste0("models/", framework(x)),
-    framework(x),
-    info(x)$name,
-    info = FALSE
+  assert_no_existing_outputs(
+    pdb_write_output_path(
+      pdb,
+      paste0("models/", framework(x)),
+      framework(x),
+      info(x)$name,
+      info = FALSE
+    ),
+    overwrite = overwrite
   )
   write_pdb(info(x), pdb, overwrite = overwrite)
   write_model_code_to_path(

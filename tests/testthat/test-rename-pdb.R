@@ -686,3 +686,19 @@ test_that("renamed objects returned in memory carry the new names", {
   )
   expect_identical(renamed_posterior$reference_posterior_name, "posterior_new")
 })
+
+test_that("write_pdb refuses an existing payload before writing its metadata", {
+  fixture <- make_rename_fixture()
+  data <- get_data("data_old", fixture$pdb)
+  data_info <- info(data)
+  data_info$name <- "data_copy"
+  data_info$data_file <- "data/data/data_copy.json"
+  info(data) <- data_info
+  file.copy(
+    file.path(fixture$root, "data/data/data_old.json.zip"),
+    file.path(fixture$root, "data/data/data_copy.json.zip")
+  )
+  before <- rename_fixture_bytes(fixture$root)
+  expect_error(write_pdb(data, fixture$pdb), "already exists")
+  expect_identical(rename_fixture_bytes(fixture$root), before)
+})
