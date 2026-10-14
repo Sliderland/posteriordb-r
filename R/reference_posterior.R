@@ -48,13 +48,27 @@ reference_posterior_info.pdb_posterior <- function(x, type, ...) {
   if (identical(type, "draws") && !is.null(x$embedded_reference_draws)) {
     return(info(x$embedded_reference_draws))
   }
-  if (is.null(pdb(x))) stop("Only embedded reference draws are available; attach a database to read reference summaries.", call. = FALSE)
-  read_reference_posterior_info(x = x$reference_posterior_name, type = type, pdb = pdb(x))
+  if (is.null(pdb(x))) {
+    stop(
+      "Only embedded reference draws are available; attach a database to read reference summaries.",
+      call. = FALSE
+    )
+  }
+  read_reference_posterior_info(
+    x = x$reference_posterior_name,
+    type = type,
+    pdb = pdb(x)
+  )
 }
 
 #' @rdname reference_posterior_info
 #' @export
-reference_posterior_info.character <- function(x, type, pdb = pdb_default(), ...) {
+reference_posterior_info.character <- function(
+  x,
+  type,
+  pdb = pdb_default(),
+  ...
+) {
   reference_posterior_info(x = posterior(x, pdb), type = type)
 }
 
@@ -74,14 +88,20 @@ as.reference_posterior_info.list <- function(x, type = NULL, pdb = NULL, ...) {
 #' @noRd
 #' @keywords internal
 read_reference_posterior_info <- function(x, type, pdb = NULL, ...) {
-  if(is.null(x)) stop("There is currently no reference posterior for this posterior.")
+  if (is.null(x)) {
+    stop("There is currently no reference posterior for this posterior.")
+  }
   type_path <- reference_posterior_type_path(type)
-  reference_posterior_info <- read_info_json(x, path = paste0("reference_posteriors/", type_path, "/info"), pdb = pdb, ...)
+  reference_posterior_info <- read_info_json(
+    x,
+    path = paste0("reference_posteriors/", type_path, "/info"),
+    pdb = pdb,
+    ...
+  )
   class(reference_posterior_info) <- "pdb_reference_posterior_info"
   assert_reference_posterior_info(reference_posterior_info)
   reference_posterior_info
 }
-
 
 
 #' Read reference_posterior_draws json object
@@ -92,10 +112,19 @@ read_reference_posterior_info <- function(x, type, pdb = NULL, ...) {
 #' @keywords internal
 read_reference_posterior_draws <- function(x, pdb, ...) {
   checkmate::assert_string(x, null.ok = TRUE)
-  if(is.null(x)) stop("There is currently no reference posterior for this posterior.", call. = FALSE)
+  if (is.null(x)) {
+    stop(
+      "There is currently no reference posterior for this posterior.",
+      call. = FALSE
+    )
+  }
   checkmate::assert_class(pdb, classes = "pdb")
 
-  rpfp <- pdb_cached_local_file_path(pdb, file.path("reference_posteriors", "draws", "draws", paste0(x, ".json")), unzip = TRUE)
+  rpfp <- pdb_cached_local_file_path(
+    pdb,
+    file.path("reference_posteriors", "draws", "draws", paste0(x, ".json")),
+    unzip = TRUE
+  )
   rpd <- jsonlite::read_json(rpfp, simplifyVector = FALSE)
   rpd <- lapply(rpd, FUN = function(X) lapply(X, as.numeric))
   rpd <- posterior::as_draws_list(rpd)
@@ -120,14 +149,25 @@ reference_posterior_draws_file_path <- function(x, ...) {
 #' @rdname reference_posterior_draws_file_path
 #' @export
 reference_posterior_draws_file_path.pdb_posterior <- function(x, ...) {
-  if (!is.null(x$embedded_reference_draws)) stop("This in-memory posterior is not persisted; its embedded reference draws have no database file path.", call. = FALSE)
-  if(is.null(x$reference_posterior_name)) stop2("There is currently no gold standard for this posterior.")
+  if (!is.null(x$embedded_reference_draws)) {
+    stop(
+      "This in-memory posterior is not persisted; its embedded reference draws have no database file path.",
+      call. = FALSE
+    )
+  }
+  if (is.null(x$reference_posterior_name)) {
+    stop2("There is currently no gold standard for this posterior.")
+  }
   reference_posterior_draws_file_path(x$reference_posterior_name, pdb = pdb(x))
 }
 
 #' @rdname reference_posterior_draws_file_path
 #' @export
-reference_posterior_draws_file_path.character <- function(x, pdb = pdb_default(), ...) {
+reference_posterior_draws_file_path.character <- function(
+  x,
+  pdb = pdb_default(),
+  ...
+) {
   checkmate::assert_string(x)
   fp <- paste0("reference_posteriors/draws/draws/", x, ".json")
   rpfp <- pdb_cached_local_file_path(pdb, path = fp, unzip = TRUE)
@@ -137,7 +177,11 @@ reference_posterior_draws_file_path.character <- function(x, pdb = pdb_default()
 
 #' @rdname reference_posterior_draws_file_path
 #' @export
-reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(x, pdb = pdb_default(), ...) {
+reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(
+  x,
+  pdb = pdb_default(),
+  ...
+) {
   reference_posterior_draws_file_path(x$name, pdb, ...)
 }
 
@@ -163,13 +207,13 @@ reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(x, 
 #'   `as.pdb_reference_posterior_draws()` has the same wrapping behavior.
 #' @return A `pdb_reference_posterior_draws` object.
 #' @export
-reference_posterior_draws <- function(x, ...){
+reference_posterior_draws <- function(x, ...) {
   UseMethod("reference_posterior_draws")
 }
 
 #' @rdname reference_posterior_draws
 #' @export
-as.reference_posterior_draws <- function(x, ...){
+as.reference_posterior_draws <- function(x, ...) {
   UseMethod("as.reference_posterior_draws")
 }
 
@@ -183,30 +227,36 @@ as.pdb_reference_posterior_draws <- as.reference_posterior_draws
 
 #' @rdname reference_posterior_draws
 #' @export
-reference_posterior_draws.character <- function(x, pdb = pdb_default(), ...){
+reference_posterior_draws.character <- function(x, pdb = pdb_default(), ...) {
   reference_posterior_draws(posterior(x, pdb = pdb))
 }
 
 #' @rdname reference_posterior_draws
 #' @export
-reference_posterior_draws.pdb_posterior <- function(x, ...){
-  if (!is.null(x$embedded_reference_draws)) return(x$embedded_reference_draws)
+reference_posterior_draws.pdb_posterior <- function(x, ...) {
+  if (!is.null(x$embedded_reference_draws)) {
+    return(x$embedded_reference_draws)
+  }
   read_reference_posterior_draws(x = x$reference_posterior_name, pdb = pdb(x))
 }
 
 #' @rdname reference_posterior_draws
 #' @export
-reference_posterior_draws.pdb_reference_posterior_info <- function(x, pdb = pdb_default(), ...){
+reference_posterior_draws.pdb_reference_posterior_info <- function(
+  x,
+  pdb = pdb_default(),
+  ...
+) {
   read_reference_posterior_draws(x = x$name, pdb = pdb)
 }
 
 #' @rdname reference_posterior_draws
 #' @export
-as.reference_posterior_draws.draws_list <- function(x, info, pdb = NULL, ...){
+as.reference_posterior_draws.draws_list <- function(x, info, pdb = NULL, ...) {
   checkmate::assert_class(info, "pdb_reference_posterior_info")
   x <- posterior::as_draws_list(posterior::as_draws(x))
   names(x) <- NULL
-  for(i in seq_along(x)){
+  for (i in seq_along(x)) {
     x[[i]]$lp__ <- NULL
   }
 
@@ -220,19 +270,22 @@ as.reference_posterior_draws.draws_list <- function(x, info, pdb = NULL, ...){
 
 #' @rdname reference_posterior_draws
 #' @export
-assert_reference_posterior_draws <- function(x){
+assert_reference_posterior_draws <- function(x) {
   checkmate::assert_class(x, c("pdb_reference_posterior_draws", "draws_list"))
 
   checkmate::assert_class(info(x), c("pdb_reference_posterior_info"))
 
   # Assert named chains has the same parameter names
   par_names <- lapply(x, names)
-  for(i in seq_along(par_names)){
+  for (i in seq_along(par_names)) {
     checkmate::assert_names(par_names[[i]], type = "unique")
-    checkmate::assert_true(identical(par_names[[1]],par_names[[i]]))
-    for (variable in x[[i]])
-      checkmate::assert_true(length(variable) == length(x[[1]][[1]]),
-        .var.name = "draw variable lengths")
+    checkmate::assert_true(identical(par_names[[1]], par_names[[i]]))
+    for (variable in x[[i]]) {
+      checkmate::assert_true(
+        length(variable) == length(x[[1]][[1]]),
+        .var.name = "draw variable lengths"
+      )
+    }
   }
 
   # Assert chains don't have names
@@ -242,41 +295,90 @@ assert_reference_posterior_draws <- function(x){
 #' Assert a [pdb_reference_posterior_info] object
 #' @param x a an object to assert is a [pdb_reference_posterior_info] object.
 #' @keywords internal
-assert_reference_posterior_info <- function(x){
+assert_reference_posterior_info <- function(x) {
   checkmate::assert_class(x, "pdb_reference_posterior_info")
-  checkmate::assert_names(names(x), permutation.of = c("name", "inference", "diagnostics", "checks_made", "comments", "added_by", "added_date", "versions"))
+  checkmate::assert_names(
+    names(x),
+    permutation.of = c(
+      "name",
+      "inference",
+      "diagnostics",
+      "checks_made",
+      "comments",
+      "added_by",
+      "added_date",
+      "versions"
+    )
+  )
   assert_pdb_resource_name(x$name)
 
-  checkmate::assert_true(x$inference$method %in% c("stan_sampling", "analytical"))
+  checkmate::assert_true(
+    x$inference$method %in% c("stan_sampling", "analytical")
+  )
   checkmate::assert_list(x$inference$method_arguments)
 
-  if(!is.null(x$diagnostics)){
-    checkmate::assert_names(names(x$diagnostics),
-                            must.include = c("ndraws"))
-    if(x$inference$method == "stan_sampling"){
-      checkmate::assert_names(names(x$diagnostics),
-                              must.include = c("nchains",
-                                               "effective_sample_size_bulk",
-                                               "effective_sample_size_tail",
-                                               "r_hat",
-                                               "divergent_transitions",
-                                               "expected_fraction_of_missing_information"))
+  if (!is.null(x$diagnostics)) {
+    checkmate::assert_names(names(x$diagnostics), must.include = c("ndraws"))
+    if (x$inference$method == "stan_sampling") {
+      checkmate::assert_names(
+        names(x$diagnostics),
+        must.include = c(
+          "nchains",
+          "effective_sample_size_bulk",
+          "effective_sample_size_tail",
+          "r_hat",
+          "divergent_transitions",
+          "expected_fraction_of_missing_information"
+        )
+      )
     }
   }
-  if(!is.null(x$checks_made)){
+  if (!is.null(x$checks_made)) {
     checkmate::assert_named(x$checks_made)
   }
 
   checkmate::assert_string(x$added_by)
   checkmate::assert_date(x$added_date)
-  if(!is.null(x$versions)){
-    checkmate::assert_names(names(x$versions), subset.of = c("rstan_version", "cmdstanr_version", "cmdstan_version", "stan_version", "posterior_version", "r_Makevars", "r_version", "r_session", "r_summary_statistic"))
-    if(!is.null(x$versions$rstan_version)){
-      checkmate::assert_names(names(x$versions), must.include = c("rstan_version", "r_Makevars", "r_version", "r_session"))
-    } else if(!is.null(x$versions$cmdstan_version) || !is.null(x$versions$cmdstanr_version)){
-      checkmate::assert_names(names(x$versions), must.include = c("cmdstan_version", "r_Makevars", "r_version", "r_session"))
+  if (!is.null(x$versions)) {
+    checkmate::assert_names(
+      names(x$versions),
+      subset.of = c(
+        "rstan_version",
+        "cmdstanr_version",
+        "cmdstan_version",
+        "stan_version",
+        "posterior_version",
+        "r_Makevars",
+        "r_version",
+        "r_session",
+        "r_summary_statistic"
+      )
+    )
+    if (!is.null(x$versions$rstan_version)) {
+      checkmate::assert_names(
+        names(x$versions),
+        must.include = c(
+          "rstan_version",
+          "r_Makevars",
+          "r_version",
+          "r_session"
+        )
+      )
+    } else if (
+      !is.null(x$versions$cmdstan_version) ||
+        !is.null(x$versions$cmdstanr_version)
+    ) {
+      checkmate::assert_names(
+        names(x$versions),
+        must.include = c(
+          "cmdstan_version",
+          "r_Makevars",
+          "r_version",
+          "r_session"
+        )
+      )
     }
-    for(i in seq_along(x$versions)){
+    for (i in seq_along(x$versions)) {
       checkmate::assert_string(x$versions[[i]])
     }
   }
@@ -291,24 +393,38 @@ assert_reference_posterior_info <- function(x){
 #'   selections clear acceptance flags and reports; recheck before writing.
 #'   The class chain and attached connection are preserved.
 #' @export
-subset.pdb_reference_posterior_draws <- function(x, variable, ...){
+subset.pdb_reference_posterior_draws <- function(x, variable, ...) {
   requireNamespace("posterior")
   attrs <- attributes(x)
   previous_variables <- posterior::variables(x)
-  class(x) <- class(x)[-seq_len(match("pdb_reference_posterior_draws", class(x)))]
+  class(x) <- class(x)[
+    -seq_len(match("pdb_reference_posterior_draws", class(x)))
+  ]
   x <- subset(x, variable = variable, regex = FALSE)
   selected_variables <- posterior::variables(x)
   if (!identical(selected_variables, previous_variables)) {
     diagnostics <- attrs$info$diagnostics
     if (!is.null(diagnostics)) {
-      for (key in c("effective_sample_size_bulk", "effective_sample_size_tail",
-                    "r_hat", "mean_lag1_ac")) {
+      for (key in c(
+        "effective_sample_size_bulk",
+        "effective_sample_size_tail",
+        "r_hat",
+        "mean_lag1_ac"
+      )) {
         values <- diagnostics[[key]]
         if (!is.null(values)) {
           indices <- if (is.null(names(values))) {
-            match(selected_variables, diagnostics$diagnostic_information$names %||% previous_variables)
-          } else selected_variables
-          diagnostics[[key]] <- stats::setNames(values[indices], selected_variables)
+            match(
+              selected_variables,
+              diagnostics$diagnostic_information$names %||% previous_variables
+            )
+          } else {
+            selected_variables
+          }
+          diagnostics[[key]] <- stats::setNames(
+            values[indices],
+            selected_variables
+          )
         }
       }
       diagnostics$diagnostic_information$names <- selected_variables
@@ -343,7 +459,9 @@ print.pdb_reference_posterior_info <- function(x, ...) {
   print_list(x$inference$method_arguments)
 }
 
-supported_reference_posterior_types <- function() c("draws", supported_summary_statistic_types())
+supported_reference_posterior_types <- function() {
+  c("draws", supported_summary_statistic_types())
+}
 
 reference_posterior_type_path <- function(type) {
   checkmate::assert_choice(type, supported_reference_posterior_types())
@@ -366,25 +484,33 @@ reference_posterior_type_path <- function(type) {
 #'   and the class chain are preserved. A thinning period of one leaves the
 #'   object unchanged.
 #'
-#' @export thin_draws.pdb_reference_posterior_draws
 #' @exportS3Method posterior::thin_draws
-thin_draws.pdb_reference_posterior_draws <- function(x, thin, ...){
+thin_draws.pdb_reference_posterior_draws <- function(x, thin, ...) {
   checkmate::assert_int(thin, lower = 1L)
   original <- x
   rpdi <- info(x)
   connection <- pdb(x)
-  class(x) <- class(x)[-seq_len(match("pdb_reference_posterior_draws", class(x)))]
+  class(x) <- class(x)[
+    -seq_len(match("pdb_reference_posterior_draws", class(x)))
+  ]
   x <- posterior::thin_draws(x, thin, ...)
-  if (posterior::ndraws(x) == posterior::ndraws(original)) return(original)
+  if (posterior::ndraws(x) == posterior::ndraws(original)) {
+    return(original)
+  }
   rpdi$diagnostics <- bundle_reference_diagnostic_info(
-    list(), posterior::ndraws(x), posterior::nchains(x), posterior::variables(x)
+    list(),
+    posterior::ndraws(x),
+    posterior::nchains(x),
+    posterior::variables(x)
   )
   rpdi["checks_made"] <- list(NULL)
   x <- as.pdb_reference_posterior_draws(x, rpdi, pdb = connection)
   class(x) <- class(original)
   attr(x, "diagnostic_report") <- NULL
   sampler <- attr(original, "sampler_diagnostics")
-  if (!is.null(sampler)) attr(x, "sampler_diagnostics") <- posterior::thin_draws(sampler, thin, ...)
+  if (!is.null(sampler)) {
+    attr(x, "sampler_diagnostics") <- posterior::thin_draws(sampler, thin, ...)
+  }
   metadata <- attr(original, "sampling_metadata")
   if (!is.null(metadata)) {
     metadata$expected_fraction_of_missing_information <- NULL
