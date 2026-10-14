@@ -62,3 +62,17 @@ test_that("posterior code and file-path getters use the same supplied metadata",
     "# additional implementation"
   )
 })
+
+test_that("removal only modifies local databases", {
+  metadata <- as.pdb_model_info(list(
+    name = "model",
+    title = "Model",
+    framework = "stan",
+    added_by = "test",
+    added_date = Sys.Date()
+  ))
+  expect_error(
+    remove_pdb(metadata, structure(list(), class = "pdb")),
+    "pdb_local"
+  )
+})

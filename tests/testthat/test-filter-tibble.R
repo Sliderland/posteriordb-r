@@ -1,6 +1,7 @@
 context("test-filter-tibble")
 
 test_that("Filter posteriors locally and on github", {
+  local_test_database()
   assert_pdb_path_exists()
   expect_silent(pdb_test <- pdb_local())
   expect_silent(
