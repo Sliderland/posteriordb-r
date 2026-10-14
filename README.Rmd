@@ -221,6 +221,11 @@ settings and removing its copy even on failure. This also applies to
 `testthat::test_file()` and `devtools::test()` through the safety helper. Keep
 helper loading enabled. Tests never clone a database implicitly.
 
+Corpus check tests (`test-check_pdb.R`, `test-check_posterior.R`) check only the
+eight-schools posteriors by default. Set `PDB_TEST_ALL_POSTERIORS=true` to check
+every posterior in `PDB_PATH` instead; with `PDB_TEST_STAN=true` this compiles
+every Stan model and can take hours.
+
 Real Stan tests require the selected backend and compiler; live GitHub tests
 also require the existing credentials. The older contribution integration
 test runs a substantial sampling job and needs both database and Stan flags.
