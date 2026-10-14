@@ -68,3 +68,75 @@ test_that("local lookup and metadata tables do not require optional workflow pac
   expect_identical(table$name, "inputs-model")
   expect_output(print(connection), "Posterior Database")
 })
+
+test_that("posterior name lookups warn about extras without changing their result", {
+  connection <- optional_dependency_database()
+  expect_silent(expected <- posterior("inputs-model", connection))
+  expect_warning(
+    actual <- posterior("inputs-model", connection, typo = TRUE),
+    "disregarded"
+  )
+  expect_identical(actual, expected)
+  expect_warning(
+    actual <- pdb_posterior("inputs-model", connection, TRUE),
+    "disregarded"
+  )
+  expect_identical(actual, expected)
+  expect_warning(
+    actual <- posterior(
+      "inputs-model",
+      connection,
+      ignored = stop("Unused arguments must not be evaluated")
+    ),
+    "disregarded"
+  )
+  expect_identical(actual, expected)
+  expect_warning(
+    actual <- posterior(
+      "inputs-model",
+      connection,
+      allowed = stop("Unused arguments must not be evaluated"),
+      which.call = stop("Unused arguments must not be evaluated")
+    ),
+    "disregarded"
+  )
+  expect_identical(actual, expected)
+})
+
+test_that("configuration selects only supported constructors without evaluating YAML", {
+  skip_if_not_installed("yaml")
+  connection <- optional_dependency_database()
+  directory <- connection$pdb_local_endpoint
+  config <- file.path(directory, ".pdb_config.yml")
+  yaml::write_yaml(list(type = "local", path = directory), config)
+  expect_identical(pdb_config(directory)$pdb_local_endpoint, directory)
+  sentinel <- file.path(directory, "injected")
+  withr::local_options(list(yaml.eval.expr = TRUE))
+  writeLines(
+    c(
+      "type: !expr |",
+      paste0(
+        "  {writeLines('executed', ",
+        encodeString(sentinel, quote = '"'),
+        "); 'unknown'}"
+      )
+    ),
+    config
+  )
+  expect_error(pdb_config(directory), "obj.+type.+failed")
+  expect_false(file.exists(sentinel))
+  for (type in list(
+    "unknown",
+    c("local", "github"),
+    NULL,
+    paste0(
+      "local; writeLines('injected', ",
+      encodeString(sentinel, quote = '"'),
+      "); pdb_local"
+    )
+  )) {
+    yaml::write_yaml(list(type = type, path = directory), config)
+    expect_error(pdb_config(directory), "obj.+type.+failed")
+    expect_false(file.exists(sentinel))
+  }
+})

@@ -132,7 +132,7 @@ assert_model_info <- function(x) {
       "added_date"
     )
   )
-  checkmate::assert_string(x$name)
+  assert_pdb_resource_name(x$name)
   checkmate::assert_names(
     names(x$model_implementations),
     subset.of = supported_frameworks()

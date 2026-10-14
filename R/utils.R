@@ -1,3 +1,19 @@
+assert_pdb_resource_name <- function(name) {
+  checkmate::assert_string(name, min.chars = 1)
+  if (
+    name %in%
+      c(".", "..") ||
+      grepl("[/\\\\]", name) ||
+      grepl("[[:cntrl:]]", name)
+  ) {
+    stop(
+      "Names must be single path components without separators or control characters.",
+      call. = FALSE
+    )
+  }
+  invisible(name)
+}
+
 remove_file_extension <- function(x) {
   checkmate::assert_character(x, pattern = "\\..{1,5}$")
   tools::file_path_sans_ext(x)
