@@ -2,13 +2,18 @@ test_that("write data", {
   local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
-  expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
+  expect_silent(
+    po <- posterior("eight_schools-eight_schools_centered", pdb_test)
+  )
   expect_silent(d <- get_data(po))
 
   # Test write data
-  di <- info(d); di$name <- "test_data"; info(d) <- di
+  di <- info(d)
+  di$name <- "test_data"
+  info(d) <- di
   expect_error(write_pdb(d, pdb_test), "data_file")
-  di$data_file <- "data/data/test_data.json"; info(d) <- di
+  di$data_file <- "data/data/test_data.json"
+  info(d) <- di
   expect_silent(write_pdb(d, pdb_test))
   expect_error(write_pdb(d, pdb_test), "already exists")
   expect_silent(write_pdb(d, pdb_test, overwrite = TRUE))
@@ -40,14 +45,18 @@ test_that("write model", {
   local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
-  expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
+  expect_silent(
+    po <- posterior("eight_schools-eight_schools_centered", pdb_test)
+  )
   expect_silent(sc <- stan_code(po))
 
   # Test write model info
   mi <- info(sc)
   mi$name <- "test_model"
   mi$title <- mi$description <- "Test model"
-  mi$model_implementations <- list(stan = list(model_code = "models/stan/test_model.stan"))
+  mi$model_implementations <- list(
+    stan = list(model_code = "models/stan/test_model.stan")
+  )
 
   # Test write model
   info(sc) <- mi
@@ -61,7 +70,10 @@ test_that("write model", {
   # Remove model
   expect_silent(remove_pdb(sc, pdb = pdb_test))
   pdb_clear_cache(pdb_test)
-  expect_error(pdb_model_code("test_model", "stan", pdb = pdb_test), "File does not exist")
+  expect_error(
+    pdb_model_code("test_model", "stan", pdb = pdb_test),
+    "File does not exist"
+  )
   expect_error(pdb_model_info("test_model", pdb_test), "File does not exist")
 
   # Write model info
@@ -84,14 +96,13 @@ test_that("write model", {
 })
 
 
-
-
-
 test_that("write posterior", {
   local_test_database()
 
   expect_silent(pdb_test <- pdb_local())
-  expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
+  expect_silent(
+    po <- posterior("eight_schools-eight_schools_centered", pdb_test)
+  )
   expect_silent(sc <- stan_code(po))
   expect_silent(d <- pdb_data(po))
 
@@ -128,21 +139,26 @@ test_that("write posterior", {
   # Remove posterior
   expect_silent(remove_pdb(pot, pdb = pdb_test))
   pdb_clear_cache(pdb_test)
-  expect_error(posterior("test_data-test_model", pdb_test), "File does not exist")
+  expect_error(
+    posterior("test_data-test_model", pdb_test),
+    "File does not exist"
+  )
 
   remove_pdb(sc, pdb = pdb_test)
   remove_pdb(d, pdb = pdb_test)
-
 })
-
 
 
 test_that("write reference_posterior", {
   local_test_database()
-  if(on_github_actions()) skip_on_os("windows")
+  if (on_github_actions()) {
+    skip_on_os("windows")
+  }
 
   expect_silent(pdb_test <- pdb_local())
-  expect_silent(po <- posterior("eight_schools-eight_schools_centered", pdb_test))
+  expect_silent(
+    po <- posterior("eight_schools-eight_schools_centered", pdb_test)
+  )
   expect_silent(gsd <- reference_posterior_draws(po))
   gsi <- info(gsd)
   gsi$checks_made <- list(
@@ -168,7 +184,9 @@ test_that("write reference_posterior", {
   expect_error(write_pdb(gsd, pdb_test), "already exists")
   expect_silent(write_pdb(gsd, pdb_test, overwrite = TRUE))
 
-  expect_silent(rpt <- pdb_reference_posterior_draws(x = "test_data-test_model", pdb_test))
+  expect_silent(
+    rpt <- pdb_reference_posterior_draws(x = "test_data-test_model", pdb_test)
+  )
 
   expect_identical(info(gsd)$added_by, info(rpt)$added_by)
   expect_identical(gsd, rpt)
@@ -176,7 +194,10 @@ test_that("write reference_posterior", {
   # Remove rpd
   expect_silent(remove_pdb(rpt, pdb = pdb_test))
   pdb_clear_cache(pdb_test)
-  expect_error(pdb_reference_posterior_draws("test_data-test_model", pdb_test), "File does not exist")
+  expect_error(
+    pdb_reference_posterior_draws("test_data-test_model", pdb_test),
+    "File does not exist"
+  )
 
   # Test write gsi
   gsi$name <- "test_data-test_model"
@@ -184,7 +205,12 @@ test_that("write reference_posterior", {
   expect_error(write_pdb(gsi, pdb_test, type = "draws"), "already exists")
   expect_silent(write_pdb(gsi, pdb_test, overwrite = TRUE, type = "draws"))
 
-  expect_silent(rpi <- pdb_reference_posterior_draws_info(x = "test_data-test_model", pdb_test))
+  expect_silent(
+    rpi <- pdb_reference_posterior_draws_info(
+      x = "test_data-test_model",
+      pdb_test
+    )
+  )
   expect_identical(gsi, rpi)
   expect_silent(remove_pdb(rpi, pdb = pdb_test, type = "draws"))
 
@@ -199,28 +225,50 @@ test_that("info and model writers save complete, consistent records", {
   }
   pdb_test <- pdb_local(root, cache_path = file.path(root, "cache"))
   di <- as.pdb_data_info(list(
-    name = "fields", title = "Inputs", data_file = "data/data/fields.json",
-    added_by = "test", added_date = Sys.Date()
+    name = "fields",
+    title = "Inputs",
+    data_file = "data/data/fields.json",
+    added_by = "test",
+    added_date = Sys.Date()
   ))
   write_pdb(di, pdb_test)
   stored <- jsonlite::read_json(file.path(root, "data/info/fields.info.json"))
-  expect_setequal(names(stored), c(
-    "name", "data_file", "title", "added_by", "added_date",
-    "references", "description", "urls", "keywords"
-  ))
+  expect_setequal(
+    names(stored),
+    c(
+      "name",
+      "data_file",
+      "title",
+      "added_by",
+      "added_date",
+      "references",
+      "description",
+      "urls",
+      "keywords"
+    )
+  )
 
   mi <- as.pdb_model_info(list(
-    name = "fields", title = "Model", framework = "stan",
-    added_by = "test", added_date = Sys.Date()
+    name = "fields",
+    title = "Model",
+    framework = "stan",
+    added_by = "test",
+    added_date = Sys.Date()
   ))
   write_pdb(mi, pdb_test)
   stored <- jsonlite::read_json(file.path(root, "models/info/fields.info.json"))
   expect_true("keywords" %in% names(stored))
   expect_null(stored$keywords)
 
-  sc <- as.pdb_model_code("parameters { real theta; }", info = mi, framework = "stan")
+  sc <- as.pdb_model_code(
+    "parameters { real theta; }",
+    info = mi,
+    framework = "stan"
+  )
   mi$name <- "no_stan"
-  mi$model_implementations <- list(pymc = list(model_code = "models/pymc/no_stan.py"))
+  mi$model_implementations <- list(
+    pymc = list(model_code = "models/pymc/no_stan.py")
+  )
   info(sc) <- mi
   expect_error(write_pdb(sc, pdb_test), "model_implementations")
   expect_false(file.exists(file.path(root, "models/info/no_stan.info.json")))

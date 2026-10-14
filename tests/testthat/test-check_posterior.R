@@ -10,13 +10,15 @@ test_that("test checking a posterior", {
   # Collect every failure so one broken posterior does not hide the rest.
   failures <- list()
   for (pn in test_posterior_names(pdb_test, "eight_schools")) {
-    res <- tryCatch(check_pdb_posterior(posterior(pn, pdb_test), run_stan_code_checks = TRUE,
-                                        verbose = FALSE),
-                    error = conditionMessage)
+    res <- tryCatch(
+      check_pdb_posterior(
+        posterior(pn, pdb_test),
+        run_stan_code_checks = TRUE,
+        verbose = FALSE
+      ),
+      error = conditionMessage
+    )
     if (!isTRUE(res)) failures[[pn]] <- res
   }
   expect_equal(failures, list())
-
 })
-
-

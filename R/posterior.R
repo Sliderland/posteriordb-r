@@ -41,8 +41,12 @@ as.posterior <- function(x, pdb = pdb_default(), ...) {
 posterior.character <- function(x, pdb = pdb_default(), ...) {
   checkmate::assert_string(x)
   checkmate::assert_class(pdb, "pdb")
-  if (...length())
-    warning("Extra arguments to posterior name lookup will be disregarded.", call. = FALSE)
+  if (...length()) {
+    warning(
+      "Extra arguments to posterior name lookup will be disregarded.",
+      call. = FALSE
+    )
+  }
   x <- handle_aliases(x, type = "posteriors", pdb)
   po <- read_info_json(x, "posteriors", pdb)
   pdb(po) <- pdb
@@ -58,7 +62,7 @@ posterior.character <- function(x, pdb = pdb_default(), ...) {
 as.posterior.list <- function(x, pdb = pdb_default(), ...) {
   supplied_model_code <- x$pdb_model_code
   supplied_data <- x$pdb_data
-  if(!is.null(x$pdb_model_code) & !is.null(x$pdb_data)){
+  if (!is.null(x$pdb_model_code) & !is.null(x$pdb_data)) {
     # We setup the posterior object from a data and model object
     mci <- info(x$pdb_model_code)
     di <- info(x$pdb_data)
@@ -70,31 +74,53 @@ as.posterior.list <- function(x, pdb = pdb_default(), ...) {
     x$pdb_model_code <- NULL
     x$pdb_data <- NULL
   }
-  if(is.null(x$reference_posterior_name)){
+  if (is.null(x$reference_posterior_name)) {
     x["reference_posterior_name"] <- list(NULL)
   }
-  if(is.null(x$added_by)){
+  if (is.null(x$added_by)) {
     x$added_by <- unname(Sys.info()["user"])
     message("'added_by' set to '", x$added_by, "'")
   }
-  if(is.null(x$added_date)){
+  if (is.null(x$added_date)) {
     x$added_date <- Sys.Date()
   }
-  if(is.null(x$dimensions)){
+  if (is.null(x$dimensions)) {
     if (is.null(supplied_model_code) || is.null(supplied_data)) {
-      stop("Posterior dimensions are missing. Supply unconstrained parameter counts or provide `pdb_model_code` and `pdb_data` so they can be inferred.", call. = FALSE)
+      stop(
+        "Posterior dimensions are missing. Supply unconstrained parameter counts or provide `pdb_model_code` and `pdb_data` so they can be inferred.",
+        call. = FALSE
+      )
     }
-    code <- if (inherits(supplied_model_code, "pdb_model_code")) as.character(supplied_model_code) else supplied_model_code
-    if (inherits(supplied_model_code, "pdb_model_code") && !identical(framework(supplied_model_code), "stan"))
-      stop("Unconstrained dimension inference currently supports Stan model code only.", call. = FALSE)
-    x$dimensions <- infer_posterior_dimensions(code, supplied_data, backend = "rstan")
+    code <- if (inherits(supplied_model_code, "pdb_model_code")) {
+      as.character(supplied_model_code)
+    } else {
+      supplied_model_code
+    }
+    if (
+      inherits(supplied_model_code, "pdb_model_code") &&
+        !identical(framework(supplied_model_code), "stan")
+    ) {
+      stop(
+        "Unconstrained dimension inference currently supports Stan model code only.",
+        call. = FALSE
+      )
+    }
+    x$dimensions <- infer_posterior_dimensions(
+      code,
+      supplied_data,
+      backend = "rstan"
+    )
   }
   embedded_fields <- intersect(
-    names(x), c("embedded_data", "embedded_model_code", "embedded_reference_draws")
+    names(x),
+    c("embedded_data", "embedded_model_code", "embedded_reference_draws")
   )
   embedded_content <- x[embedded_fields]
   retained_fields <- c(
-    pdb_posterior_must_include(), "urls", "references", "keywords"
+    pdb_posterior_must_include(),
+    "urls",
+    "references",
+    "keywords"
   )
   x <- x[intersect(names(x), retained_fields)]
   x[embedded_fields] <- embedded_content
@@ -123,11 +149,17 @@ print.pdb_posterior <- function(x, ...) {
 }
 
 
-pdb_posterior_must_include <- function(){
+pdb_posterior_must_include <- function() {
   must.include <- c(
-    "name", "model_name", "data_name", "reference_posterior_name", "dimensions",
-    "model_info", "data_info",
-    "added_by", "added_date"
+    "name",
+    "model_name",
+    "data_name",
+    "reference_posterior_name",
+    "dimensions",
+    "model_info",
+    "data_info",
+    "added_by",
+    "added_date"
   )
 }
 
@@ -135,10 +167,12 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_class(x, "pdb_posterior")
   checkmate::assert_list(x)
   checkmate::assert_names(names(x), must.include = pdb_posterior_must_include())
-  for (field in c("name", "data_name", "model_name"))
+  for (field in c("name", "data_name", "model_name")) {
     assert_pdb_resource_name(x[[field]])
-  if (!is.null(x$reference_posterior_name))
+  }
+  if (!is.null(x$reference_posterior_name)) {
     assert_pdb_resource_name(x$reference_posterior_name)
+  }
   checkmate::assert_list(x$dimensions)
   checkmate::assert_named(x$dimensions)
   x$dimensions <- validate_posterior_dimension_counts(x$dimensions)
@@ -150,33 +184,72 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_character(x$references, null.ok = TRUE)
   checkmate::assert_character(x$keywords, null.ok = TRUE)
 
-  embedded <- c("embedded_data", "embedded_model_code", "embedded_reference_draws")
-  if (is.null(pdb(x)) && any(vapply(embedded, function(key) is.null(x[[key]]), logical(1))))
-    stop("A posterior without `pdb` requires embedded data, model code, and reference draws.", call. = FALSE)
-  if (!is.null(pdb(x))) checkmate::assert_class(pdb(x), "pdb")
+  embedded <- c(
+    "embedded_data",
+    "embedded_model_code",
+    "embedded_reference_draws"
+  )
+  if (
+    is.null(pdb(x)) &&
+      any(vapply(embedded, function(key) is.null(x[[key]]), logical(1)))
+  ) {
+    stop(
+      "A posterior without `pdb` requires embedded data, model code, and reference draws.",
+      call. = FALSE
+    )
+  }
+  if (!is.null(pdb(x))) {
+    checkmate::assert_class(pdb(x), "pdb")
+  }
   # A connection supplies fallback content; it must not bypass validation of
   # the in-memory objects that getters prefer over that connection.
   if (!is.null(x$embedded_data)) {
     assert_data(x$embedded_data)
-    if (!identical(info(x$embedded_data), x$data_info) ||
-        !identical(info(x$embedded_data)$name, x$data_name))
-      stop("Embedded data metadata conflicts with the posterior's data link.", call. = FALSE)
+    if (
+      !identical(info(x$embedded_data), x$data_info) ||
+        !identical(info(x$embedded_data)$name, x$data_name)
+    ) {
+      stop(
+        "Embedded data metadata conflicts with the posterior's data link.",
+        call. = FALSE
+      )
+    }
   }
   if (!is.null(x$embedded_model_code)) {
     assert_model_code(x$embedded_model_code)
-    if (!identical(info(x$embedded_model_code), x$model_info) ||
+    if (
+      !identical(info(x$embedded_model_code), x$model_info) ||
         !identical(info(x$embedded_model_code)$name, x$model_name) ||
-        !framework(x$embedded_model_code) %in% names(x$model_info$model_implementations))
-      stop("Embedded model metadata conflicts with the posterior's model link.", call. = FALSE)
+        !framework(x$embedded_model_code) %in%
+          names(x$model_info$model_implementations)
+    ) {
+      stop(
+        "Embedded model metadata conflicts with the posterior's model link.",
+        call. = FALSE
+      )
+    }
   }
   if (!is.null(x$embedded_reference_draws)) {
     assert_reference_posterior_draws(x$embedded_reference_draws)
-    if (!identical(info(x$embedded_reference_draws)$name, x$reference_posterior_name))
-      stop("Embedded reference draws conflict with the posterior's reference link.", call. = FALSE)
+    if (
+      !identical(
+        info(x$embedded_reference_draws)$name,
+        x$reference_posterior_name
+      )
+    ) {
+      stop(
+        "Embedded reference draws conflict with the posterior's reference link.",
+        call. = FALSE
+      )
+    }
     embedded_variables <- posterior::variables(x$embedded_reference_draws)
     present_bases <- unique(sub("\\[.*$", "", embedded_variables))
-    if (length(setdiff(names(x$dimensions), present_bases)))
-      stop("Embedded reference draws are missing parameter variables declared by the posterior.", call. = FALSE)
+    if (length(setdiff(names(x$dimensions), present_bases))) {
+      stop(
+        "Embedded reference draws are missing parameter variables declared by the posterior.",
+        call. = FALSE
+      )
+    }
   }
   invisible(x)
 }

@@ -1,36 +1,89 @@
 test_that("compiled CmdStan CSV imports preserve constrained parameters and honest failures", {
   skip_stan_integration()
   skip_if_not_installed("cmdstanr")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(error) NULL)),
-    "CmdStan is not installed")
+  skip_if(
+    is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(error) NULL)),
+    "CmdStan is not installed"
+  )
   root <- normalizePath(withr::local_tempdir(), winslash = "/")
   source <- file.path(root, "constrained.stan")
   writeLines(constrained_parameter_model(), source)
   model <- cmdstanr::cmdstan_model(source, quiet = TRUE)
   # CmdStanR's unconstraining methods need precision for constrained matrices.
-  fit <- suppressWarnings(model$sample(data = list(), chains = 2, parallel_chains = 2,
-    iter_warmup = 6, iter_sampling = 6, seed = 412, refresh = 0, sig_figs = 18,
-    output_dir = root))
-  expected <- list(weights = 2L, C = 3L, Sigma = 3L, Lcorr = 3L, Lcov = 6L,
-    M = 6L, singleton = 1L, a = 4L, theta = 1L)
+  fit <- suppressWarnings(model$sample(
+    data = list(),
+    chains = 2,
+    parallel_chains = 2,
+    iter_warmup = 6,
+    iter_sampling = 6,
+    seed = 412,
+    refresh = 0,
+    sig_figs = 18,
+    output_dir = root
+  ))
+  expected <- list(
+    weights = 2L,
+    C = 3L,
+    Sigma = 3L,
+    Lcorr = 3L,
+    Lcov = 6L,
+    M = 6L,
+    singleton = 1L,
+    a = 4L,
+    theta = 1L
+  )
   expect_identical(infer_unconstrained_parameter_counts_from_fit(fit), expected)
-  expect_identical(infer_unconstrained_parameter_counts_from_fit(fit,
-    include = "all", exclude = "none"), expected)
-  expect_identical(infer_posterior_dimensions(source, list(), backend = "cmdstanr"), expected)
-  object <- structure(list(name = "constrained-posterior", reference_posterior_name = NULL,
-    dimensions = expected), class = "pdb_posterior")
-  connection <- structure(list(pdb_local_endpoint = root), class = c("pdb_local", "pdb"))
-  imported <- suppressWarnings(import_reference_posterior_draws(fit, object, connection,
-    include = c("twice_theta", "prediction")))
-  default <- suppressWarnings(import_reference_posterior_draws(fit, object, connection))
+  expect_identical(
+    infer_unconstrained_parameter_counts_from_fit(
+      fit,
+      include = "all",
+      exclude = "none"
+    ),
+    expected
+  )
+  expect_identical(
+    infer_posterior_dimensions(source, list(), backend = "cmdstanr"),
+    expected
+  )
+  object <- structure(
+    list(
+      name = "constrained-posterior",
+      reference_posterior_name = NULL,
+      dimensions = expected
+    ),
+    class = "pdb_posterior"
+  )
+  connection <- structure(
+    list(pdb_local_endpoint = root),
+    class = c("pdb_local", "pdb")
+  )
+  imported <- suppressWarnings(import_reference_posterior_draws(
+    fit,
+    object,
+    connection,
+    include = c("twice_theta", "prediction")
+  ))
+  default <- suppressWarnings(import_reference_posterior_draws(
+    fit,
+    object,
+    connection
+  ))
   expect_equal(default, imported)
-  minimal <- suppressWarnings(import_reference_posterior_draws(fit, object, connection,
-    exclude = "all"))
-  expect_false(any(c("twice_theta", "prediction") %in% posterior::variables(minimal)))
+  minimal <- suppressWarnings(import_reference_posterior_draws(
+    fit,
+    object,
+    connection,
+    exclude = "all"
+  ))
+  expect_false(any(
+    c("twice_theta", "prediction") %in% posterior::variables(minimal)
+  ))
   expect_true("fixed[1]" %in% posterior::variables(minimal))
   csv <- cmdstanr::read_cmdstan_csv(fit$output_files())
-  saved <- posterior::subset_draws(csv$post_warmup_draws,
-    variable = setdiff(posterior::variables(csv$post_warmup_draws), "lp__"))
+  saved <- posterior::subset_draws(
+    csv$post_warmup_draws,
+    variable = setdiff(posterior::variables(csv$post_warmup_draws), "lp__")
+  )
   expect_equal(posterior::as_draws_array(imported), saved, ignore_attr = TRUE)
   expect_length(posterior::variables(imported), 49L)
   expect_equal(as.numeric(imported[[1]]$`fixed[1]`), rep(1, 6))
@@ -41,31 +94,74 @@ test_that("compiled CmdStan CSV imports preserve constrained parameters and hone
   expect_null(info(imported)$versions$rstan_version)
   sampler <- fit$sampler_diagnostics(inc_warmup = FALSE, format = "draws_array")
   expect_equal(attr(imported, "sampler_diagnostics"), sampler)
-  efmi <- vapply(seq_len(posterior::nchains(sampler)), function(chain) {
-    energy <- sampler[, chain, "energy__"]
-    mean(diff(energy)^2) / stats::var(energy)
-  }, numeric(1))
-  expect_equal(info(imported)$diagnostics$expected_fraction_of_missing_information, efmi)
+  efmi <- vapply(
+    seq_len(posterior::nchains(sampler)),
+    function(chain) {
+      energy <- sampler[, chain, "energy__"]
+      mean(diff(energy)^2) / stats::var(energy)
+    },
+    numeric(1)
+  )
+  expect_equal(
+    info(imported)$diagnostics$expected_fraction_of_missing_information,
+    efmi
+  )
   report <- suppressWarnings(reference_draw_diagnostics(fit))
-  expect_equal(info(imported)$diagnostics$mean_lag1_ac, report$metrics$mean_lag1_ac)
+  expect_equal(
+    info(imported)$diagnostics$mean_lag1_ac,
+    report$metrics$mean_lag1_ac
+  )
   expect_equal(info(imported)$diagnostics$r_hat, report$metrics$r_hat)
-  expect_equal(info(imported)$diagnostics$expected_fraction_of_missing_information,
-    unname(report$metrics$efmi))
+  expect_equal(
+    info(imported)$diagnostics$expected_fraction_of_missing_information,
+    unname(report$metrics$efmi)
+  )
   expect_false(all(unlist(report$status)))
-  expect_error(import_reference_posterior_draws(fit, object, connection, exclude = "fixed"),
-    "Cannot exclude required")
+  expect_error(
+    import_reference_posterior_draws(
+      fit,
+      object,
+      connection,
+      exclude = "fixed"
+    ),
+    "Cannot exclude required"
+  )
   bad <- object
   bad$dimensions$weights <- 3L
-  expect_error(import_reference_posterior_draws(fit, bad, connection), "unconstrained")
+  expect_error(
+    import_reference_posterior_draws(fit, bad, connection),
+    "unconstrained"
+  )
   before <- list.files(root, recursive = TRUE, all.files = TRUE)
-  expect_error(suppressWarnings(import_reference_posterior_draws(fit, object, connection,
-    write = TRUE)), "checks failed; nothing was written")
+  expect_error(
+    suppressWarnings(import_reference_posterior_draws(
+      fit,
+      object,
+      connection,
+      write = TRUE
+    )),
+    "checks failed; nothing was written"
+  )
   expect_identical(list.files(root, recursive = TRUE, all.files = TRUE), before)
   set.seed(123)
-  thin_fit <- suppressWarnings(model$sample(data = list(), chains = 2, parallel_chains = 2,
-    iter_warmup = 6, iter_sampling = 12, thin = 2, save_warmup = TRUE,
-    seed = 123, refresh = 0, sig_figs = 18, output_dir = root))
-  thin_imported <- suppressWarnings(import_reference_posterior_draws(thin_fit, object, connection))
+  thin_fit <- suppressWarnings(model$sample(
+    data = list(),
+    chains = 2,
+    parallel_chains = 2,
+    iter_warmup = 6,
+    iter_sampling = 12,
+    thin = 2,
+    save_warmup = TRUE,
+    seed = 123,
+    refresh = 0,
+    sig_figs = 18,
+    output_dir = root
+  ))
+  thin_imported <- suppressWarnings(import_reference_posterior_draws(
+    thin_fit,
+    object,
+    connection
+  ))
   arguments <- info(thin_imported)$inference$method_arguments
   expect_equal(arguments$iter, 18L)
   expect_equal(arguments$warmup, 6L)

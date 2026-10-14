@@ -1,12 +1,22 @@
 #' @rdname pdb_local
 #' @export
-pdb_github <- function(repo = getOption("pdb_repo", "stan-dev/posteriordb"),
-                       cache_path = tempdir(),
-                       ref = "master",
-                       subdir = NULL,
-                       auth_token = github_pat(),
-                       host = "https://api.github.com"){
-  pdb(x = repo, pdb_type = "github", cache_path = cache_path, ref = ref, subdir = subdir, pat = auth_token, host = host)
+pdb_github <- function(
+  repo = getOption("pdb_repo", "stan-dev/posteriordb"),
+  cache_path = tempdir(),
+  ref = "master",
+  subdir = NULL,
+  auth_token = github_pat(),
+  host = "https://api.github.com"
+) {
+  pdb(
+    x = repo,
+    pdb_type = "github",
+    cache_path = cache_path,
+    ref = ref,
+    subdir = subdir,
+    pat = auth_token,
+    host = host
+  )
 }
 
 #' Setup a GitHub pdb
@@ -16,14 +26,19 @@ pdb_github <- function(repo = getOption("pdb_repo", "stan-dev/posteriordb"),
 #' @param subdir see \code{pdb_github}.
 #' @param pat see \code{pdb_github}.
 #' @param host see \code{pdb_github}.
-setup_pdb.pdb_github <- function(pdb, ...){
-  if (!requireNamespace("remotes", quietly = TRUE)) stop("The `remotes` package is required for GitHub connections.", call. = FALSE)
+setup_pdb.pdb_github <- function(pdb, ...) {
+  if (!requireNamespace("remotes", quietly = TRUE)) {
+    stop(
+      "The `remotes` package is required for GitHub connections.",
+      call. = FALSE
+    )
+  }
   arg <- list(...)
   pdb$github <- remotes::parse_github_repo_spec(pdb$pdb_id)
-  if(!nzchar(pdb$github$ref)) {
+  if (!nzchar(pdb$github$ref)) {
     pdb$github$ref <- arg$ref
   }
-  if(!nzchar(pdb$github$subdir)) {
+  if (!nzchar(pdb$github$subdir)) {
     pdb$github$subdir <- arg$subdir
   }
   pdb$github$host <- arg$host
@@ -34,18 +49,18 @@ setup_pdb.pdb_github <- function(pdb, ...){
   pdb
 }
 
-paste_github_repo_spec <- function(x){
+paste_github_repo_spec <- function(x) {
   spec <- paste0(x$username, "/", x$repo)
-  if(nzchar(x$subdir)) {
+  if (nzchar(x$subdir)) {
     spec <- paste0(spec, "/", x$subdir)
   }
-  if(nzchar(x$pull)) {
+  if (nzchar(x$pull)) {
     spec <- paste0(spec, "#", x$pull)
   }
-  if(nzchar(x$ref)) {
+  if (nzchar(x$ref)) {
     spec <- paste0(spec, "@", x$ref)
   }
-  if(nzchar(x$release)) {
+  if (nzchar(x$release)) {
     spec <- paste0(spec, "@*", x$release)
   }
   spec
@@ -53,7 +68,7 @@ paste_github_repo_spec <- function(x){
 
 #' @rdname pdb_version
 #' @export
-pdb_version.pdb_github <- function(pdb, ...){
+pdb_version.pdb_github <- function(pdb, ...) {
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "git/ref/heads"), .token = pat)
   list("sha" = ghp$object$sha)
@@ -61,20 +76,33 @@ pdb_version.pdb_github <- function(pdb, ...){
 
 #' @export
 pn.pdb_github <- function(x, ...) {
-  pns <- github_dir(gh_path = github_path(x, type = "contents", path = "posteriors"), pdb = x, files_only = TRUE)
+  pns <- github_dir(
+    gh_path = github_path(x, type = "contents", path = "posteriors"),
+    pdb = x,
+    files_only = TRUE
+  )
   remove_file_extension(pns[endsWith(pns, ".json")])
 }
 
 #' @rdname pdb_file_copy
-pdb_file_copy.pdb_github <- function(pdb, from, to, overwrite = FALSE, ...){
-  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+pdb_file_copy.pdb_github <- function(pdb, from, to, overwrite = FALSE, ...) {
+  if (!requireNamespace("httr", quietly = TRUE)) {
+    stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+  }
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "contents", path = from), .token = pat)
 
-  if(is.null(pat)) {
-    ret <- httr::GET(ghp$download_url, httr::write_disk(to, overwrite = overwrite))
+  if (is.null(pat)) {
+    ret <- httr::GET(
+      ghp$download_url,
+      httr::write_disk(to, overwrite = overwrite)
+    )
   } else {
-    ret <- httr::GET(ghp$download_url, httr::add_headers(c("Authorization" = paste0("token ", pat))), httr::write_disk(to, overwrite = overwrite))
+    ret <- httr::GET(
+      ghp$download_url,
+      httr::add_headers(c("Authorization" = paste0("token ", pat))),
+      httr::write_disk(to, overwrite = overwrite)
+    )
   }
 
   httr::status_code(ret) == 200L
@@ -84,22 +112,39 @@ pdb_file_copy.pdb_github <- function(pdb, from, to, overwrite = FALSE, ...){
 #' @rdname data_names
 #' @export
 data_names.pdb_github <- function(pdb, ...) {
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "data/info"), pdb = pdb, files_only = TRUE)
+  pns <- github_dir(
+    gh_path = github_path(pdb, type = "contents", path = "data/info"),
+    pdb = pdb,
+    files_only = TRUE
+  )
   basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
 #' @rdname data_names
 #' @export
 model_names.pdb_github <- function(pdb, ...) {
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = "models/info"), pdb = pdb, files_only = TRUE)
+  pns <- github_dir(
+    gh_path = github_path(pdb, type = "contents", path = "models/info"),
+    pdb = pdb,
+    files_only = TRUE
+  )
   basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
 #' @rdname reference_posterior_names
 #' @export
 reference_posterior_names.pdb_github <- function(pdb, type, ...) {
-  path <- paste("reference_posteriors", reference_posterior_type_path(type), "info", sep = "/")
-  pns <- github_dir(gh_path = github_path(pdb, type = "contents", path = path), pdb = pdb, files_only = TRUE)
+  path <- paste(
+    "reference_posteriors",
+    reference_posterior_type_path(type),
+    "info",
+    sep = "/"
+  )
+  pns <- github_dir(
+    gh_path = github_path(pdb, type = "contents", path = path),
+    pdb = pdb,
+    files_only = TRUE
+  )
   basename(sub("[.]info[.]json$", "", pns[endsWith(pns, ".info.json")]))
 }
 
@@ -108,9 +153,9 @@ reference_posterior_names.pdb_github <- function(pdb, type, ...) {
 #' @rdname pdb_endpoint
 #' @keywords internal
 pdb_endpoint.pdb_github <- function(pdb, ...) {
-  if(!is_pdb_endpoint(pdb)){
+  if (!is_pdb_endpoint(pdb)) {
     pdb$github$subdir <- "posterior_database"
-    if(!is_pdb_endpoint(pdb)){
+    if (!is_pdb_endpoint(pdb)) {
       stop2("No posterior database in '", pdb$pdb_id, "'.")
     }
   }
@@ -125,25 +170,42 @@ is_pdb_endpoint.pdb_github <- function(pdb, ...) {
   all(pdb_minimum_contents() %in% dir_github)
 }
 
-github_dir <- function(gh_path, pdb, recursive = FALSE, full.names = TRUE, files_only = FALSE, ...){
-  if(recursive) stop("not implemented")
-  if(!full.names) stop("not implemented")
+github_dir <- function(
+  gh_path,
+  pdb,
+  recursive = FALSE,
+  full.names = TRUE,
+  files_only = FALSE,
+  ...
+) {
+  if (recursive) {
+    stop("not implemented")
+  }
+  if (!full.names) {
+    stop("not implemented")
+  }
   checkmate::assert_class(pdb, c("pdb_github"))
   checkmate::assert_flag(files_only)
   x <- gh::gh(gh_path, .token = github_pat(pdb), ...)
-  if (files_only) x <- Filter(function(entry) identical(entry$type, "file"), x)
+  if (files_only) {
+    x <- Filter(function(entry) identical(entry$type, "file"), x)
+  }
   vapply(x, function(entry) entry$name, character(1), USE.NAMES = FALSE)
 }
 
-github_path <- function(pdb, type, path = NULL){
+github_path <- function(pdb, type, path = NULL) {
   checkmate::assert_class(pdb, c("pdb_github"))
   checkmate::assert_choice(type, c("contents", "git/ref/heads"))
   base_path <- file.path("/repos", pdb$github$username, pdb$github$repo)
 
-  if(type == "contents"){
-    final_path <- paste0(file.path0(base_path, "contents", pdb$github$subdir, path), "?ref=", pdb$github$ref)
+  if (type == "contents") {
+    final_path <- paste0(
+      file.path0(base_path, "contents", pdb$github$subdir, path),
+      "?ref=",
+      pdb$github$ref
+    )
     return(final_path)
-  } else if (type == "git/ref/heads"){
+  } else if (type == "git/ref/heads") {
     final_path <- file.path0(base_path, "git/ref/heads", pdb$github$ref)
     return(final_path)
   }
@@ -165,7 +227,9 @@ github_pat <- function(pdb = NULL) {
   if (nzchar(pat)) {
     return(pat)
   }
-  if(is.null(pdb)) return(NULL)
+  if (is.null(pdb)) {
+    return(NULL)
+  }
   pdb$github$pat
 }
 
@@ -180,20 +244,28 @@ github_pat <- function(pdb = NULL) {
 #' @param overwrite Should an existing file be overwritten?
 #' @keywords internal
 #' @noRd
-github_download <- function(download_url, to, pat, overwrite){
+github_download <- function(download_url, to, pat, overwrite) {
   checkmate::assert_string(download_url, pattern = "^http(s)?://")
   checkmate::assert_path_for_output(to, overwrite = TRUE)
   checkmate::assert_string(pat, null.ok = TRUE)
   checkmate::assert_flag(overwrite)
 
-  if(file.exists(to) & !overwrite) return(TRUE)
+  if (file.exists(to) & !overwrite) {
+    return(TRUE)
+  }
 
-  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+  if (!requireNamespace("httr", quietly = TRUE)) {
+    stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+  }
 
-  if(is.null(pat)) {
+  if (is.null(pat)) {
     ret <- httr::GET(download_url, httr::write_disk(to, overwrite = overwrite))
   } else {
-    ret <- httr::GET(download_url, httr::add_headers(c("Authorization" = paste0("token ", pat))), httr::write_disk(to, overwrite = overwrite))
+    ret <- httr::GET(
+      download_url,
+      httr::add_headers(c("Authorization" = paste0("token ", pat))),
+      httr::write_disk(to, overwrite = overwrite)
+    )
   }
   httr::status_code(ret) == 200L
 }
@@ -202,8 +274,10 @@ github_download <- function(download_url, to, pat, overwrite){
 #' @noRd
 #' @rdname pdb_cache_dir
 #' @keywords internal
-pdb_cache_dir.pdb_github <- function(pdb, path, ...){
-  if (!requireNamespace("httr", quietly = TRUE)) stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+pdb_cache_dir.pdb_github <- function(pdb, path, ...) {
+  if (!requireNamespace("httr", quietly = TRUE)) {
+    stop("The `httr` package is required for GitHub downloads.", call. = FALSE)
+  }
   pat <- github_pat(pdb)
   ghp <- gh::gh(github_path(pdb, type = "contents", path = path), .token = pat)
   ghp <- Filter(function(entry) identical(entry$type, "file"), ghp)
@@ -211,13 +285,26 @@ pdb_cache_dir.pdb_github <- function(pdb, path, ...){
   for (entry in ghp) {
     to <- pdb_cache_path(pdb = pdb, path = file.path(path, entry$name))
     was_cached <- file.exists(to)
-    tryCatch({
-      if (!isTRUE(github_download(entry$download_url, to, pat, overwrite = FALSE)))
-        stop("Could not download file to cache: ", to, call. = FALSE)
-    }, error = function(error) {
-      if (!was_cached) unlink(to)
-      stop(error)
-    })
+    tryCatch(
+      {
+        if (
+          !isTRUE(github_download(
+            entry$download_url,
+            to,
+            pat,
+            overwrite = FALSE
+          ))
+        ) {
+          stop("Could not download file to cache: ", to, call. = FALSE)
+        }
+      },
+      error = function(error) {
+        if (!was_cached) {
+          unlink(to)
+        }
+        stop(error)
+      }
+    )
   }
   message("Done.")
 }

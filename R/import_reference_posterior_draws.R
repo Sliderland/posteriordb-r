@@ -65,8 +65,13 @@ as_reference_posterior_draws.stanfit <- function(
   ...
 ) {
   as_reference_posterior_draws_external(
-    fit, posterior, pdb, dimensions,
-    include = include, exclude = exclude, ...
+    fit,
+    posterior,
+    pdb,
+    dimensions,
+    include = include,
+    exclude = exclude,
+    ...
   )
 }
 
@@ -82,8 +87,13 @@ as_reference_posterior_draws.CmdStanMCMC <- function(
   ...
 ) {
   as_reference_posterior_draws_external(
-    fit, posterior, pdb, dimensions,
-    include = include, exclude = exclude, ...
+    fit,
+    posterior,
+    pdb,
+    dimensions,
+    include = include,
+    exclude = exclude,
+    ...
   )
 }
 
@@ -99,19 +109,33 @@ as_reference_posterior_draws_external <- function(
   checkmate::assert_class(pdb, "pdb")
   validate_variable_selections(include, exclude)
   dots <- list(...)
-  if (length(dots) &&
-      (is.null(names(dots)) || anyNA(names(dots)) ||
-       any(!nzchar(names(dots))) || anyDuplicated(names(dots)) ||
-       !all(names(dots) %in% c("comments", "added_by", "added_date", "sampling_timestamp")))) {
-    stop("`...` accepts only named `comments`, `added_by`, `added_date`, and `sampling_timestamp` fields.", call. = FALSE)
+  if (
+    length(dots) &&
+      (is.null(names(dots)) ||
+        anyNA(names(dots)) ||
+        any(!nzchar(names(dots))) ||
+        anyDuplicated(names(dots)) ||
+        !all(
+          names(dots) %in%
+            c("comments", "added_by", "added_date", "sampling_timestamp")
+        ))
+  ) {
+    stop(
+      "`...` accepts only named `comments`, `added_by`, `added_date`, and `sampling_timestamp` fields.",
+      call. = FALSE
+    )
   }
   if (!is.null(dots$sampling_timestamp)) {
     checkmate::assert_string(dots$sampling_timestamp)
   }
-  if (!is.null(dots$comments)) checkmate::assert_string(dots$comments)
+  if (!is.null(dots$comments)) {
+    checkmate::assert_string(dots$comments)
+  }
   extracted <- extract_external_stan_fit(fit)
   if (!is.null(dots$sampling_timestamp)) {
-    extracted$metadata$sampling_timestamp <- as.character(dots$sampling_timestamp)
+    extracted$metadata$sampling_timestamp <- as.character(
+      dots$sampling_timestamp
+    )
   }
   po <- resolve_import_posterior(posterior, pdb)
   posterior_dimensions <- dimensions %||% po$dimensions
@@ -125,24 +149,57 @@ as_reference_posterior_draws_external <- function(
   keep_dimensions <- posterior_dimension_names(posterior_dimensions)
   if (!is.null(dimensions) && length(po$dimensions)) {
     declared <- validate_import_dimensions(po$dimensions)
-    if (!setequal(names(posterior_dimensions), names(declared)) ||
-        any(vapply(names(posterior_dimensions), function(nm)
-          !identical(as.integer(posterior_dimensions[[nm]]), as.integer(declared[[nm]])), logical(1))))
-      stop("Supplied `dimensions` disagree with the posterior's declared dimensions.", call. = FALSE)
+    if (
+      !setequal(names(posterior_dimensions), names(declared)) ||
+        any(vapply(
+          names(posterior_dimensions),
+          function(nm) {
+            !identical(
+              as.integer(posterior_dimensions[[nm]]),
+              as.integer(declared[[nm]])
+            )
+          },
+          logical(1)
+        ))
+    ) {
+      stop(
+        "Supplied `dimensions` disagree with the posterior's declared dimensions.",
+        call. = FALSE
+      )
+    }
   }
 
   fitted_counts <- infer_unconstrained_parameter_counts_from_fit(fit)
   fitted_parameters <- fitted_parameter_names(fit)
   common <- intersect(keep_dimensions, names(fitted_counts))
-  mismatched_counts <- common[vapply(common, function(nm)
-    !identical(as.integer(posterior_dimensions[[nm]]), as.integer(fitted_counts[[nm]])), logical(1))]
+  mismatched_counts <- common[vapply(
+    common,
+    function(nm) {
+      !identical(
+        as.integer(posterior_dimensions[[nm]]),
+        as.integer(fitted_counts[[nm]])
+      )
+    },
+    logical(1)
+  )]
   if (length(mismatched_counts)) {
-    details <- paste("unconstrained counts differ:", paste(mismatched_counts, collapse = ", "))
-    stop("The fitted model does not match the posterior's declared parameter dimensions (", paste(details, collapse = "; "), ").", call. = FALSE)
+    details <- paste(
+      "unconstrained counts differ:",
+      paste(mismatched_counts, collapse = ", ")
+    )
+    stop(
+      "The fitted model does not match the posterior's declared parameter dimensions (",
+      paste(details, collapse = "; "),
+      ").",
+      call. = FALSE
+    )
   }
 
   selected_bases <- resolve_import_variable_selection(
-    extracted$draws, union(keep_dimensions, fitted_parameters), include, exclude
+    extracted$draws,
+    union(keep_dimensions, fitted_parameters),
+    include,
+    exclude
   )
   draws <- filter_external_posterior_draws(
     extracted$draws,
@@ -155,8 +212,7 @@ as_reference_posterior_draws_external <- function(
     x = draws,
     keep_dimensions = selected_draw_names,
     sampler_diagnostics = extracted$sampler_diagnostics,
-    expected_fraction_of_missing_information =
-      extracted$metadata$expected_fraction_of_missing_information,
+    expected_fraction_of_missing_information = extracted$metadata$expected_fraction_of_missing_information,
     max_treedepth = extracted$metadata$max_treedepth
   )
   rpi <- new_import_reference_posterior_info(
@@ -251,7 +307,9 @@ import_reference_posterior_draws <- function(
   checkmate::assert_flag(overwrite)
   checkmate::assert_flag(write_summary_statistics)
   checkmate::assert_class(pdb, "pdb")
-  if (write) checkmate::assert_class(pdb, "pdb_local")
+  if (write) {
+    checkmate::assert_class(pdb, "pdb_local")
+  }
   posterior_name <- if (is.character(posterior)) posterior else posterior$name
   assert_pdb_resource_name(posterior_name)
 
@@ -265,29 +323,46 @@ import_reference_posterior_draws <- function(
     ...
   )
 
-  if (!write) return(rpd)
+  if (!write) {
+    return(rpd)
+  }
   failure <- info(rpd)$checks_made$check_failed
   if (!is.null(failure)) {
-    stop("Reference-posterior checks failed; nothing was written: ", failure,
-         call. = FALSE)
+    stop(
+      "Reference-posterior checks failed; nothing was written: ",
+      failure,
+      call. = FALSE
+    )
   }
   assert_checked_reference_posterior_draws(rpd)
   target_posterior <- pdb_posterior(posterior_name, pdb = pdb)
   # The counts validated against the fit must be the saved posterior's counts.
-  used_dimensions <- dimensions %||% if (!is.character(posterior)) posterior$dimensions
-  if (!is.null(used_dimensions) &&
-      !same_dimension_counts(used_dimensions, target_posterior$dimensions)) {
-    stop("Supplied posterior dimensions do not match the target database's saved posterior.",
-         call. = FALSE)
+  used_dimensions <- dimensions %||%
+    if (!is.character(posterior)) posterior$dimensions
+  if (
+    !is.null(used_dimensions) &&
+      !same_dimension_counts(used_dimensions, target_posterior$dimensions)
+  ) {
+    stop(
+      "Supplied posterior dimensions do not match the target database's saved posterior.",
+      call. = FALSE
+    )
   }
-  target_bases <- posterior_dimension_names(validate_import_dimensions(target_posterior$dimensions))
+  target_bases <- posterior_dimension_names(validate_import_dimensions(
+    target_posterior$dimensions
+  ))
   imported_bases <- unique(sub("\\[.*$", "", posterior::variables(rpd)))
   if (length(setdiff(target_bases, imported_bases))) {
-    stop("Imported variables are missing the target database's posterior dimensions.",
-         call. = FALSE)
+    stop(
+      "Imported variables are missing the target database's posterior dimensions.",
+      call. = FALSE
+    )
   }
   write_imported_reference_posterior_draws(
-    rpd, pdb = pdb, overwrite = overwrite, linked_posterior = target_posterior,
+    rpd,
+    pdb = pdb,
+    overwrite = overwrite,
+    linked_posterior = target_posterior,
     write_summary_statistics = write_summary_statistics
   )
   rpd
@@ -299,12 +374,22 @@ extract_external_stan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
 }
 
 #' @exportS3Method
-extract_external_stan_fit.stanfit <- function(fit, checks = "all", strict = TRUE, ...) {
+extract_external_stan_fit.stanfit <- function(
+  fit,
+  checks = "all",
+  strict = TRUE,
+  ...
+) {
   extract_rstan_fit(fit, checks = checks, strict = strict, ...)
 }
 
 #' @exportS3Method
-extract_external_stan_fit.CmdStanMCMC <- function(fit, checks = "all", strict = TRUE, ...) {
+extract_external_stan_fit.CmdStanMCMC <- function(
+  fit,
+  checks = "all",
+  strict = TRUE,
+  ...
+) {
   extract_cmdstanr_fit(fit, checks = checks, strict = strict, ...)
 }
 
@@ -322,44 +407,81 @@ extract_cmdstanr_fit <- function(fit, checks = "all", strict = TRUE, ...) {
     error = function(error) {
       stop(
         "Could not read posterior draws from the cmdstanr fit's CSV files: ",
-        conditionMessage(error), call. = FALSE
+        conditionMessage(error),
+        call. = FALSE
       )
     }
   )
   draws <- tryCatch(posterior::as_draws_array(draws), error = function(error) {
-    stop("Could not convert cmdstanr draws to a posterior draws_array: ",
-         conditionMessage(error), call. = FALSE)
+    stop(
+      "Could not convert cmdstanr draws to a posterior draws_array: ",
+      conditionMessage(error),
+      call. = FALSE
+    )
   })
-  need_sampler <- "all" %in% checks || any(checks %in% c("divergent_transitions", "efmi"))
-  sampler_diagnostics <- if (need_sampler) tryCatch(
-    fit$sampler_diagnostics(inc_warmup = FALSE, format = "draws_array"),
-    error = function(error) {
-      if (strict) stop(
-        "Could not read sampler diagnostics from the cmdstanr fit's CSV files: ",
-        conditionMessage(error), call. = FALSE
-      )
-      NULL
-    }
-  ) else NULL
-  sampler_diagnostics <- if (!is.null(sampler_diagnostics)) tryCatch(
-    posterior::as_draws_array(sampler_diagnostics),
-    error = function(error) {
-      if (strict) stop("Could not convert cmdstanr sampler diagnostics: ",
-                       conditionMessage(error), call. = FALSE)
-      NULL
-    }
-  ) else NULL
-  if (!is.null(sampler_diagnostics) &&
-      !identical(dim(sampler_diagnostics)[1:2], dim(draws)[1:2]))
-    stop("The cmdstanr fit has inconsistent post-warmup sampler diagnostics dimensions.", call. = FALSE)
-  sampler_invalid <- need_sampler && (is.null(sampler_diagnostics) ||
-    !"divergent__" %in% posterior::variables(sampler_diagnostics))
+  need_sampler <- "all" %in%
+    checks ||
+    any(checks %in% c("divergent_transitions", "efmi"))
+  sampler_diagnostics <- if (need_sampler) {
+    tryCatch(
+      fit$sampler_diagnostics(inc_warmup = FALSE, format = "draws_array"),
+      error = function(error) {
+        if (strict) {
+          stop(
+            "Could not read sampler diagnostics from the cmdstanr fit's CSV files: ",
+            conditionMessage(error),
+            call. = FALSE
+          )
+        }
+        NULL
+      }
+    )
+  } else {
+    NULL
+  }
+  sampler_diagnostics <- if (!is.null(sampler_diagnostics)) {
+    tryCatch(
+      posterior::as_draws_array(sampler_diagnostics),
+      error = function(error) {
+        if (strict) {
+          stop(
+            "Could not convert cmdstanr sampler diagnostics: ",
+            conditionMessage(error),
+            call. = FALSE
+          )
+        }
+        NULL
+      }
+    )
+  } else {
+    NULL
+  }
+  if (
+    !is.null(sampler_diagnostics) &&
+      !identical(dim(sampler_diagnostics)[1:2], dim(draws)[1:2])
+  ) {
+    stop(
+      "The cmdstanr fit has inconsistent post-warmup sampler diagnostics dimensions.",
+      call. = FALSE
+    )
+  }
+  sampler_invalid <- need_sampler &&
+    (is.null(sampler_diagnostics) ||
+      !"divergent__" %in% posterior::variables(sampler_diagnostics))
   if (sampler_invalid) {
-    if (strict) stop("The cmdstanr fit has incomplete or inconsistent post-warmup sampler diagnostics.", call. = FALSE)
+    if (strict) {
+      stop(
+        "The cmdstanr fit has incomplete or inconsistent post-warmup sampler diagnostics.",
+        call. = FALSE
+      )
+    }
   }
   metadata <- tryCatch(fit$metadata(), error = function(error) {
-    stop("Could not read metadata from the cmdstanr fit's CSV files: ",
-         conditionMessage(error), call. = FALSE)
+    stop(
+      "Could not read metadata from the cmdstanr fit's CSV files: ",
+      conditionMessage(error),
+      call. = FALSE
+    )
   })
   if (!is.list(metadata)) {
     stop("The cmdstanr fit returned invalid CSV metadata.", call. = FALSE)
@@ -368,26 +490,40 @@ extract_cmdstanr_fit <- function(fit, checks = "all", strict = TRUE, ...) {
   retained_iterations <- dim(draws)[1L]
   retained_draws <- posterior::ndraws(draws)
   iter_sampling <- cmdstanr_metadata_value(
-    metadata, c("iter_sampling", "iterations_sampling"), retained_iterations
+    metadata,
+    c("iter_sampling", "iterations_sampling"),
+    retained_iterations
   )
   warmup <- cmdstanr_metadata_value(
-    metadata, c("iter_warmup", "warmup", "num_warmup"), 0L
+    metadata,
+    c("iter_warmup", "warmup", "num_warmup"),
+    0L
   )
   thin <- cmdstanr_metadata_value(metadata, "thin", 1L)
   max_treedepth <- cmdstanr_metadata_value(
-    metadata, c("max_depth", "max_treedepth"), 10
+    metadata,
+    c("max_depth", "max_treedepth"),
+    10
   )
-  bfmi <- if ("all" %in% checks || "efmi" %in% checks) tryCatch(
-    cmdstanr_bfmi(sampler_diagnostics, nchains, strict = strict),
-    error = function(error) {
-      if (strict) stop(conditionMessage(error), call. = FALSE)
-      NULL
-    }
-  ) else NULL
+  bfmi <- if ("all" %in% checks || "efmi" %in% checks) {
+    tryCatch(
+      cmdstanr_bfmi(sampler_diagnostics, nchains, strict = strict),
+      error = function(error) {
+        if (strict) {
+          stop(conditionMessage(error), call. = FALSE)
+        }
+        NULL
+      }
+    )
+  } else {
+    NULL
+  }
   metadata <- list(
     nchains = as.integer(nchains),
     chains = as.integer(nchains),
-    total_iterations = as_integer_or_null(as.numeric(iter_sampling) + as.numeric(warmup)),
+    total_iterations = as_integer_or_null(
+      as.numeric(iter_sampling) + as.numeric(warmup)
+    ),
     iter = as_integer_or_null(as.numeric(iter_sampling) + as.numeric(warmup)),
     warmup_iterations = as_integer_or_null(warmup),
     warmup = as_integer_or_null(warmup),
@@ -400,18 +536,28 @@ extract_cmdstanr_fit <- function(fit, checks = "all", strict = TRUE, ...) {
     stan_version = cmdstanr_stan_version(metadata),
     cmdstanr_version = paste("cmdstanr", utils::packageVersion("cmdstanr")),
     # CmdStan writes its own release version as stan_version_* in the CSV header.
-    cmdstan_version = if (!is.null(stan_version <- cmdstanr_stan_version(metadata))) sub("^Stan ", "CmdStan ", stan_version),
+    cmdstan_version = if (
+      !is.null(stan_version <- cmdstanr_stan_version(metadata))
+    ) {
+      sub("^Stan ", "CmdStan ", stan_version)
+    },
     posterior_version = paste("posterior", utils::packageVersion("posterior")),
     r_version = R.version$version.string,
     sampling_timestamp = cmdstanr_metadata_value(
-      metadata, c("start_datetime", "start_time"), NULL
+      metadata,
+      c("start_datetime", "start_time"),
+      NULL
     ),
     max_treedepth = as.numeric(max_treedepth),
     expected_fraction_of_missing_information = bfmi
   )
   metadata <- drop_null_list_elements(metadata)
   metadata$method_arguments <- cmdstanr_method_arguments(metadata)
-  list(draws = draws, sampler_diagnostics = sampler_diagnostics, metadata = metadata)
+  list(
+    draws = draws,
+    sampler_diagnostics = sampler_diagnostics,
+    metadata = metadata
+  )
 }
 
 cmdstanr_metadata_value <- function(metadata, names, default = NULL) {
@@ -426,44 +572,69 @@ cmdstanr_metadata_value <- function(metadata, names, default = NULL) {
 }
 
 cmdstanr_stan_version <- function(metadata) {
-  parts <- vapply(c("stan_version_major", "stan_version_minor", "stan_version_patch"),
-                  function(name) as.character(cmdstanr_metadata_value(metadata, name, NA_character_)),
-                  character(1))
-  if (anyNA(parts)) return(cmdstanr_metadata_value(metadata, "stan_version", NULL))
+  parts <- vapply(
+    c("stan_version_major", "stan_version_minor", "stan_version_patch"),
+    function(name) {
+      as.character(cmdstanr_metadata_value(metadata, name, NA_character_))
+    },
+    character(1)
+  )
+  if (anyNA(parts)) {
+    return(cmdstanr_metadata_value(metadata, "stan_version", NULL))
+  }
   paste("Stan", paste(parts, collapse = "."))
 }
 
-sampler_diagnostics_bfmi <- function(sampler_diagnostics, nchains,
-                                     strict = TRUE, normalization = c("differences", "draws")) {
+sampler_diagnostics_bfmi <- function(
+  sampler_diagnostics,
+  nchains,
+  strict = TRUE,
+  normalization = c("differences", "draws")
+) {
   normalization <- match.arg(normalization)
   if (!"energy__" %in% posterior::variables(sampler_diagnostics)) {
     if (strict) {
-      stop("Sampler diagnostics have no `energy__` variable for E-FMI.",
-           call. = FALSE)
+      stop(
+        "Sampler diagnostics have no `energy__` variable for E-FMI.",
+        call. = FALSE
+      )
     }
     return(NULL)
   }
-  bfmi <- vapply(seq_len(nchains), function(chain) {
-    energy <- sampler_diagnostics[, chain, "energy__"]
-    denominator <- stats::var(energy)
-    if (length(energy) < 2L || !is.finite(denominator) || denominator <= 0) return(NA_real_)
-    # CmdStan uses n-1 differences; RStan divides by n retained draws.
-    numerator <- if (normalization == "draws") {
-      sum(diff(energy)^2) / length(energy)
-    } else mean(diff(energy)^2)
-    numerator / denominator
-  }, numeric(1))
+  bfmi <- vapply(
+    seq_len(nchains),
+    function(chain) {
+      energy <- sampler_diagnostics[, chain, "energy__"]
+      denominator <- stats::var(energy)
+      if (length(energy) < 2L || !is.finite(denominator) || denominator <= 0) {
+        return(NA_real_)
+      }
+      # CmdStan uses n-1 differences; RStan divides by n retained draws.
+      numerator <- if (normalization == "draws") {
+        sum(diff(energy)^2) / length(energy)
+      } else {
+        mean(diff(energy)^2)
+      }
+      numerator / denominator
+    },
+    numeric(1)
+  )
   if (strict && (anyNA(bfmi) || any(!is.finite(bfmi)))) {
-    stop("Sampler diagnostics have missing or invalid per-chain E-FMI values.",
-         call. = FALSE)
+    stop(
+      "Sampler diagnostics have missing or invalid per-chain E-FMI values.",
+      call. = FALSE
+    )
   }
   bfmi
 }
 
-rstan_sampler_bfmi <- function(sampler_diagnostics, nchains,
-                                strict = FALSE) {
-  sampler_diagnostics_bfmi(sampler_diagnostics, nchains, strict,
-    normalization = "draws")
+rstan_sampler_bfmi <- function(sampler_diagnostics, nchains, strict = FALSE) {
+  sampler_diagnostics_bfmi(
+    sampler_diagnostics,
+    nchains,
+    strict,
+    normalization = "draws"
+  )
 }
 
 cmdstanr_bfmi <- function(sampler_diagnostics, nchains, strict = TRUE) {
@@ -471,10 +642,22 @@ cmdstanr_bfmi <- function(sampler_diagnostics, nchains, strict = TRUE) {
 }
 
 cmdstanr_sampler_arguments <- function(metadata) {
-  args <- metadata[intersect(names(metadata), c(
-    "num_chains", "iter_sampling", "iter_warmup", "thin", "save_warmup",
-    "seed", "algorithm", "method", "max_depth", "refresh", "parallel_chains"
-  ))]
+  args <- metadata[intersect(
+    names(metadata),
+    c(
+      "num_chains",
+      "iter_sampling",
+      "iter_warmup",
+      "thin",
+      "save_warmup",
+      "seed",
+      "algorithm",
+      "method",
+      "max_depth",
+      "refresh",
+      "parallel_chains"
+    )
+  )]
   args <- lapply(args, sanitize_metadata_value)
   args <- drop_null_list_elements(args)
   if (!length(args)) NULL else args
@@ -489,35 +672,62 @@ cmdstanr_method_arguments <- function(metadata) {
 # tolerant report mode either failure yields unavailable metrics; legacy imports
 # retain the strict error behavior.
 extract_rstan_sampler_diagnostics <- function(fit, strict = TRUE) {
-  tryCatch({
-    sampler_params <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
-    sampler_params_to_draws_array(sampler_params)
-  }, error = function(error) {
-    if (strict) stop("Could not extract post-warmup sampler diagnostics: ",
-                     conditionMessage(error), call. = FALSE)
-    NULL
-  })
+  tryCatch(
+    {
+      sampler_params <- rstan::get_sampler_params(fit, inc_warmup = FALSE)
+      sampler_params_to_draws_array(sampler_params)
+    },
+    error = function(error) {
+      if (strict) {
+        stop(
+          "Could not extract post-warmup sampler diagnostics: ",
+          conditionMessage(error),
+          call. = FALSE
+        )
+      }
+      NULL
+    }
+  )
 }
 
 extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
   draws <- tryCatch(
     posterior::as_draws_array(fit),
     error = function(error) {
-      stop("Could not convert the rstan::stanfit to posterior draws: ",
-           conditionMessage(error), call. = FALSE)
+      stop(
+        "Could not convert the rstan::stanfit to posterior draws: ",
+        conditionMessage(error),
+        call. = FALSE
+      )
     }
   )
-  need_sampler <- "all" %in% checks || any(checks %in% c("divergent_transitions", "efmi"))
+  need_sampler <- "all" %in%
+    checks ||
+    any(checks %in% c("divergent_transitions", "efmi"))
   sampler_diagnostics <- if (need_sampler) {
     extract_rstan_sampler_diagnostics(fit, strict = strict)
-  } else NULL
-  if (!is.null(sampler_diagnostics) &&
-      !identical(dim(sampler_diagnostics)[1:2], dim(draws)[1:2]))
-    stop("The Stan fit has inconsistent post-warmup sampler diagnostics dimensions.", call. = FALSE)
-  sampler_invalid <- need_sampler && (is.null(sampler_diagnostics) ||
-    !"divergent__" %in% posterior::variables(sampler_diagnostics))
+  } else {
+    NULL
+  }
+  if (
+    !is.null(sampler_diagnostics) &&
+      !identical(dim(sampler_diagnostics)[1:2], dim(draws)[1:2])
+  ) {
+    stop(
+      "The Stan fit has inconsistent post-warmup sampler diagnostics dimensions.",
+      call. = FALSE
+    )
+  }
+  sampler_invalid <- need_sampler &&
+    (is.null(sampler_diagnostics) ||
+      !"divergent__" %in% posterior::variables(sampler_diagnostics))
   if (sampler_invalid) {
-    if (strict) stop("The Stan fit has incomplete or inconsistent post-warmup sampler diagnostics.", call. = FALSE)
+    if (strict) {
+      stop(
+        "The Stan fit has incomplete or inconsistent post-warmup sampler diagnostics.",
+        call. = FALSE
+      )
+    }
   }
   stan_args <- rstan_fit_stan_args(fit)
   sim <- rstan_fit_slot(fit, "sim")
@@ -550,16 +760,35 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
   } else {
     10
   }
-  bfmi <- if ("all" %in% checks || "efmi" %in% checks) tryCatch(
-    rstan::get_bfmi(fit),
-    error = function(error) {
-      if (strict) stop("Could not extract the Stan fit's BFMI: ", conditionMessage(error), call. = FALSE)
-      NULL
+  bfmi <- if ("all" %in% checks || "efmi" %in% checks) {
+    tryCatch(
+      rstan::get_bfmi(fit),
+      error = function(error) {
+        if (strict) {
+          stop(
+            "Could not extract the Stan fit's BFMI: ",
+            conditionMessage(error),
+            call. = FALSE
+          )
+        }
+        NULL
+      }
+    )
+  } else {
+    NULL
+  }
+  if (
+    !is.null(bfmi) &&
+      (!is.numeric(bfmi) ||
+        length(bfmi) != nchains ||
+        (strict && (anyNA(bfmi) || any(!is.finite(bfmi)))))
+  ) {
+    if (strict) {
+      stop(
+        "The Stan fit has missing or invalid per-chain BFMI values.",
+        call. = FALSE
+      )
     }
-  ) else NULL
-  if (!is.null(bfmi) && (!is.numeric(bfmi) || length(bfmi) != nchains ||
-      (strict && (anyNA(bfmi) || any(!is.finite(bfmi)))))) {
-    if (strict) stop("The Stan fit has missing or invalid per-chain BFMI values.", call. = FALSE)
     bfmi <- NULL
   }
 
@@ -599,12 +828,17 @@ extract_rstan_fit <- function(fit, checks = "all", strict = TRUE, ...) {
 # Bundle extraction contract: draws is an ordered post-warmup draws_array;
 # dimensions contains selected unconstrained parameter counts; output_shapes
 # contains fit-declared shapes used only to validate saved draw completeness.
-extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
-                                         compute_diagnostics = TRUE,
-                                         include = NULL, exclude = NULL,
-                                         data = NULL) {
-  if (!inherits(fit, "stanfit"))
+extract_rstan_fit_for_bundle <- function(
+  fit,
+  strict = TRUE,
+  compute_diagnostics = TRUE,
+  include = NULL,
+  exclude = NULL,
+  data = NULL
+) {
+  if (!inherits(fit, "stanfit")) {
     stop("Bundle extraction requires an `rstan::stanfit`.", call. = FALSE)
+  }
   checkmate::assert_flag(strict)
   checkmate::assert_flag(compute_diagnostics)
   selection <- validate_variable_selections(include, exclude)
@@ -612,37 +846,81 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   exclude <- selection$exclude
 
   stan_args <- rstan_fit_stan_args(fit)
-  if (!length(stan_args))
-    stop("The `stanfit` has no saved per-chain sampling arguments; its inference method cannot be verified.", call. = FALSE)
-  chain_is_hmc <- vapply(stan_args, function(x) {
-    method <- x$method
-    algorithm <- x$algorithm
-    if (is.list(method)) {
-      algorithm <- algorithm %||% method$algorithm
-      method <- method$method %||% method$name
-    }
-    method <- if (is.null(method) || !length(method)) NULL else tolower(as.character(method[[1L]]))
-    algorithm <- if (is.null(algorithm) || !length(algorithm)) NULL else tolower(as.character(algorithm[[1L]]))
-    !is.null(algorithm) && algorithm %in% c("nuts", "hmc") &&
-      (is.null(method) || method %in% c("sampling", "stan_sampling"))
-  }, logical(1))
-  if (!length(chain_is_hmc) || anyNA(chain_is_hmc) || !all(chain_is_hmc))
-    stop("Bundle extraction supports completed HMC sampling fits only; the `stanfit` records a non-sampling or unknown inference method.", call. = FALSE)
+  if (!length(stan_args)) {
+    stop(
+      "The `stanfit` has no saved per-chain sampling arguments; its inference method cannot be verified.",
+      call. = FALSE
+    )
+  }
+  chain_is_hmc <- vapply(
+    stan_args,
+    function(x) {
+      method <- x$method
+      algorithm <- x$algorithm
+      if (is.list(method)) {
+        algorithm <- algorithm %||% method$algorithm
+        method <- method$method %||% method$name
+      }
+      method <- if (is.null(method) || !length(method)) {
+        NULL
+      } else {
+        tolower(as.character(method[[1L]]))
+      }
+      algorithm <- if (is.null(algorithm) || !length(algorithm)) {
+        NULL
+      } else {
+        tolower(as.character(algorithm[[1L]]))
+      }
+      !is.null(algorithm) &&
+        algorithm %in% c("nuts", "hmc") &&
+        (is.null(method) || method %in% c("sampling", "stan_sampling"))
+    },
+    logical(1)
+  )
+  if (!length(chain_is_hmc) || anyNA(chain_is_hmc) || !all(chain_is_hmc)) {
+    stop(
+      "Bundle extraction supports completed HMC sampling fits only; the `stanfit` records a non-sampling or unknown inference method.",
+      call. = FALSE
+    )
+  }
   sim <- rstan_fit_slot(fit, "sim")
-  if (!is.null(sim$chains) && length(sim$chains) == 1L &&
-      sim$chains != length(stan_args))
-    stop("Merged or inconsistent `stanfit` objects are not supported for bundle extraction.", call. = FALSE)
-  chain_ids <- vapply(stan_args, function(x) as.character(x$chain_id %||% NA_character_), character(1))
-  if (length(chain_ids) > 1L && !anyNA(chain_ids) && anyDuplicated(chain_ids))
-    stop("Merged `stanfit` objects with repeated chain IDs are not supported for bundle extraction.", call. = FALSE)
+  if (
+    !is.null(sim$chains) &&
+      length(sim$chains) == 1L &&
+      sim$chains != length(stan_args)
+  ) {
+    stop(
+      "Merged or inconsistent `stanfit` objects are not supported for bundle extraction.",
+      call. = FALSE
+    )
+  }
+  chain_ids <- vapply(
+    stan_args,
+    function(x) as.character(x$chain_id %||% NA_character_),
+    character(1)
+  )
+  if (length(chain_ids) > 1L && !anyNA(chain_ids) && anyDuplicated(chain_ids)) {
+    stop(
+      "Merged `stanfit` objects with repeated chain IDs are not supported for bundle extraction.",
+      call. = FALSE
+    )
+  }
 
   code <- as.character(
     rstan_fit_slot(rstan_fit_slot(fit, "stanmodel"), "model_code")
   )
-  if (is.null(code) || length(code) != 1L || is.na(code) || !nzchar(code))
-    stop("The `stanfit` does not expose its saved Stan source code.", call. = FALSE)
-  if (grepl("#\\s*include\\b", code, perl = TRUE))
-    stop("The saved Stan source contains `#include`; bundle extraction requires self-contained source code.", call. = FALSE)
+  if (is.null(code) || length(code) != 1L || is.na(code) || !nzchar(code)) {
+    stop(
+      "The `stanfit` does not expose its saved Stan source code.",
+      call. = FALSE
+    )
+  }
+  if (grepl("#\\s*include\\b", code, perl = TRUE)) {
+    stop(
+      "The saved Stan source contains `#include`; bundle extraction requires self-contained source code.",
+      call. = FALSE
+    )
+  }
 
   # Reuse the established extractor once so draws and sampling metadata all
   # describe the same fit snapshot. Unchecked bundles retain raw sampler
@@ -658,37 +936,78 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
       strict = FALSE
     )
   }
-  if (!is.null(result$sampler_diagnostics) &&
-      !identical(dim(result$sampler_diagnostics)[1:2], dim(result$draws)[1:2])) {
-    stop("The Stan fit has inconsistent post-warmup sampler diagnostics dimensions.", call. = FALSE)
+  if (
+    !is.null(result$sampler_diagnostics) &&
+      !identical(dim(result$sampler_diagnostics)[1:2], dim(result$draws)[1:2])
+  ) {
+    stop(
+      "The Stan fit has inconsistent post-warmup sampler diagnostics dimensions.",
+      call. = FALSE
+    )
   }
   draws <- result$draws
-  if (posterior::nchains(draws) != length(stan_args))
-    stop("The saved per-chain inference settings do not match the number of draw chains.", call. = FALSE)
+  if (posterior::nchains(draws) != length(stan_args)) {
+    stop(
+      "The saved per-chain inference settings do not match the number of draw chains.",
+      call. = FALSE
+    )
+  }
   scalar_names <- setdiff(posterior::variables(draws), "lp__")
   declared <- rstan_fit_slot(fit, "par_dims")
-  if (is.null(declared) || is.null(names(declared)) || anyDuplicated(names(declared)))
-    stop("The `stanfit` does not contain usable declared parameter dimensions.", call. = FALSE)
+  if (
+    is.null(declared) ||
+      is.null(names(declared)) ||
+      anyDuplicated(names(declared))
+  ) {
+    stop(
+      "The `stanfit` does not contain usable declared parameter dimensions.",
+      call. = FALSE
+    )
+  }
   bases <- unique(sub("\\[.*$", "", scalar_names))
   missing_decl <- setdiff(bases, names(declared))
-  if (length(missing_decl))
-    stop("Saved variables lack declared dimensions: ", paste(missing_decl, collapse = ", "), call. = FALSE)
+  if (length(missing_decl)) {
+    stop(
+      "Saved variables lack declared dimensions: ",
+      paste(missing_decl, collapse = ", "),
+      call. = FALSE
+    )
+  }
   declared_bases <- setdiff(names(declared), "lp__")
-  if (!is.null(include) && length(setdiff(include, declared_bases)))
-    stop("Unknown Stan variable(s) in `include`: ", paste(setdiff(include, declared_bases), collapse = ", "), call. = FALSE)
-  if (!identical(exclude, "all") && length(setdiff(exclude, c(declared_bases, "lp__"))))
-    stop("Unknown Stan variable(s) in `exclude`: ", paste(setdiff(exclude, c(declared_bases, "lp__")), collapse = ", "), call. = FALSE)
+  if (!is.null(include) && length(setdiff(include, declared_bases))) {
+    stop(
+      "Unknown Stan variable(s) in `include`: ",
+      paste(setdiff(include, declared_bases), collapse = ", "),
+      call. = FALSE
+    )
+  }
+  if (
+    !identical(exclude, "all") &&
+      length(setdiff(exclude, c(declared_bases, "lp__")))
+  ) {
+    stop(
+      "Unknown Stan variable(s) in `exclude`: ",
+      paste(setdiff(exclude, c(declared_bases, "lp__")), collapse = ", "),
+      call. = FALSE
+    )
+  }
   schema_fit <- fit
   instance <- rstan_fit_slot(fit, ".MISC")$stan_fit_instance
-  if (!is.null(data) && (!is.function(instance$unconstrained_param_names) ||
-                        !is.function(instance$constrained_param_names))) {
+  if (
+    !is.null(data) &&
+      (!is.function(instance$unconstrained_param_names) ||
+        !is.function(instance$constrained_param_names))
+  ) {
     # Serialized fits can lose their compiled name methods. Recover the schema
     # without resampling; errors from available methods must remain visible.
     # Supplying stanc_ret bypasses RStan's same-source lookup, which can return
     # the archived model itself before checking whether its instance is valid.
     model <- rstan::stan_model(stanc_ret = rstan::stanc(model_code = code))
     schema_fit <- suppressWarnings(rstan::sampling(
-      model, data = data, chains = 0L, refresh = 0L
+      model,
+      data = data,
+      chains = 0L,
+      refresh = 0L
     ))
   }
   parameter_schema <- list(
@@ -697,37 +1016,74 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   )
   parameter_counts <- parameter_schema$counts
   selected_bases <- resolve_variable_selection(
-    declared_bases, parameter_schema$names, include, exclude
+    declared_bases,
+    parameter_schema$names,
+    include,
+    exclude
   )
-  if (!length(selected_bases)) stop("Variable selection leaves no saved draws.", call. = FALSE)
-  invalid_axes <- selected_bases[vapply(selected_bases, function(base) {
-    axes <- declared[[base]]
-    !is.numeric(axes) || anyNA(axes) || any(!is.finite(axes)) ||
-      any(axes < 0L) || any(axes > .Machine$integer.max) || any(axes != floor(axes))
-  }, logical(1))]
-  if (length(invalid_axes))
-    stop("Stan variable(s) have invalid declared dimensions: ",
-         paste(invalid_axes, collapse = ", "), call. = FALSE)
-  zero_sized <- selected_bases[vapply(selected_bases, function(base) {
-    axes <- declared[[base]]
-    length(axes) > 0L && any(axes == 0L)
-  }, logical(1))]
-  if (length(zero_sized))
-    stop("Stan variable(s) have zero-sized declared dimensions; exclude them explicitly to continue: ",
-         paste(zero_sized, collapse = ", "), call. = FALSE)
+  if (!length(selected_bases)) {
+    stop("Variable selection leaves no saved draws.", call. = FALSE)
+  }
+  invalid_axes <- selected_bases[vapply(
+    selected_bases,
+    function(base) {
+      axes <- declared[[base]]
+      !is.numeric(axes) ||
+        anyNA(axes) ||
+        any(!is.finite(axes)) ||
+        any(axes < 0L) ||
+        any(axes > .Machine$integer.max) ||
+        any(axes != floor(axes))
+    },
+    logical(1)
+  )]
+  if (length(invalid_axes)) {
+    stop(
+      "Stan variable(s) have invalid declared dimensions: ",
+      paste(invalid_axes, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  zero_sized <- selected_bases[vapply(
+    selected_bases,
+    function(base) {
+      axes <- declared[[base]]
+      length(axes) > 0L && any(axes == 0L)
+    },
+    logical(1)
+  )]
+  if (length(zero_sized)) {
+    stop(
+      "Stan variable(s) have zero-sized declared dimensions; exclude them explicitly to continue: ",
+      paste(zero_sized, collapse = ", "),
+      call. = FALSE
+    )
+  }
   unsaved <- setdiff(selected_bases, bases)
-  if (length(unsaved))
-    stop("Requested Stan variable(s) were not saved in the fit: ", paste(unsaved, collapse = ", "), call. = FALSE)
+  if (length(unsaved)) {
+    stop(
+      "Requested Stan variable(s) were not saved in the fit: ",
+      paste(unsaved, collapse = ", "),
+      call. = FALSE
+    )
+  }
 
-  output_shapes <- stats::setNames(lapply(selected_bases, function(base) {
-    axes <- as.integer(declared[[base]])
-    saved <- scalar_names[sub("\\[.*$", "", scalar_names) == base]
-    validate_rstan_saved_coverage(base, saved, axes)
-    axes
-  }), selected_bases)
+  output_shapes <- stats::setNames(
+    lapply(selected_bases, function(base) {
+      axes <- as.integer(declared[[base]])
+      saved <- scalar_names[sub("\\[.*$", "", scalar_names) == base]
+      validate_rstan_saved_coverage(base, saved, axes)
+      axes
+    }),
+    selected_bases
+  )
   dimensions <- parameter_counts
-  if (!length(dimensions))
-    stop("The selected variables contain no unconstrained model parameters.", call. = FALSE)
+  if (!length(dimensions)) {
+    stop(
+      "The selected variables contain no unconstrained model parameters.",
+      call. = FALSE
+    )
+  }
   selected <- scalar_names[sub("\\[.*$", "", scalar_names) %in% selected_bases]
   draws <- posterior::subset_draws(draws, variable = selected, regex = FALSE)
 
@@ -735,7 +1091,12 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   metadata <- result$metadata
   # rstan_stan_version() is based on the installed package's Stan version,
   # which is not proof of the version used when this fit was sampled.
-  metadata[c("rstan_version", "posterior_version", "r_version", "stan_version")] <- NULL
+  metadata[c(
+    "rstan_version",
+    "posterior_version",
+    "r_version",
+    "stan_version"
+  )] <- NULL
   # `stanfit@date` can be the merge time for sflist2stanfit(), so do not
   # describe this available clock value as the original sampling timestamp.
   metadata$fit_timestamp <- metadata$sampling_timestamp
@@ -743,44 +1104,85 @@ extract_rstan_fit_for_bundle <- function(fit, strict = TRUE,
   metadata$method_arguments$sampling_timestamp <- NULL
   # Keep chain-specific values intact; derive a scalar max depth only when common.
   controls <- lapply(stan_args, function(x) x$control %||% list())
-  depths <- vapply(controls, function(x) as.numeric(x$max_treedepth %||% 10), numeric(1))
-  metadata$max_treedepth <- if (all(depths == depths[[1L]])) depths[[1L]] else depths
-  import_versions <- list(R = R.version$version.string,
+  depths <- vapply(
+    controls,
+    function(x) as.numeric(x$max_treedepth %||% 10),
+    numeric(1)
+  )
+  metadata$max_treedepth <- if (all(depths == depths[[1L]])) {
+    depths[[1L]]
+  } else {
+    depths
+  }
+  import_versions <- list(
+    R = R.version$version.string,
     rstan = as.character(utils::packageVersion("rstan")),
-    posterior = as.character(utils::packageVersion("posterior")))
-  list(draws = draws, sampler_diagnostics = sampler_diagnostics,
-    metadata = metadata, source = as.character(code), dimensions = dimensions,
+    posterior = as.character(utils::packageVersion("posterior"))
+  )
+  list(
+    draws = draws,
+    sampler_diagnostics = sampler_diagnostics,
+    metadata = metadata,
+    source = as.character(code),
+    dimensions = dimensions,
     output_shapes = output_shapes,
-    fit_class = "stanfit", import_versions = import_versions)
+    fit_class = "stanfit",
+    import_versions = import_versions
+  )
 }
 
 validate_rstan_saved_coverage <- function(base, saved_names, axes) {
   if (!length(axes)) {
-    if (!identical(saved_names, base))
-      stop("Saved scalar coverage for `", base, "` does not match its declared scalar shape.", call. = FALSE)
+    if (!identical(saved_names, base)) {
+      stop(
+        "Saved scalar coverage for `",
+        base,
+        "` does not match its declared scalar shape.",
+        call. = FALSE
+      )
+    }
     return(invisible(TRUE))
   }
   indices <- lapply(saved_names, function(nm) {
     m <- regmatches(nm, regexpr("\\[[0-9,]+\\]$", nm))
-    if (!length(m) || !nzchar(m)) return(NULL)
+    if (!length(m) || !nzchar(m)) {
+      return(NULL)
+    }
     as.integer(strsplit(substr(m, 2L, nchar(m) - 1L), ",", fixed = TRUE)[[1L]])
   })
   expected <- prod(axes)
-  valid <- length(indices) == expected && all(vapply(indices, function(i)
-    !is.null(i) && length(i) == length(axes) && all(i >= 1L) &&
-      all(i <= axes), logical(1)))
+  valid <- length(indices) == expected &&
+    all(vapply(
+      indices,
+      function(i) {
+        !is.null(i) &&
+          length(i) == length(axes) &&
+          all(i >= 1L) &&
+          all(i <= axes)
+      },
+      logical(1)
+    ))
   if (valid) {
     key <- vapply(indices, paste, collapse = ",", character(1))
     valid <- !anyDuplicated(key) && length(key) == expected
   }
-  if (!valid)
-    stop("Saved scalar coverage for `", base, "` is partial or does not match declared axes ",
-         paste(axes, collapse = " x "), ".", call. = FALSE)
+  if (!valid) {
+    stop(
+      "Saved scalar coverage for `",
+      base,
+      "` is partial or does not match declared axes ",
+      paste(axes, collapse = " x "),
+      ".",
+      call. = FALSE
+    )
+  }
   invisible(TRUE)
 }
 
 resolve_import_posterior <- function(posterior, pdb) {
-  if (is.character(posterior)) return(pdb_posterior(posterior, pdb = pdb))
+  if (is.character(posterior)) {
+    return(pdb_posterior(posterior, pdb = pdb))
+  }
   checkmate::assert_class(posterior, "pdb_posterior")
   posterior
 }
@@ -791,8 +1193,12 @@ validate_import_dimensions <- function(dimensions) {
 
 # Selection is shared by both fit backends. Dimensions remain mandatory;
 # additional saved outputs need not contribute unconstrained coordinates.
-resolve_import_variable_selection <- function(draws, required, include = NULL,
-                                              exclude = NULL) {
+resolve_import_variable_selection <- function(
+  draws,
+  required,
+  include = NULL,
+  exclude = NULL
+) {
   available <- unique(sub("\\[.*$", "", posterior::variables(draws)))
   resolve_variable_selection(available, required, include, exclude)
 }
@@ -815,11 +1221,17 @@ filter_external_posterior_draws <- function(draws, keep_dimensions) {
 validate_external_posterior_draws <- function(draws) {
   checkmate::assert_class(draws, "draws_array")
   if (posterior::nchains(draws) < 1L || posterior::ndraws(draws) < 1L) {
-    stop("The external Stan fit has no complete post-warmup chains.", call. = FALSE)
+    stop(
+      "The external Stan fit has no complete post-warmup chains.",
+      call. = FALSE
+    )
   }
   values <- as.numeric(draws)
   if (anyNA(values) || any(!is.finite(values))) {
-    stop("Retained posterior draws contain missing or non-finite values.", call. = FALSE)
+    stop(
+      "Retained posterior draws contain missing or non-finite values.",
+      call. = FALSE
+    )
   }
   invisible(draws)
 }
@@ -843,10 +1255,15 @@ new_import_reference_posterior_info <- function(
     ),
     diagnostics = diagnostics,
     checks_made = NULL,
-    comments = dots$comments %||% paste0(
-      "Imported from an externally sampled ",
-      if (!is.null(metadata$cmdstanr_version)) "cmdstanr::CmdStanMCMC." else "rstan::stanfit."
-    ),
+    comments = dots$comments %||%
+      paste0(
+        "Imported from an externally sampled ",
+        if (!is.null(metadata$cmdstanr_version)) {
+          "cmdstanr::CmdStanMCMC."
+        } else {
+          "rstan::stanfit."
+        }
+      ),
     added_by = added_by,
     added_date = added_date,
     versions = imported_reference_posterior_versions(metadata)
@@ -858,25 +1275,38 @@ imported_reference_posterior_versions <- function(metadata) {
   stan_fit_sampling_versions(metadata)
 }
 
-write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
-                                                     linked_posterior = NULL,
-                                                     write_summary_statistics = TRUE) {
+write_imported_reference_posterior_draws <- function(
+  x,
+  pdb,
+  overwrite,
+  linked_posterior = NULL,
+  write_summary_statistics = TRUE
+) {
   checkmate::assert_class(pdb, "pdb_local")
   checkmate::assert_flag(write_summary_statistics)
   if (is.null(linked_posterior)) {
-    stop("A linked posterior is required before reference draws can be written.",
-         call. = FALSE)
+    stop(
+      "A linked posterior is required before reference draws can be written.",
+      call. = FALSE
+    )
   }
   failure <- info(x)$checks_made$check_failed
   if (!is.null(failure)) {
-    stop("Reference-posterior checks failed; nothing was written: ", failure, call. = FALSE)
+    stop(
+      "Reference-posterior checks failed; nothing was written: ",
+      failure,
+      call. = FALSE
+    )
   }
   assert_checked_reference_posterior_draws(x)
   name <- info(x)$name
   checkmate::assert_class(linked_posterior, "pdb_posterior")
   current_reference <- linked_posterior$reference_posterior_name
   if (!is.null(current_reference) && !identical(current_reference, name)) {
-    stop("The posterior already points to a different reference posterior.", call. = FALSE)
+    stop(
+      "The posterior already points to a different reference posterior.",
+      call. = FALSE
+    )
   }
   update_posterior <- is.null(current_reference)
   summary_types <- if (write_summary_statistics) {
@@ -885,10 +1315,17 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
     character()
   }
   reference_files <- pdb_reference_output_paths(pdb, name, summary_types)
-  posterior_path <- pdb_write_output_path(pdb, "posteriors", "json",
-                                          linked_posterior$name, info = FALSE)
+  posterior_path <- pdb_write_output_path(
+    pdb,
+    "posteriors",
+    "json",
+    linked_posterior$name,
+    info = FALSE
+  )
   final_files <- reference_files
-  if (update_posterior) final_files <- c(final_files, posterior_path)
+  if (update_posterior) {
+    final_files <- c(final_files, posterior_path)
+  }
   # The linked posterior is an existing record that this operation may need
   # to update atomically. `overwrite = FALSE` governs collisions with new
   # reference-draw and summary-statistic files, not that required link update.
@@ -925,95 +1362,201 @@ write_imported_reference_posterior_draws <- function(x, pdb, overwrite,
 
   staged_files <- pdb_reference_output_paths(staged_pdb, name, summary_types)
   if (update_posterior) {
-    staged_files <- c(staged_files, pdb_file_path(
-      staged_pdb, "posteriors", paste0(linked_posterior$name, ".json")
-    ))
+    staged_files <- c(
+      staged_files,
+      pdb_file_path(
+        staged_pdb,
+        "posteriors",
+        paste0(linked_posterior$name, ".json")
+      )
+    )
   }
   if (!all(file.exists(staged_files))) {
-    stop("Staging did not produce all reference-draw and summary-statistic files.", call. = FALSE)
+    stop(
+      "Staging did not produce all reference-draw and summary-statistic files.",
+      call. = FALSE
+    )
   }
   backups <- character()
   installed <- character()
   committed <- FALSE
-  on.exit({
-    if (!committed) {
-      failures <- character()
-      for (path in installed) {
-        if (file.exists(path) && tryCatch(unlink(path), error = function(error) 1L) != 0L) {
-          failures <- c(failures, paste0("Could not remove installed reference-posterior file: ", path))
-        }
-      }
-      for (original in names(backups)) {
-        backup <- backups[[original]]
-        if (file.exists(backup)) {
-          if (!tryCatch(file.rename(backup, original), error = function(error) FALSE)) {
-            failures <- c(failures, paste0("Could not restore original reference-posterior file: ",
-              original, "; backup retained at: ", backup))
+  on.exit(
+    {
+      if (!committed) {
+        failures <- character()
+        for (path in installed) {
+          if (
+            file.exists(path) &&
+              tryCatch(unlink(path), error = function(error) 1L) != 0L
+          ) {
+            failures <- c(
+              failures,
+              paste0(
+                "Could not remove installed reference-posterior file: ",
+                path
+              )
+            )
           }
         }
+        for (original in names(backups)) {
+          backup <- backups[[original]]
+          if (file.exists(backup)) {
+            if (
+              !tryCatch(file.rename(backup, original), error = function(error) {
+                FALSE
+              })
+            ) {
+              failures <- c(
+                failures,
+                paste0(
+                  "Could not restore original reference-posterior file: ",
+                  original,
+                  "; backup retained at: ",
+                  backup
+                )
+              )
+            }
+          }
+        }
+        if (length(failures)) {
+          warning(paste(failures, collapse = "\n"), call. = FALSE)
+        }
       }
-      if (length(failures)) warning(paste(failures, collapse = "\n"), call. = FALSE)
-    }
-  }, add = TRUE)
+    },
+    add = TRUE
+  )
   for (path in final_files[file.exists(final_files)]) {
-    backup <- tempfile(paste0(basename(path), ".import-backup-"), tmpdir = dirname(path))
-    if (!file.rename(path, backup)) stop("Could not stage the existing reference-posterior file.", call. = FALSE)
+    backup <- tempfile(
+      paste0(basename(path), ".import-backup-"),
+      tmpdir = dirname(path)
+    )
+    if (!file.rename(path, backup)) {
+      stop(
+        "Could not stage the existing reference-posterior file.",
+        call. = FALSE
+      )
+    }
     backups[path] <- backup
   }
   for (i in seq_along(final_files)) {
     if (!file.rename(staged_files[[i]], final_files[[i]])) {
-      stop("Could not commit the imported reference-posterior files.", call. = FALSE)
+      stop(
+        "Could not commit the imported reference-posterior files.",
+        call. = FALSE
+      )
     }
     installed <- c(installed, final_files[[i]])
   }
   verify_imported_reference_posterior(pdb, x, fresh_cache = TRUE)
   if (!is.null(linked_posterior)) {
     linked_file <- pdb_file_path(
-      pdb, "posteriors", paste0(linked_posterior$name, ".json")
+      pdb,
+      "posteriors",
+      paste0(linked_posterior$name, ".json")
     )
-    if (!identical(jsonlite::read_json(linked_file)$reference_posterior_name, name)) {
-      stop("Round-trip verification of the posterior reference link failed.",
-           call. = FALSE)
+    if (
+      !identical(
+        jsonlite::read_json(linked_file)$reference_posterior_name,
+        name
+      )
+    ) {
+      stop(
+        "Round-trip verification of the posterior reference link failed.",
+        call. = FALSE
+      )
     }
   }
   cached_files <- file.path(
     pdb$cache_path,
-    c(file.path("reference_posteriors", "draws", "info", paste0(name, ".info.json")),
-      file.path("reference_posteriors", "draws", "draws", paste0(name, ".json")),
-      unlist(lapply(summary_types, function(type) {
-        c(
-          file.path("reference_posteriors", "summary_statistics", type,
-                    "info", paste0(name, ".info.json")),
-          file.path("reference_posteriors", "summary_statistics", type,
-                    type, paste0(name, ".json"))
-        )
-      }), use.names = FALSE),
-      if (update_posterior) file.path("posteriors", paste0(linked_posterior$name, ".json")))
+    c(
+      file.path(
+        "reference_posteriors",
+        "draws",
+        "info",
+        paste0(name, ".info.json")
+      ),
+      file.path(
+        "reference_posteriors",
+        "draws",
+        "draws",
+        paste0(name, ".json")
+      ),
+      unlist(
+        lapply(summary_types, function(type) {
+          c(
+            file.path(
+              "reference_posteriors",
+              "summary_statistics",
+              type,
+              "info",
+              paste0(name, ".info.json")
+            ),
+            file.path(
+              "reference_posteriors",
+              "summary_statistics",
+              type,
+              type,
+              paste0(name, ".json")
+            )
+          )
+        }),
+        use.names = FALSE
+      ),
+      if (update_posterior) {
+        file.path("posteriors", paste0(linked_posterior$name, ".json"))
+      }
+    )
   )
   unlink(cached_files[file.exists(cached_files)])
-  for (backup in backups) if (file.exists(backup)) unlink(backup)
+  for (backup in backups) {
+    if (file.exists(backup)) unlink(backup)
+  }
   committed <- TRUE
   invisible(x)
 }
 
-verify_imported_reference_posterior <- function(pdb, expected, fresh_cache = FALSE) {
+verify_imported_reference_posterior <- function(
+  pdb,
+  expected,
+  fresh_cache = FALSE
+) {
   if (fresh_cache) {
     pdb$cache_path <- tempfile("reference-posterior-verify-cache-")
     dir.create(pdb$cache_path, recursive = TRUE)
     on.exit(unlink(pdb$cache_path, recursive = TRUE, force = TRUE), add = TRUE)
   }
-  actual_info <- read_reference_posterior_info(info(expected)$name, type = "draws", pdb = pdb)
+  actual_info <- read_reference_posterior_info(
+    info(expected)$name,
+    type = "draws",
+    pdb = pdb
+  )
   actual_draws <- read_reference_posterior_draws(info(expected)$name, pdb = pdb)
-  if (!identical(actual_info$name, info(expected)$name) ||
-      !isTRUE(all.equal(actual_info$diagnostics$ndraws, info(expected)$diagnostics$ndraws, check.attributes = FALSE)) ||
-      !isTRUE(all.equal(actual_info$diagnostics$nchains, info(expected)$diagnostics$nchains, check.attributes = FALSE)) ||
-      !identical(posterior::variables(actual_draws), posterior::variables(expected)) ||
+  if (
+    !identical(actual_info$name, info(expected)$name) ||
+      !isTRUE(all.equal(
+        actual_info$diagnostics$ndraws,
+        info(expected)$diagnostics$ndraws,
+        check.attributes = FALSE
+      )) ||
+      !isTRUE(all.equal(
+        actual_info$diagnostics$nchains,
+        info(expected)$diagnostics$nchains,
+        check.attributes = FALSE
+      )) ||
+      !identical(
+        posterior::variables(actual_draws),
+        posterior::variables(expected)
+      ) ||
       !isTRUE(all.equal(
         as.numeric(posterior::as_draws_array(actual_draws)),
         as.numeric(posterior::as_draws_array(expected)),
         tolerance = 1e-12
-      ))) {
-    stop("Round-trip verification of the imported reference posterior failed.", call. = FALSE)
+      ))
+  ) {
+    stop(
+      "Round-trip verification of the imported reference posterior failed.",
+      call. = FALSE
+    )
   }
   check_reference_posterior_draws(actual_draws)
   invisible(TRUE)
@@ -1025,7 +1568,9 @@ rstan_fit_stan_args <- function(fit) {
 }
 
 rstan_public_value <- function(fun, fit) {
-  if (!exists(fun, envir = asNamespace("rstan"), inherits = FALSE)) return(NULL)
+  if (!exists(fun, envir = asNamespace("rstan"), inherits = FALSE)) {
+    return(NULL)
+  }
   fn <- get(fun, envir = asNamespace("rstan"))
   tryCatch(fn(fit), error = function(error) NULL)
 }
@@ -1043,23 +1588,39 @@ first_rstan_value <- function(...) {
 rstan_common_arg <- function(stan_args, name) {
   values <- lapply(stan_args, rstan_list_value, name = name)
   values <- values[!vapply(values, is.null, logical(1))]
-  if (!length(values)) return(NULL)
+  if (!length(values)) {
+    return(NULL)
+  }
   first <- values[[1L]]
   if (all(vapply(values, identical, logical(1), y = first))) first else values
 }
 
 rstan_sampler_arguments <- function(stan_args) {
-  if (!length(stan_args)) return(NULL)
+  if (!length(stan_args)) {
+    return(NULL)
+  }
   per_chain <- lapply(stan_args, function(args) {
     # `chain_id` identifies the chain; it is not a sampling setting. Chain
     # position is preserved by the names when settings differ by chain.
-    keep <- intersect(names(args), c(
-      "iter", "warmup", "thin", "save_warmup", "seed",
-      "algorithm", "method", "control", "refresh"
-    ))
+    keep <- intersect(
+      names(args),
+      c(
+        "iter",
+        "warmup",
+        "thin",
+        "save_warmup",
+        "seed",
+        "algorithm",
+        "method",
+        "control",
+        "refresh"
+      )
+    )
     drop_null_list_elements(lapply(args[keep], sanitize_metadata_value))
   })
-  if (!any(lengths(per_chain))) return(NULL)
+  if (!any(lengths(per_chain))) {
+    return(NULL)
+  }
   if (all(vapply(per_chain, identical, logical(1), y = per_chain[[1L]]))) {
     return(per_chain[[1L]])
   }
@@ -1074,12 +1635,18 @@ rstan_method_arguments <- function(metadata) {
 
 rstan_model_name <- function(fit) {
   value <- rstan_fit_slot(fit, "model_name")
-  if (is.null(value) || !length(value) || is.na(value[[1L]])) NULL else as.character(value[[1L]])
+  if (is.null(value) || !length(value) || is.na(value[[1L]])) {
+    NULL
+  } else {
+    as.character(value[[1L]])
+  }
 }
 
 rstan_stan_version <- function(fit) {
   value <- tryCatch(rstan::stan_version(), error = function(error) NULL)
-  if (is.null(value)) return(NULL)
+  if (is.null(value)) {
+    return(NULL)
+  }
   paste("Stan", as.character(value))
 }
 
@@ -1090,7 +1657,9 @@ rstan_sampling_timestamp <- function(fit) {
     rstan_list_value(rstan_fit_slot(fit, "sim"), "start_time")
   )
   value <- do.call(first_rstan_value, candidates)
-  if (is.null(value)) return(NULL)
+  if (is.null(value)) {
+    return(NULL)
+  }
   as.character(value[[1L]])
 }
 
@@ -1099,9 +1668,15 @@ as_integer_or_null <- function(x) {
 }
 
 sanitize_metadata_value <- function(x) {
-  if (is.function(x) || is.environment(x) || inherits(x, "externalptr")) return(NULL)
-  if (is.atomic(x)) return(unname(x))
-  if (is.list(x)) return(drop_null_list_elements(lapply(x, sanitize_metadata_value)))
+  if (is.function(x) || is.environment(x) || inherits(x, "externalptr")) {
+    return(NULL)
+  }
+  if (is.atomic(x)) {
+    return(unname(x))
+  }
+  if (is.list(x)) {
+    return(drop_null_list_elements(lapply(x, sanitize_metadata_value)))
+  }
   as.character(x)
 }
 

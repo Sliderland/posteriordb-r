@@ -6,8 +6,15 @@ local_test_database <- function(.local_envir = parent.frame()) {
   )
   source <- getOption("pdb_path", Sys.getenv("PDB_PATH"))
   testthat::skip_if_not(
-    is.character(source) && length(source) == 1L && !is.na(source) && dir.exists(source),
-    paste0("PDB_PATH is not an existing corpus directory: '", paste(source, collapse = ", "), "'")
+    is.character(source) &&
+      length(source) == 1L &&
+      !is.na(source) &&
+      dir.exists(source),
+    paste0(
+      "PDB_PATH is not an existing corpus directory: '",
+      paste(source, collapse = ", "),
+      "'"
+    )
   )
   source <- normalizePath(source, winslash = "/", mustWork = TRUE)
   parent <- withr::local_tempdir(
@@ -28,7 +35,10 @@ local_test_database <- function(.local_envir = parent.frame()) {
   }
   copied <- file.copy(files, staged, recursive = TRUE)
   if (!all(copied)) {
-    stop("Could not copy the test corpus: ", paste(basename(files)[!copied], collapse = ", "))
+    stop(
+      "Could not copy the test corpus: ",
+      paste(basename(files)[!copied], collapse = ", ")
+    )
   }
   working <- file.path(parent, "working")
   dir.create(working)
@@ -47,7 +57,11 @@ skip_stan_integration <- function() {
 
 # Corpus check tests use `default` unless PDB_TEST_ALL_POSTERIORS=true selects every posterior.
 test_posterior_names <- function(pdb, default) {
-  if (identical(Sys.getenv("PDB_TEST_ALL_POSTERIORS"), "true")) posterior_names(pdb) else default
+  if (identical(Sys.getenv("PDB_TEST_ALL_POSTERIORS"), "true")) {
+    posterior_names(pdb)
+  } else {
+    default
+  }
 }
 
 skip_github_integration <- function() {

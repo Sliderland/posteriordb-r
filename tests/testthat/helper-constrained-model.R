@@ -9,7 +9,8 @@ constrained_parameter_model <- function() {
     "Sigma ~ wishart(3,diag_matrix(rep_vector(1,2))); Lcorr ~ lkj_corr_cholesky(1);",
     "to_vector(Lcov) ~ normal(0,1); to_vector(M) ~ normal(0,1);",
     "singleton ~ normal(0,1); for(i in 1:2) a[i] ~ normal(0,1); theta ~ normal(0,1); }",
-    "generated quantities { real prediction = theta; }")
+    "generated quantities { real prediction = theta; }"
+  )
 }
 
 constrained_parameter_fit <- local({
@@ -19,8 +20,15 @@ constrained_parameter_fit <- local({
     skip_if_not_installed("rstan")
     if (is.null(fit)) {
       code <- constrained_parameter_model()
-      fit <<- suppressWarnings(rstan::sampling(rstan::stan_model(model_code = code),
-        data = list(), iter = 12, warmup = 6, chains = 2, seed = 412, refresh = 0))
+      fit <<- suppressWarnings(rstan::sampling(
+        rstan::stan_model(model_code = code),
+        data = list(),
+        iter = 12,
+        warmup = 6,
+        chains = 2,
+        seed = 412,
+        refresh = 0
+      ))
     }
     fit
   }

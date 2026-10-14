@@ -29,31 +29,67 @@
 #' @md
 #' @export
 infer_posterior_dimensions <- function(
-  model_code, data, include = NULL, exclude = NULL,
-  backend = c("rstan", "cmdstanr"), iter = 4L
+  model_code,
+  data,
+  include = NULL,
+  exclude = NULL,
+  backend = c("rstan", "cmdstanr"),
+  iter = 4L
 ) {
   backend <- match.arg(backend)
   model_code <- as.character(model_code)
   checkmate::assert_string(model_code, min.chars = 1L)
-  if (file.exists(model_code)) model_code <- paste(readLines(model_code, warn = FALSE), collapse = "\n")
-  if (inherits(data, "pdb_data")) data <- unclass(data)
+  if (file.exists(model_code)) {
+    model_code <- paste(readLines(model_code, warn = FALSE), collapse = "\n")
+  }
+  if (inherits(data, "pdb_data")) {
+    data <- unclass(data)
+  }
   validate_variable_selections(include, exclude)
   checkmate::assert_list(data)
-  if (length(data) && (is.null(names(data)) || anyNA(names(data)) || any(!nzchar(names(data))) || anyDuplicated(names(data))))
-    stop("`data` must be a fully named list with unique, non-empty names.", call. = FALSE)
+  if (
+    length(data) &&
+      (is.null(names(data)) ||
+        anyNA(names(data)) ||
+        any(!nzchar(names(data))) ||
+        anyDuplicated(names(data)))
+  ) {
+    stop(
+      "`data` must be a fully named list with unique, non-empty names.",
+      call. = FALSE
+    )
+  }
   checkmate::assert_integerish(iter, len = 1L, lower = 4L)
 
   if (identical(backend, "rstan")) {
-    if (!requireNamespace("rstan", quietly = TRUE)) stop("The `rstan` package is required for this backend.", call. = FALSE)
+    if (!requireNamespace("rstan", quietly = TRUE)) {
+      stop("The `rstan` package is required for this backend.", call. = FALSE)
+    }
     fit <- suppressWarnings(rstan::stan(
-      model_code = model_code, data = data, chains = 0L, refresh = 0L
+      model_code = model_code,
+      data = data,
+      chains = 0L,
+      refresh = 0L
     ))
   } else {
-    if (!requireNamespace("cmdstanr", quietly = TRUE)) stop("The `cmdstanr` package is required for this backend.", call. = FALSE)
-    model <- cmdstanr::cmdstan_model(cmdstanr::write_stan_file(model_code), compile = TRUE, quiet = TRUE)
+    if (!requireNamespace("cmdstanr", quietly = TRUE)) {
+      stop(
+        "The `cmdstanr` package is required for this backend.",
+        call. = FALSE
+      )
+    }
+    model <- cmdstanr::cmdstan_model(
+      cmdstanr::write_stan_file(model_code),
+      compile = TRUE,
+      quiet = TRUE
+    )
     fit <- suppressWarnings(model$sample(
-      data = data, chains = 1L, iter_warmup = as.integer(floor(iter / 2)),
-      iter_sampling = as.integer(iter - floor(iter / 2)), refresh = 0L, sig_figs = 18
+      data = data,
+      chains = 1L,
+      iter_warmup = as.integer(floor(iter / 2)),
+      iter_sampling = as.integer(iter - floor(iter / 2)),
+      refresh = 0L,
+      sig_figs = 18
     ))
   }
   infer_unconstrained_parameter_counts_from_fit(fit, include, exclude)
@@ -83,41 +119,92 @@ infer_posterior_dimensions <- function(
 #' @seealso [infer_posterior_dimensions()], [reconstruct_stan_output()]
 #' @md
 #' @export
-infer_unconstrained_parameter_counts_from_fit <- function(fit, include = NULL, exclude = NULL) {
+infer_unconstrained_parameter_counts_from_fit <- function(
+  fit,
+  include = NULL,
+  exclude = NULL
+) {
   validate_variable_selections(include, exclude)
   if (inherits(fit, "stanfit")) {
     instance <- tryCatch(fit@.MISC$stan_fit_instance, error = function(e) NULL)
-    if (is.null(instance)) stop("The `stanfit` does not expose its compiled model instance and unconstrained parameter names.", call. = FALSE)
+    if (is.null(instance)) {
+      stop(
+        "The `stanfit` does not expose its compiled model instance and unconstrained parameter names.",
+        call. = FALSE
+      )
+    }
     # These flags include transformed parameters and generated quantities. The
     # PosteriorDB dimensions map describes model parameters, and get_num_upars()
     # counts only their unconstrained coordinates, so request parameters only.
-    unconstrained_names <- tryCatch(instance$unconstrained_param_names(FALSE, FALSE), error = function(e) NULL)
-    expected <- tryCatch(rstan::get_num_upars(fit), error = function(e) NA_integer_)
-    if (is.null(unconstrained_names) || !length(unconstrained_names) || length(unconstrained_names) != expected)
-      stop("RStan did not return a complete, consistent set of unconstrained parameter names.", call. = FALSE)
+    unconstrained_names <- tryCatch(
+      instance$unconstrained_param_names(FALSE, FALSE),
+      error = function(e) NULL
+    )
+    expected <- tryCatch(rstan::get_num_upars(fit), error = function(e) {
+      NA_integer_
+    })
+    if (
+      is.null(unconstrained_names) ||
+        !length(unconstrained_names) ||
+        length(unconstrained_names) != expected
+    ) {
+      stop(
+        "RStan did not return a complete, consistent set of unconstrained parameter names.",
+        call. = FALSE
+      )
+    }
   } else if (inherits(fit, "CmdStanMCMC")) {
-    if (!requireNamespace("posterior", quietly = TRUE)) stop("The `posterior` package is required.", call. = FALSE)
+    if (!requireNamespace("posterior", quietly = TRUE)) {
+      stop("The `posterior` package is required.", call. = FALSE)
+    }
     unconstrained <- tryCatch(fit$unconstrain_draws(), error = function(e) {
-      stop("CmdStanR could not obtain unconstrained draws from this fit: ", conditionMessage(e), call. = FALSE)
+      stop(
+        "CmdStanR could not obtain unconstrained draws from this fit: ",
+        conditionMessage(e),
+        call. = FALSE
+      )
     })
     unconstrained_names <- posterior::variables(unconstrained)
-    if (!length(unconstrained_names)) stop("CmdStanR returned no unconstrained parameter names.", call. = FALSE)
+    if (!length(unconstrained_names)) {
+      stop("CmdStanR returned no unconstrained parameter names.", call. = FALSE)
+    }
   } else {
-    stop("`fit` must be an `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.", call. = FALSE)
+    stop(
+      "`fit` must be an `rstan::stanfit` or `cmdstanr::CmdStanMCMC` object.",
+      call. = FALSE
+    )
   }
   unconstrained_parameter_counts(unconstrained_names, include, exclude)
 }
 
-unconstrained_parameter_counts <- function(unconstrained_names, include = NULL, exclude = NULL) {
-  if (!length(unconstrained_names)) stop("No unconstrained parameter names were returned for this fit.", call. = FALSE)
+unconstrained_parameter_counts <- function(
+  unconstrained_names,
+  include = NULL,
+  exclude = NULL
+) {
+  if (!length(unconstrained_names)) {
+    stop(
+      "No unconstrained parameter names were returned for this fit.",
+      call. = FALSE
+    )
+  }
   unconstrained_names <- setdiff(unconstrained_names, "lp__")
   bases <- sub("\\[.*$", "", unconstrained_names)
   bases <- sub("\\.[0-9].*$", "", bases)
   counts <- as.list(table(factor(bases, levels = unique(bases))))
   counts <- lapply(counts, as.integer)
   available <- names(counts)
-  selected <- resolve_variable_selection(available, include = include, exclude = exclude)
-  if (!length(selected)) stop("Parameter selection produced no unconstrained parameters.", call. = FALSE)
+  selected <- resolve_variable_selection(
+    available,
+    include = include,
+    exclude = exclude
+  )
+  if (!length(selected)) {
+    stop(
+      "Parameter selection produced no unconstrained parameters.",
+      call. = FALSE
+    )
+  }
   counts[selected]
 }
 
@@ -128,14 +215,29 @@ same_dimension_counts <- function(x, y) {
 }
 
 validate_posterior_dimension_counts <- function(dimensions) {
-  if (is.atomic(dimensions) && !is.null(names(dimensions))) dimensions <- as.list(dimensions)
+  if (is.atomic(dimensions) && !is.null(names(dimensions))) {
+    dimensions <- as.list(dimensions)
+  }
   checkmate::assert_list(dimensions, min.len = 1L)
   checkmate::assert_named(dimensions)
   checkmate::assert_character(names(dimensions), min.chars = 1L, unique = TRUE)
   for (nm in names(dimensions)) {
     count <- dimensions[[nm]]
-    if (length(count) != 1L || !is.numeric(count) || is.na(count) || !is.finite(count) || count < 1 || count != floor(count))
-      stop("Posterior dimension for `", nm, "` must be one positive integer unconstrained-parameter count.", call. = FALSE)
+    if (
+      length(count) != 1L ||
+        !is.numeric(count) ||
+        is.na(count) ||
+        !is.finite(count) ||
+        count < 1 ||
+        count != floor(count)
+    ) {
+      stop(
+        "Posterior dimension for `",
+        nm,
+        "` must be one positive integer unconstrained-parameter count.",
+        call. = FALSE
+      )
+    }
   }
   dimensions
 }
@@ -145,21 +247,38 @@ validate_posterior_dimension_counts <- function(dimensions) {
 fitted_parameter_names <- function(fit) {
   if (inherits(fit, "stanfit")) {
     instance <- rstan_fit_slot(fit, ".MISC")$stan_fit_instance
-    if (is.null(instance)) stop("The stanfit has no usable compiled parameter schema.", call. = FALSE)
+    if (is.null(instance)) {
+      stop(
+        "The stanfit has no usable compiled parameter schema.",
+        call. = FALSE
+      )
+    }
     scalar_names <- instance$constrained_param_names(FALSE, FALSE)
-    checkmate::assert_character(scalar_names, any.missing = FALSE, unique = TRUE)
+    checkmate::assert_character(
+      scalar_names,
+      any.missing = FALSE,
+      unique = TRUE
+    )
     return(unique(sub("\\.[0-9].*$", "", sub("\\[.*$", "", scalar_names))))
   }
   if (inherits(fit, "CmdStanMCMC")) {
-    schema <- fit$variable_skeleton(transformed_parameters = FALSE, generated_quantities = FALSE)
+    schema <- fit$variable_skeleton(
+      transformed_parameters = FALSE,
+      generated_quantities = FALSE
+    )
     checkmate::assert_list(schema)
     checkmate::assert_names(names(schema), type = "unique")
     return(names(schema))
   }
-  stop("Parameter schema requires a stanfit or CmdStanMCMC object.", call. = FALSE)
+  stop(
+    "Parameter schema requires a stanfit or CmdStanMCMC object.",
+    call. = FALSE
+  )
 }
 
 rstan_fit_slot <- function(fit, slot_name) {
-  if (!isS4(fit) || !slot_name %in% methods::slotNames(fit)) return(NULL)
+  if (!isS4(fit) || !slot_name %in% methods::slotNames(fit)) {
+    return(NULL)
+  }
   methods::slot(fit, slot_name)
 }

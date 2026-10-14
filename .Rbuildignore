@@ -11,3 +11,4 @@ posteriordb*
 ^LICENSE\.md$
 ^scripts$
 ^tests/test-suite\.log$
+^air\.toml$

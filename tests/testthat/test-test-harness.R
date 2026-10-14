@@ -9,7 +9,10 @@ test_that("the package entry point runs without inspecting a configured corpus",
   environment$file.copy <- function(...) stop("Unexpected corpus copy")
   called <- FALSE
   environment$test_check <- function(...) called <<- TRUE
-  expect_silent(sys.source(file.path(testthat::test_path(), "..", "testthat.R"), environment))
+  expect_silent(sys.source(
+    file.path(testthat::test_path(), "..", "testthat.R"),
+    environment
+  ))
   expect_true(called)
 })
 
@@ -21,7 +24,10 @@ test_that("opt-in database tests isolate files, configuration and settings on fa
   writeLines("original", original)
   writeLines("hidden", file.path(root, ".fixture"))
   withr::local_options(list(pdb_path = root))
-  withr::local_envvar(c(PDB_PATH = "environment-is-lower-priority", PDB_TEST_DATABASE = "true"))
+  withr::local_envvar(c(
+    PDB_PATH = "environment-is-lower-priority",
+    PDB_TEST_DATABASE = "true"
+  ))
   oldwd <- getwd()
   for (fail in c(FALSE, TRUE)) {
     staged <- working <- NULL
@@ -38,7 +44,11 @@ test_that("opt-in database tests isolate files, configuration and settings on fa
       writeLines("type: local", ".pdb_config.yml")
       if (fail) stop("injected failure")
     }
-    if (fail) expect_error(run(), "injected failure") else expect_silent(run())
+    if (fail) {
+      expect_error(run(), "injected failure")
+    } else {
+      expect_silent(run())
+    }
     expect_identical(readLines(original), "original")
     expect_false(dir.exists(staged))
     expect_false(dir.exists(working))
@@ -55,7 +65,10 @@ test_that("failed corpus copies stop before tests and preserve source files", {
   withr::local_options(list(pdb_path = root))
   withr::local_envvar(c(PDB_TEST_DATABASE = "true"))
   writeLines("original", file.path(root, "record.json"))
-  testthat::local_mocked_bindings(file.copy = function(...) FALSE, .package = "base")
+  testthat::local_mocked_bindings(
+    file.copy = function(...) FALSE,
+    .package = "base"
+  )
   expect_error(local_test_database(), "Could not copy")
   expect_identical(readLines(file.path(root, "record.json")), "original")
 })
@@ -69,14 +82,23 @@ test_that("direct test_file runs load safety helpers and clean up after failures
   writeLines("original", file.path(source, "record.json"))
   file.copy(file.path(testthat::test_path(), "helper-integration.R"), directory)
   file <- file.path(directory, "test-direct.R")
-  writeLines(c('testthat::test_that("injected failure", {',
-    '  local_test_database()',
-    '  writeLines("changed", file.path(Sys.getenv("PDB_PATH"), "record.json"))',
-    '  testthat::expect_true(FALSE)', '})'), file)
+  writeLines(
+    c(
+      'testthat::test_that("injected failure", {',
+      '  local_test_database()',
+      '  writeLines("changed", file.path(Sys.getenv("PDB_PATH"), "record.json"))',
+      '  testthat::expect_true(FALSE)',
+      '})'
+    ),
+    file
+  )
   withr::local_options(list(pdb_path = source))
   withr::local_envvar(c(PDB_TEST_DATABASE = "true", PDB_PATH = source))
   cwd <- getwd()
-  expect_error(testthat::test_file(file, reporter = "silent", stop_on_failure = TRUE), "Test failures")
+  expect_error(
+    testthat::test_file(file, reporter = "silent", stop_on_failure = TRUE),
+    "Test failures"
+  )
   expect_identical(readLines(file.path(source, "record.json")), "original")
   expect_identical(getOption("pdb_path"), source)
   expect_identical(Sys.getenv("PDB_PATH"), source)

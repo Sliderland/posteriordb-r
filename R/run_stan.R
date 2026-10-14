@@ -12,7 +12,7 @@
 #'   unsupported controls raise an error before compilation. See
 #'   [compute_reference_posterior_draws()] for supported controls.
 #'
-run_stan <- function(x, stan_args, backend = c("rstan", "cmdstanr"), ...){
+run_stan <- function(x, stan_args, backend = c("rstan", "cmdstanr"), ...) {
   UseMethod("run_stan")
 }
 
@@ -23,13 +23,18 @@ run_stan.pdb_posterior <- function(
   stan_args,
   backend = c("rstan", "cmdstanr"),
   ...
-){
+) {
   checkmate::assert_list(stan_args)
-  checkmate::assert_names(names(stan_args), disjunct.from = c("model_name", "model_code", "data"))
+  checkmate::assert_names(
+    names(stan_args),
+    disjunct.from = c("model_name", "model_code", "data")
+  )
   backend <- match.arg(backend)
-  sa <- list(model_name = x$name,
-             model_code = stan_code(x),
-             data = stan_data(x))
+  sa <- list(
+    model_name = x$name,
+    model_code = stan_code(x),
+    data = stan_data(x)
+  )
   if (identical(backend, "rstan")) {
     if (!requireNamespace("rstan", quietly = TRUE)) {
       stop("The `rstan` package is required for this backend.", call. = FALSE)
@@ -50,26 +55,48 @@ run_stan.pdb_posterior <- function(
 translate_cmdstanr_sampling_args <- function(stan_args) {
   checkmate::assert_list(stan_args, names = "unique")
   args <- stan_args
-  if (!is.null(args[["validate_csv"]]) && "diagnostics" %in% names(args))
+  if (!is.null(args[["validate_csv"]]) && "diagnostics" %in% names(args)) {
     stop("Do not supply both `validate_csv` and `diagnostics`.", call. = FALSE)
-  aliases <- c(cores = "parallel_chains", num_cores = "parallel_chains",
-    num_chains = "chains", num_warmup = "iter_warmup", num_samples = "iter_sampling",
-    stepsize = "step_size", max_depth = "max_treedepth",
-    save_extra_diagnostics = "save_latent_dynamics")
+  }
+  aliases <- c(
+    cores = "parallel_chains",
+    num_cores = "parallel_chains",
+    num_chains = "chains",
+    num_warmup = "iter_warmup",
+    num_samples = "iter_sampling",
+    stepsize = "step_size",
+    max_depth = "max_treedepth",
+    save_extra_diagnostics = "save_latent_dynamics"
+  )
   for (alias in names(aliases)) {
     target <- aliases[[alias]]
     if (!is.null(args[[alias]])) {
-      if (!is.null(args[[target]]))
-        stop("Do not supply both `", alias, "` and `", target, "`.", call. = FALSE)
+      if (!is.null(args[[target]])) {
+        stop(
+          "Do not supply both `",
+          alias,
+          "` and `",
+          target,
+          "`.",
+          call. = FALSE
+        )
+      }
       args[[target]] <- args[[alias]]
     }
     args[[alias]] <- NULL
   }
   if (!is.null(args[["iter"]])) {
     if (!is.null(args[["iter_sampling"]]) || !is.null(args[["iter_warmup"]])) {
-      stop("Use either `iter`/`warmup` or CmdStanR iteration arguments, not both.", call. = FALSE)
+      stop(
+        "Use either `iter`/`warmup` or CmdStanR iteration arguments, not both.",
+        call. = FALSE
+      )
     }
-    warmup <- if (is.null(args[["warmup"]])) floor(args[["iter"]] / 2) else args[["warmup"]]
+    warmup <- if (is.null(args[["warmup"]])) {
+      floor(args[["iter"]] / 2)
+    } else {
+      args[["warmup"]]
+    }
     args[["iter_sampling"]] <- args[["iter"]] - warmup
     args[["iter_warmup"]] <- warmup
   } else if (!is.null(args[["warmup"]])) {
@@ -81,17 +108,39 @@ translate_cmdstanr_sampling_args <- function(stan_args) {
   if (!is.null(args[["control"]])) {
     controls <- args[["control"]]
     checkmate::assert_list(controls, names = "unique")
-    control_map <- c(adapt_delta = "adapt_delta", max_treedepth = "max_treedepth",
-      stepsize = "step_size", adapt_engaged = "adapt_engaged", metric = "metric",
-      adapt_init_buffer = "init_buffer", adapt_term_buffer = "term_buffer", adapt_window = "window")
+    control_map <- c(
+      adapt_delta = "adapt_delta",
+      max_treedepth = "max_treedepth",
+      stepsize = "step_size",
+      adapt_engaged = "adapt_engaged",
+      metric = "metric",
+      adapt_init_buffer = "init_buffer",
+      adapt_term_buffer = "term_buffer",
+      adapt_window = "window"
+    )
     unknown <- setdiff(names(controls), names(control_map))
-    if (length(unknown))
-      stop("Unsupported CmdStanR control setting(s): ", paste(unknown, collapse = ", "), call. = FALSE)
+    if (length(unknown)) {
+      stop(
+        "Unsupported CmdStanR control setting(s): ",
+        paste(unknown, collapse = ", "),
+        call. = FALSE
+      )
+    }
     for (name in names(controls)) {
-      if (is.null(controls[[name]])) next
+      if (is.null(controls[[name]])) {
+        next
+      }
       target <- control_map[[name]]
-      if (!is.null(args[[target]]))
-        stop("Conflicting settings: `control$", name, "` and `", target, "`.", call. = FALSE)
+      if (!is.null(args[[target]])) {
+        stop(
+          "Conflicting settings: `control$",
+          name,
+          "` and `",
+          target,
+          "`.",
+          call. = FALSE
+        )
+      }
       args[[target]] <- controls[[name]]
     }
   }

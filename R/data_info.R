@@ -27,7 +27,9 @@ data_info.character <- function(x, pdb = pdb_default(), ...) {
 #' @export
 as.data_info.list <- function(x, pdb = NULL, ...) {
   class(x) <- "pdb_data_info"
-  if(is.null(x$data_file)) x$data_file <- paste0("data/data/", x$name, ".json")
+  if (is.null(x$data_file)) {
+    x$data_file <- paste0("data/data/", x$name, ".json")
+  }
   assert_data_info(x)
   x
 }
@@ -56,12 +58,27 @@ print.pdb_data_info <- function(x, ...) {
   invisible(x)
 }
 
-assert_data_info <- function(x){
-  checkmate::assert_names(names(x),
-                          subset.of = c("name", "data_file", "title", "added_by", "added_date", "references", "description", "urls", "keywords"),
-                          must.include = c("name", "data_file", "title", "added_by", "added_date"))
+assert_data_info <- function(x) {
+  checkmate::assert_names(
+    names(x),
+    subset.of = c(
+      "name",
+      "data_file",
+      "title",
+      "added_by",
+      "added_date",
+      "references",
+      "description",
+      "urls",
+      "keywords"
+    ),
+    must.include = c("name", "data_file", "title", "added_by", "added_date")
+  )
   assert_pdb_resource_name(x$name)
-  checkmate::assert_set_equal(x$data_file, y = paste0("data/data/", x$name, ".json"))
+  checkmate::assert_set_equal(
+    x$data_file,
+    y = paste0("data/data/", x$name, ".json")
+  )
   checkmate::assert_string(x$title)
   checkmate::assert_string(x$added_by)
   checkmate::assert_date(x$added_date)

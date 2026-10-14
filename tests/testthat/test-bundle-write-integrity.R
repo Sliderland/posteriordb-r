@@ -710,7 +710,10 @@ test_that("bundle writes reject attached summaries that do not match their draws
   )
   summaries <- bundle$summary_statistics
   swapped <- bundle
-  swapped$summary_statistics <- stats::setNames(rev(summaries), names(summaries))
+  swapped$summary_statistics <- stats::setNames(
+    rev(summaries),
+    names(summaries)
+  )
   renamed <- bundle
   renamed$summary_statistics$mean_value$names <- "other"
   rediagnosed <- bundle

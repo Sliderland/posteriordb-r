@@ -134,7 +134,8 @@ write_pdb.pdb_reference_bundle <- function(
       summary_statistics_from_checked_reference_draws(bundle$reference_draws)
     checkmate::assert_list(bundle$summary_statistics)
     checkmate::assert_names(
-      names(bundle$summary_statistics), type = "unique",
+      names(bundle$summary_statistics),
+      type = "unique",
       permutation.of = supported_summary_statistic_types()
     )
     draw_info <- info(bundle$reference_draws)
@@ -144,12 +145,18 @@ write_pdb.pdb_reference_bundle <- function(
       assert_checked_summary_statistics_draws(summary)
       checkmate::assert_true(identical(summary_statistic_type(summary), type))
       checkmate::assert_set_equal(
-        summary[["names"]], posterior::variables(bundle$reference_draws)
+        summary[["names"]],
+        posterior::variables(bundle$reference_draws)
       )
       for (field in c("name", "inference", "diagnostics")) {
         checkmate::assert_true(
           identical(info(summary)[[field]], draw_info[[field]]),
-          .var.name = paste0("bundle$summary_statistics$", type, "$info$", field)
+          .var.name = paste0(
+            "bundle$summary_statistics$",
+            type,
+            "$info$",
+            field
+          )
         )
       }
     }
@@ -527,7 +534,9 @@ write_pdb.pdb_reference_posterior_draws <- function(
   ...
 ) {
   checkmate::assert_flag(write_summary_statistics)
-  if (!is.null(posterior_name)) assert_pdb_resource_name(posterior_name)
+  if (!is.null(posterior_name)) {
+    assert_pdb_resource_name(posterior_name)
+  }
   assert_reference_posterior_draws(x)
   assert_checked_reference_posterior_draws(x)
   reference_posterior_name <- info(x)$name
@@ -543,8 +552,11 @@ write_pdb.pdb_reference_posterior_draws <- function(
     ),
     overwrite = overwrite
   )
-  posterior_paths <- reference_draw_posterior_paths(pdb, reference_posterior_name,
-    posterior_name)
+  posterior_paths <- reference_draw_posterior_paths(
+    pdb,
+    reference_posterior_name,
+    posterior_name
+  )
   summary_statistics <- if (write_summary_statistics) {
     summary_statistics_from_checked_reference_draws(x)
   } else {
@@ -564,8 +576,14 @@ write_pdb.pdb_reference_posterior_draws <- function(
     if (is.null(posterior_info$reference_posterior_name)) {
       posterior_info$reference_posterior_name <- reference_posterior_name
       class(posterior_info) <- c("pdb_posterior", "list")
-      write_json_to_path(posterior_info, "posteriors", pdb,
-        name = posterior_info$name, info = FALSE, overwrite = TRUE)
+      write_json_to_path(
+        posterior_info,
+        "posteriors",
+        pdb,
+        name = posterior_info$name,
+        info = FALSE,
+        overwrite = TRUE
+      )
     }
   }
   pdb_clear_cache(pdb)
@@ -575,8 +593,11 @@ write_pdb.pdb_reference_posterior_draws <- function(
   invisible(TRUE)
 }
 
-reference_draw_posterior_paths <- function(pdb, reference_posterior_name,
-                                         posterior_name = NULL) {
+reference_draw_posterior_paths <- function(
+  pdb,
+  reference_posterior_name,
+  posterior_name = NULL
+) {
   posterior_dir <- pdb_file_path(pdb, "posteriors")
   posterior_files <- if (dir.exists(posterior_dir)) {
     list.files(posterior_dir, pattern = "\\.json$", full.names = TRUE)
@@ -589,23 +610,33 @@ reference_draw_posterior_paths <- function(pdb, reference_posterior_name,
       tryCatch(
         {
           posterior_info <- jsonlite::read_json(path, simplifyVector = TRUE)
-          if (!is.null(posterior_name) && !identical(posterior_info$name, posterior_name)) {
+          if (
+            !is.null(posterior_name) &&
+              !identical(posterior_info$name, posterior_name)
+          ) {
             return(FALSE)
           }
           matches <- identical(
             posterior_info$reference_posterior_name,
             reference_posterior_name
-          ) || (
-            is.null(posterior_info$reference_posterior_name) &&
-              identical(posterior_info$name, posterior_name %||% reference_posterior_name)
-          )
+          ) ||
+            (is.null(posterior_info$reference_posterior_name) &&
+              identical(
+                posterior_info$name,
+                posterior_name %||% reference_posterior_name
+              ))
           if (matches && is.null(posterior_info$reference_posterior_name)) {
-            pdb_write_output_path(pdb, "posteriors", "json",
-              posterior_info$name, info = FALSE)
+            pdb_write_output_path(
+              pdb,
+              "posteriors",
+              "json",
+              posterior_info$name,
+              info = FALSE
+            )
           }
           matches
         },
-       error = function(error) stop(paste("Error while linking:", error)) 
+        error = function(error) stop(paste("Error while linking:", error))
       )
     },
     logical(1)
@@ -805,8 +836,10 @@ write_pdb.pdb_posterior <- function(x, pdb, overwrite = FALSE, ...) {
   x$embedded_model_code <- NULL
   x$embedded_reference_draws <- NULL
   reference <- x$reference_posterior_name
-  if (!is.null(reference) &&
-      !all(file.exists(pdb_reference_output_paths(pdb, reference)))) {
+  if (
+    !is.null(reference) &&
+      !all(file.exists(pdb_reference_output_paths(pdb, reference)))
+  ) {
     x["reference_posterior_name"] <- list(NULL)
   }
   class(x) <- c(class(x), "list")

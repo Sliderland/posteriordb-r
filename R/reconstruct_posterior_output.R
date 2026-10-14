@@ -32,24 +32,37 @@
 #' @seealso \code{\link{reconstruct_stan_output}}
 #' @export
 reconstruct_posterior_output <- function(
-  posterior_name, pdb = pdb_default(), variables = NULL,
-  seed = 1L, include_unconstrained = FALSE
+  posterior_name,
+  pdb = pdb_default(),
+  variables = NULL,
+  seed = 1L,
+  include_unconstrained = FALSE
 ) {
   checkmate::assert_string(posterior_name, min.chars = 1L)
   checkmate::assert_class(pdb, "pdb")
   po <- posterior(posterior_name, pdb = pdb)
   if (is.null(po$reference_posterior_name)) {
-    stop("The posterior has no linked reference draws: ", po$name, call. = FALSE)
+    stop(
+      "The posterior has no linked reference draws: ",
+      po$name,
+      call. = FALSE
+    )
   }
   implementation <- po$model_info$model_implementations$stan
   if (is.null(implementation) || is.null(implementation$model_code)) {
-    stop("The posterior's model has no Stan implementation: ", po$model_name,
-         call. = FALSE)
+    stop(
+      "The posterior's model has no Stan implementation: ",
+      po$model_name,
+      call. = FALSE
+    )
   }
   reference_info <- reference_posterior_draws_info(po)
   if (!identical(reference_info$inference$method, "stan_sampling")) {
-    stop("Reconstruction requires reference draws declaring Stan sampling ",
-         "(inference$method = 'stan_sampling').", call. = FALSE)
+    stop(
+      "Reconstruction requires reference draws declaring Stan sampling ",
+      "(inference$method = 'stan_sampling').",
+      call. = FALSE
+    )
   }
   reconstruct_stan_output(
     draws = reference_posterior_draws(po),

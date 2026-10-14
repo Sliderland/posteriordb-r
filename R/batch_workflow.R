@@ -58,14 +58,18 @@ sequential_batch_workflow <- function(
   if (write && !check) {
     stop("`write = TRUE` requires `check = TRUE`.", call. = FALSE)
   }
-  if (write) checkmate::assert_class(pdb, "pdb_local")
+  if (write) {
+    checkmate::assert_class(pdb, "pdb_local")
+  }
 
   if (!is.list(reference_posteriors) || !length(reference_posteriors)) {
     stop("`reference_posteriors` must be a non-empty list.", call. = FALSE)
   }
   for (i in seq_along(reference_posteriors)) {
     assert_reference_posterior_info(reference_posteriors[[i]])
-    if (!identical(reference_posteriors[[i]]$inference$method, "stan_sampling")) {
+    if (
+      !identical(reference_posteriors[[i]]$inference$method, "stan_sampling")
+    ) {
       stop(
         "Sequential sampling workflows require `stan_sampling` reference info.",
         call. = FALSE
@@ -80,9 +84,11 @@ sequential_batch_workflow <- function(
       "name"
     )
   }
-  if (anyNA(names(reference_posteriors)) ||
+  if (
+    anyNA(names(reference_posteriors)) ||
       any(!nzchar(names(reference_posteriors))) ||
-      anyDuplicated(names(reference_posteriors))) {
+      anyDuplicated(names(reference_posteriors))
+  ) {
     stop("Workflow names must be unique, non-empty strings.", call. = FALSE)
   }
 
@@ -103,28 +109,31 @@ sequential_batch_workflow <- function(
     linked <- FALSE
     failure <- NULL
 
-    tryCatch({
-      workflow_info$inference$method_arguments <- sampling_args
-      draws <- compute_reference_posterior_draws(
-        workflow_info,
-        pdb = pdb,
-        backend = backend
-      )
+    tryCatch(
+      {
+        workflow_info$inference$method_arguments <- sampling_args
+        draws <- compute_reference_posterior_draws(
+          workflow_info,
+          pdb = pdb,
+          backend = backend
+        )
 
-      if (check || write) {
-        stage <- "checking"
-        draws <- check_reference_posterior_draws(draws)
+        if (check || write) {
+          stage <- "checking"
+          draws <- check_reference_posterior_draws(draws)
+        }
+        if (write) {
+          stage <- "writing"
+          # write_pdb() links the posterior, or errors when it cannot.
+          write_pdb(draws, pdb = pdb, overwrite = overwrite)
+          written <- TRUE
+          linked <- TRUE
+        }
+      },
+      error = function(error) {
+        failure <<- conditionMessage(error)
       }
-      if (write) {
-        stage <- "writing"
-        # write_pdb() links the posterior, or errors when it cannot.
-        write_pdb(draws, pdb = pdb, overwrite = overwrite)
-        written <- TRUE
-        linked <- TRUE
-      }
-    }, error = function(error) {
-      failure <<- conditionMessage(error)
-    })
+    )
 
     results[[i]] <- list(
       name = workflow_info$name,
@@ -162,27 +171,60 @@ sequential_batch_workflow <- function(
 
 normalize_sequential_sampling_lists <- function(sampling, workflow_names) {
   if (!is.list(sampling)) {
-    stop("`sampling` must be a named argument list or a list of such lists.",
-         call. = FALSE)
+    stop(
+      "`sampling` must be a named argument list or a list of such lists.",
+      call. = FALSE
+    )
   }
 
   n_workflows <- length(workflow_names)
   sampler_argument_names <- c(
-    "iter", "warmup", "chains", "thin", "seed", "refresh", "control",
-    "cores", "parallel_chains", "iter_sampling", "iter_warmup",
-    "threads_per_chain", "save_warmup", "adapt_delta", "max_treedepth",
-    "init", "algorithm", "metric", "step_size", "adapt_engaged",
-    "fixed_param", "sample_file", "diagnostic_file", "save_dso",
-    "open_progress", "show_messages", "pars", "include", "output_dir",
-    "output_basename", "sig_figs", "save_latent_dynamics",
-    "save_cmdstan_config", "opencl_ids", "max_iterations", "output_refresh"
+    "iter",
+    "warmup",
+    "chains",
+    "thin",
+    "seed",
+    "refresh",
+    "control",
+    "cores",
+    "parallel_chains",
+    "iter_sampling",
+    "iter_warmup",
+    "threads_per_chain",
+    "save_warmup",
+    "adapt_delta",
+    "max_treedepth",
+    "init",
+    "algorithm",
+    "metric",
+    "step_size",
+    "adapt_engaged",
+    "fixed_param",
+    "sample_file",
+    "diagnostic_file",
+    "save_dso",
+    "open_progress",
+    "show_messages",
+    "pars",
+    "include",
+    "output_dir",
+    "output_basename",
+    "sig_figs",
+    "save_latent_dynamics",
+    "save_cmdstan_config",
+    "opencl_ids",
+    "max_iterations",
+    "output_refresh"
   )
   sampling_names <- names(sampling)
-  named <- !is.null(sampling_names) && !anyNA(sampling_names) &&
-    all(nzchar(sampling_names)) && !anyDuplicated(sampling_names)
+  named <- !is.null(sampling_names) &&
+    !anyNA(sampling_names) &&
+    all(nzchar(sampling_names)) &&
+    !anyDuplicated(sampling_names)
   all_nested <- length(sampling) > 0L &&
     all(vapply(sampling, is.list, logical(1)))
-  named_workflows <- named && all_nested &&
+  named_workflows <- named &&
+    all_nested &&
     length(sampling_names) == n_workflows &&
     setequal(sampling_names, workflow_names) &&
     !all(sampling_names %in% sampler_argument_names)
@@ -213,7 +255,9 @@ normalize_sequential_sampling_lists <- function(sampling, workflow_names) {
       call. = FALSE
     )
   }
-  for (args in sampling) validate_sequential_sampling_args(args)
+  for (args in sampling) {
+    validate_sequential_sampling_args(args)
+  }
   sampling
 }
 
@@ -221,9 +265,15 @@ validate_sequential_sampling_args <- function(args) {
   if (!is.list(args)) {
     stop("Each sampling configuration must be a list.", call. = FALSE)
   }
-  if (!length(args)) return(invisible(args))
-  if (is.null(names(args)) || anyNA(names(args)) ||
-      any(!nzchar(names(args))) || anyDuplicated(names(args))) {
+  if (!length(args)) {
+    return(invisible(args))
+  }
+  if (
+    is.null(names(args)) ||
+      anyNA(names(args)) ||
+      any(!nzchar(names(args))) ||
+      anyDuplicated(names(args))
+  ) {
     stop("Sampling arguments must have unique, non-empty names.", call. = FALSE)
   }
   invisible(args)

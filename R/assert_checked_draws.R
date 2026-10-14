@@ -12,26 +12,34 @@
 #' @param x a [pdb_reference_posterior_draws] object
 #'
 #' @export
-assert_checked_reference_posterior_draws <- function(x){
+assert_checked_reference_posterior_draws <- function(x) {
   UseMethod("assert_checked_reference_posterior_draws")
 }
 
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
-assert_checked_reference_posterior_draws.pdb_reference_posterior_draws <- function(x){
+assert_checked_reference_posterior_draws.pdb_reference_posterior_draws <- function(
+  x
+) {
   assert_reference_posterior_draws(x)
   rpi <- info(x)
   assert_checked_reference_posterior_draws(rpi)
   assert_diagnostic_draw_counts(x, rpi)
-  checkmate::assert_true(posterior::ndraws(x) == reference_draw_policy()$ndraws_exact)
+  checkmate::assert_true(
+    posterior::ndraws(x) == reference_draw_policy()$ndraws_exact
+  )
 }
 
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
-assert_checked_reference_posterior_draws.pdb_reference_posterior_info <- function(x){
+assert_checked_reference_posterior_draws.pdb_reference_posterior_info <- function(
+  x
+) {
   for (name in required_reference_draw_checks(x$inference$method)) {
-    checkmate::assert_true(x$checks_made[[name]],
-      .var.name = paste0("checks_made$", name))
+    checkmate::assert_true(
+      x$checks_made[[name]],
+      .var.name = paste0("checks_made$", name)
+    )
   }
   invisible(TRUE)
 }
@@ -39,33 +47,46 @@ assert_checked_reference_posterior_draws.pdb_reference_posterior_info <- functio
 
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
-assert_checked_summary_statistics_draws <- function(x){
+assert_checked_summary_statistics_draws <- function(x) {
   UseMethod("assert_checked_summary_statistics_draws")
 }
 
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
-assert_checked_summary_statistics_draws.pdb_reference_posterior_draws <- function(x){
+assert_checked_summary_statistics_draws.pdb_reference_posterior_draws <- function(
+  x
+) {
   assert_reference_posterior_draws(x)
   rpi <- info(x)
   assert_checked_summary_statistics_draws(rpi)
   assert_diagnostic_draw_counts(x, rpi)
-  checkmate::assert_true(posterior::ndraws(x) >= reference_draw_policy()$ndraws_summary_min)
+  checkmate::assert_true(
+    posterior::ndraws(x) >= reference_draw_policy()$ndraws_summary_min
+  )
 }
 
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
-assert_checked_summary_statistics_draws.pdb_reference_posterior_summary_statistic <- function(x){
+assert_checked_summary_statistics_draws.pdb_reference_posterior_summary_statistic <- function(
+  x
+) {
   rpi <- info(x)
   assert_checked_summary_statistics_draws(rpi)
 }
 
 #' @rdname assert_checked_reference_posterior_draws
 #' @export
-assert_checked_summary_statistics_draws.pdb_reference_posterior_info <- function(x){
-  for (name in required_reference_draw_checks(x$inference$method, summary = TRUE)) {
-    checkmate::assert_true(x$checks_made[[name]],
-      .var.name = paste0("checks_made$", name))
+assert_checked_summary_statistics_draws.pdb_reference_posterior_info <- function(
+  x
+) {
+  for (name in required_reference_draw_checks(
+    x$inference$method,
+    summary = TRUE
+  )) {
+    checkmate::assert_true(
+      x$checks_made[[name]],
+      .var.name = paste0("checks_made$", name)
+    )
   }
   invisible(TRUE)
 }

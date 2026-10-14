@@ -22,11 +22,16 @@ test_that("bibliography failure changes database status and success messages", {
   errors <- capture.output(
     messages <- testthat::capture_messages(
       result <- withVisible(check_pdb(connection))
-    ), type = "message"
+    ),
+    type = "message"
   )
   expect_identical(result$value, 1L)
   expect_false(result$visible)
   expect_true(any(grepl("bibliography failure", errors, fixed = TRUE)))
-  expect_false(any(grepl("All bibliography elements exist", messages, fixed = TRUE)))
+  expect_false(any(grepl(
+    "All bibliography elements exist",
+    messages,
+    fixed = TRUE
+  )))
   expect_false(any(grepl("Posterior database is ok", messages, fixed = TRUE)))
 })

@@ -603,7 +603,10 @@ test_that("rename infers the type from a unique name and rejects unknown names",
     "data/info/data_new.info.json"
   )))
   writeLines("{}", file.path(fixture$root, "models/info/data_new.info.json"))
-  expect_error(rename_pdb("data_new", "x", pdb = fixture$pdb), "`type` is required")
+  expect_error(
+    rename_pdb("data_new", "x", pdb = fixture$pdb),
+    "`type` is required"
+  )
 })
 
 test_that("renaming to the current name changes nothing", {
@@ -657,7 +660,9 @@ test_that("model renames leave implementation paths named after other files", {
   fixture <- make_rename_fixture()
   info_path <- file.path(fixture$root, "models/info/model_old.info.json")
   stored <- jsonlite::read_json(info_path)
-  stored$model_implementations$pymc <- list(model_code = "models/pymc/shared.py")
+  stored$model_implementations$pymc <- list(
+    model_code = "models/pymc/shared.py"
+  )
   jsonlite::write_json(stored, info_path, pretty = TRUE, auto_unbox = TRUE)
   dir.create(file.path(fixture$root, "models/pymc"))
   writeLines("# shared", file.path(fixture$root, "models/pymc/shared.py"))
