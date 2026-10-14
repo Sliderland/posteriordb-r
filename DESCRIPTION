@@ -40,7 +40,6 @@ Suggests:
     withr,
     yaml,
     knitr
-
 Additional_repositories: https://stan-dev.r-universe.dev
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.0
