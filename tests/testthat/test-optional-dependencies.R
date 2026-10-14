@@ -103,6 +103,49 @@ test_that("posterior name lookups warn about extras without changing their resul
   expect_identical(actual, expected)
 })
 
+test_that("optional workflows report missing dependencies before network work", {
+  connection <- optional_dependency_database()
+  original <- base::requireNamespace
+  missing <- c("yaml", "remotes", "httr", "dplyr")
+  testthat::local_mocked_bindings(
+    requireNamespace = function(package, ...) {
+      if (package %in% missing) {
+        return(FALSE)
+      }
+      original(package, ...)
+    },
+    .package = "base"
+  )
+  testthat::local_mocked_bindings(
+    gh = function(...) stop("Network reached"),
+    .package = "gh"
+  )
+  expect_error(pdb_config(connection$pdb_local_endpoint), "yaml")
+  configured <- connection
+  configured$.pdb_config.yml <- list(type = "local")
+  expect_error(print(configured), "yaml")
+  expect_error(pdb_github("stan-dev/posteriordb"), "remotes")
+  github <- structure(list(), class = c("pdb_github", "pdb"))
+  expect_error(
+    posteriordb:::pdb_file_copy.pdb_github(github, "file.json", tempfile()),
+    "httr"
+  )
+  expect_error(
+    posteriordb:::pdb_cache_dir.pdb_github(github, "posteriors"),
+    "httr"
+  )
+  expect_error(
+    posteriordb:::github_download(
+      "https://example.com/file.json",
+      tempfile(),
+      pat = NULL,
+      overwrite = FALSE
+    ),
+    "httr"
+  )
+  expect_error(filter_posteriors(connection, name == "inputs-model"), "dplyr")
+})
+
 test_that("configuration selects only supported constructors without evaluating YAML", {
   skip_if_not_installed("yaml")
   connection <- optional_dependency_database()

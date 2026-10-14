@@ -12,6 +12,7 @@ test_that("Filter posteriors locally and on github", {
   )
   expect_silent(tblp <- posteriors_tbl_df(pdb = pdb_test))
 
+  skip_github_integration()
   skip_if(is.null(github_pat()))
   expect_silent(pdb_github_test <- pdb_github("stan-dev/posteriordb"))
   posteriordb:::pdb_clear_cache(pdb_github_test)
