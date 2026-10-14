@@ -220,6 +220,19 @@ test_that("model-code rename preserves code and unrelated implementation metadat
   expect_identical(posterior("data_old-model_new", fixture$pdb)$model_name, "model_new")
 })
 
+test_that("data and posterior renames use their attached connection", {
+  fixture <- make_rename_fixture()
+  data <- get_data("data_old", fixture$pdb)
+  renamed_data <- rename_pdb(data, "data_new")
+  expect_identical(info(renamed_data)$name, "data_new")
+  expect_equal(get_data("data_new", fixture$pdb), renamed_data, ignore_attr = TRUE)
+  old_posterior <- posterior("data_new-model_old", fixture$pdb)
+  renamed_posterior <- rename_pdb(old_posterior, "posterior_new")
+  expect_identical(renamed_posterior$name, "posterior_new")
+  expect_identical(posterior("posterior_new", fixture$pdb)$reference_posterior_name,
+                   "posterior_new")
+})
+
 test_that("rename rejects unsafe names and collisions without mutation", {
   fixture <- make_rename_fixture()
   on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
@@ -236,6 +249,31 @@ test_that("rename rejects unsafe names and collisions without mutation", {
   )
   expect_true(file.exists(file.path(fixture$root, "data/info/data_old.info.json")))
   expect_true(file.exists(file.path(fixture$root, "data/data/data_old.json.zip")))
+})
+
+test_that("posterior-only renames move its reference files and aliases", {
+  fixture <- make_rename_fixture()
+  on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
+  pdb <- fixture$pdb
+
+  expect_silent(rename_pdb(
+    "data_old-model_old", "posterior_new", type = "posterior", pdb = pdb
+  ))
+  expect_false(file.exists(file.path(fixture$root, "posteriors/data_old-model_old.json")))
+  expect_true(file.exists(file.path(fixture$root, "posteriors/posterior_new.json")))
+  posterior_info <- jsonlite::read_json(
+    file.path(fixture$root, "posteriors/posterior_new.json"), simplifyVector = FALSE
+  )
+  expect_identical(posterior_info$name, "posterior_new")
+  expect_identical(posterior_info$data_name, "data_old")
+  expect_identical(posterior_info$model_name, "model_old")
+  expect_true(file.exists(file.path(
+    fixture$root, "reference_posteriors/draws/info/posterior_new.info.json"
+  )))
+  expect_identical(
+    jsonlite::read_json(file.path(fixture$root, "alias/posteriors.json"), simplifyVector = FALSE)$alias,
+    "posterior_new"
+  )
 })
 
 test_that("failed reservations and installations restore every original file", {
