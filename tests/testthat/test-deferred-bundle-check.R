@@ -1,6 +1,6 @@
 make_unchecked_test_bundle <- function(divergence = 0L) {
   iterations <- 2500L
-  set.seed(20260925)
+  set.seed(123)
   draws_array <- array(
     stats::rnorm(iterations * 4L),
     dim = c(iterations, 4L, 1L),
@@ -11,11 +11,16 @@ make_unchecked_test_bundle <- function(divergence = 0L) {
     dim = c(iterations, 4L, 3L),
     dimnames = list(NULL, NULL, c("divergent__", "energy__", "treedepth__"))
   )
-  sampler_array[, , "energy__"] <- matrix(
-    stats::rnorm(iterations * 4L), nrow = iterations, ncol = 4L
-  ) + rep(seq_len(4L) * 0.25, each = iterations)
-  sampler_array[, , "treedepth__"] <- 5
-  if (divergence > 0L) sampler_array[1L, 1L, "divergent__"] <- divergence
+  sampler_array[,, "energy__"] <- matrix(
+    stats::rnorm(iterations * 4L),
+    nrow = iterations,
+    ncol = 4L
+  ) +
+    rep(seq_len(4L) * 0.25, each = iterations)
+  sampler_array[,, "treedepth__"] <- 5
+  if (divergence > 0L) {
+    sampler_array[1L, 1L, "divergent__"] <- divergence
+  }
 
   extracted <- list(
     draws = posterior::as_draws_array(draws_array),
@@ -32,9 +37,16 @@ make_unchecked_test_bundle <- function(divergence = 0L) {
     import_versions = list(R = "test", rstan = "test", posterior = "test")
   )
   testthat::local_mocked_bindings(
-    extract_rstan_fit = function(fit, checks = "all", strict = TRUE,
-                                 for_bundle = FALSE, compute_diagnostics = TRUE,
-                                 include = NULL, exclude = NULL, ...) {
+    extract_rstan_fit = function(
+      fit,
+      checks = "all",
+      strict = TRUE,
+      for_bundle = FALSE,
+      compute_diagnostics = TRUE,
+      include = NULL,
+      exclude = NULL,
+      ...
+    ) {
       expect_true(for_bundle)
       expect_false(compute_diagnostics)
       extracted
@@ -60,24 +72,53 @@ test_that("an unchecked bundle can be checked later and becomes writable when ac
   expect_s3_class(checked, "pdb_reference_bundle")
   expect_true(checked$diagnostics$checked)
   expect_true(all(unlist(checked$diagnostics$status, use.names = FALSE)))
-  expect_named(checked$diagnostics$status,
-    c("ndraws", "nchains", "mean_lag1_ac", "r_hat", "efmi", "divergent_transitions"))
+  expect_named(
+    checked$diagnostics$status,
+    c(
+      "ndraws",
+      "nchains",
+      "mean_lag1_ac",
+      "r_hat",
+      "efmi",
+      "divergent_transitions"
+    )
+  )
   sampler <- attr(bundle$reference_draws, "sampler_diagnostics")
-  expected_efmi <- vapply(seq_len(posterior::nchains(sampler)), function(chain) {
-    energy <- sampler[, chain, "energy__"]
-    sum(diff(energy)^2) / length(energy) / stats::var(energy)
-  }, numeric(1))
-  expect_equal(unname(checked$diagnostics$metrics$efmi),
-               unname(expected_efmi))
-  expect_true(all(unlist(info(checked$reference_draws)$checks_made, use.names = FALSE)))
-  expect_true("ess_within_bounds" %in% names(info(checked$reference_draws)$checks_made))
-  expect_equal(checked$posterior$embedded_reference_draws, checked$reference_draws)
-  expect_silent(assert_checked_reference_posterior_draws(checked$reference_draws))
+  expected_efmi <- vapply(
+    seq_len(posterior::nchains(sampler)),
+    function(chain) {
+      energy <- sampler[, chain, "energy__"]
+      sum(diff(energy)^2) / length(energy) / stats::var(energy)
+    },
+    numeric(1)
+  )
+  expect_equal(unname(checked$diagnostics$metrics$efmi), unname(expected_efmi))
+  expect_true(all(unlist(
+    info(checked$reference_draws)$checks_made,
+    use.names = FALSE
+  )))
+  expect_true(
+    "ess_within_bounds" %in% names(info(checked$reference_draws)$checks_made)
+  )
+  expect_equal(
+    checked$posterior$embedded_reference_draws,
+    checked$reference_draws
+  )
+  expect_silent(assert_checked_reference_posterior_draws(
+    checked$reference_draws
+  ))
 
   root <- tempfile("deferred-check-accepted-write-")
-  for (folder in c("data/data", "data/info", "models/stan", "models/info",
-                   "posteriors", "reference_posteriors/draws/info",
-                   "reference_posteriors/draws/draws", "cache")) {
+  for (folder in c(
+    "data/data",
+    "data/info",
+    "models/stan",
+    "models/info",
+    "posteriors",
+    "reference_posteriors/draws/info",
+    "reference_posteriors/draws/draws",
+    "cache"
+  )) {
     dir.create(file.path(root, folder), recursive = TRUE)
   }
   pdb <- pdb_local(root, cache_path = file.path(root, "cache"))
@@ -93,12 +134,19 @@ test_that("a failed deferred bundle check records failures without certifying dr
   expect_true(checked$diagnostics$checked)
   expect_false(checked$diagnostics$status$divergent_transitions)
   expect_true("divergent_transitions" %in% names(checked$diagnostics$failures))
-  expect_null(info(checked$reference_draws)$checks_made$no_divergent_transitions)
-  expect_equal(checked$posterior$embedded_reference_draws, checked$reference_draws)
+  expect_null(
+    info(checked$reference_draws)$checks_made$no_divergent_transitions
+  )
+  expect_equal(
+    checked$posterior$embedded_reference_draws,
+    checked$reference_draws
+  )
 
   root <- tempfile("deferred-check-write-")
   dir.create(root)
-  for (folder in c("data", "models", "posteriors")) dir.create(file.path(root, folder))
+  for (folder in c("data", "models", "posteriors")) {
+    dir.create(file.path(root, folder))
+  }
   dir.create(file.path(root, "cache"))
   pdb <- pdb_local(root, cache_path = file.path(root, "cache"))
   expect_error(write_pdb(checked$reference_draws, pdb), "TRUE|assertion")

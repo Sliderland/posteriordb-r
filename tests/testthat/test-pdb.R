@@ -76,7 +76,7 @@ test_that("pdb_config", {
 })
 
 
-test_that("pdb_config", {
+test_that("pdb_config prints and matches pdb_local", {
   local_test_database()
   if(on_github_actions()) skip_on_os("windows")
   pdb_path <- Sys.getenv("PDB_PATH")
