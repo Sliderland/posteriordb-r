@@ -1,7 +1,11 @@
 #' Test a posterior
 #'
 #' @details
-#' The function checks that a posterior is consistent.
+#' Checks the supplied posterior and the content returned by its getters,
+#' including unsaved edits and embedded standalone content. It does not reload
+#' the posterior record. Use [check_pdb()] to load and check saved records.
+#' Citation checks require an attached database when any posterior, model, or
+#' data references are supplied; no bibliography is needed without citations.
 #'
 #' @param po a [pdb_posterior] to check.
 #' @param run_stan_code_checks should checks using Stan be run?
@@ -21,9 +25,9 @@ check_pdb_posterior <- function(
     message("Checking posterior '", po$name, "' ...")
   }
 
-  po <- pdb_posterior(po$name, pdb = pdb(po))
+  assert_pdb_posterior(po)
   if (verbose) {
-    message("- Posterior can be read.")
+    message("- Supplied posterior is consistent.")
   }
 
   check_pdb_read_model_code(list(po))
