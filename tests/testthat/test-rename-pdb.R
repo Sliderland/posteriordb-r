@@ -116,7 +116,6 @@ test_that("failed ZIP staging leaves every original file intact", {
 
 test_that("data and model renames update the complete local PDB graph", {
   fixture <- make_rename_fixture()
-  on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
 
   # Populate the old data cache before migrating; a successful migration must
@@ -156,6 +155,14 @@ test_that("data and model renames update the complete local PDB graph", {
     ), list = TRUE)$Name,
     "data_new-model_old.json"
   )
+  expect_false(file.exists(file.path(fixture$root, "data/data/data_old.json.zip")))
+  expect_length(list.files(file.path(fixture$root, "reference_posteriors"),
+    recursive = TRUE, pattern = "data_old-model_old"), 0L)
+  for (info_dir in c("draws/info", "summary_statistics/mean_value/info")) {
+    stored_info <- jsonlite::read_json(file.path(fixture$root, "reference_posteriors",
+      info_dir, "data_new-model_old.info.json"))
+    expect_identical(stored_info$name, "data_new-model_old")
+  }
   expect_equal(get_data("data_new", pdb)$y, c(1, 2))
 
   expect_silent(rename_pdb("model_old", "model_new", type = "model", pdb = pdb))
@@ -195,7 +202,6 @@ test_that("renames update every posterior sharing a moved reference", {
     }
     expect_true(file.exists(file.path(root, "reference_posteriors/draws/draws",
       paste0(moved, ".json.zip"))))
-    unlink(root, recursive = TRUE)
   }
 })
 
@@ -235,9 +241,9 @@ test_that("data and posterior renames use their attached connection", {
 
 test_that("rename rejects unsafe names and collisions without mutation", {
   fixture <- make_rename_fixture()
-  on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
   writeLines("existing", file.path(fixture$root, "data/info/data_taken.info.json"))
+  before <- rename_fixture_bytes(fixture$root)
 
   expect_error(
     rename_pdb("data_old", "../bad", type = "data", pdb = pdb),
@@ -247,13 +253,11 @@ test_that("rename rejects unsafe names and collisions without mutation", {
     rename_pdb("data_old", "data_taken", type = "data", pdb = pdb),
     "Refusing to overwrite"
   )
-  expect_true(file.exists(file.path(fixture$root, "data/info/data_old.info.json")))
-  expect_true(file.exists(file.path(fixture$root, "data/data/data_old.json.zip")))
+  expect_identical(rename_fixture_bytes(fixture$root), before)
 })
 
 test_that("posterior-only renames move its reference files and aliases", {
   fixture <- make_rename_fixture()
-  on.exit(unlink(fixture$root, recursive = TRUE), add = TRUE)
   pdb <- fixture$pdb
 
   expect_silent(rename_pdb(
@@ -270,6 +274,14 @@ test_that("posterior-only renames move its reference files and aliases", {
   expect_true(file.exists(file.path(
     fixture$root, "reference_posteriors/draws/info/posterior_new.info.json"
   )))
+  expect_length(list.files(file.path(fixture$root, "reference_posteriors"),
+    recursive = TRUE, pattern = "data_old-model_old"), 0L)
+  expect_identical(
+    utils::unzip(file.path(
+      fixture$root, "reference_posteriors/draws/draws/posterior_new.json.zip"
+    ), list = TRUE)$Name,
+    "posterior_new.json"
+  )
   expect_identical(
     jsonlite::read_json(file.path(fixture$root, "alias/posteriors.json"), simplifyVector = FALSE)$alias,
     "posterior_new"
@@ -343,4 +355,43 @@ test_that("incomplete rename rollback retains original bytes and recovery paths"
     pattern = "^\\.pdb-rename-stage-"), 0L)
   expect_true(actual_rename(retained, original))
   expect_identical(rename_fixture_bytes(fixture$root), before)
+})
+
+test_that("rename infers the type from a unique name and rejects unknown names", {
+  fixture <- make_rename_fixture()
+  before <- rename_fixture_bytes(fixture$root)
+  expect_error(rename_pdb("absent", "renamed", pdb = fixture$pdb), "`type` is required")
+  expect_identical(rename_fixture_bytes(fixture$root), before)
+
+  rename_pdb("data_old", "data_new", pdb = fixture$pdb)
+  expect_true(file.exists(file.path(fixture$root, "data/info/data_new.info.json")))
+})
+
+test_that("renaming to the current name changes nothing", {
+  fixture <- make_rename_fixture()
+  before <- rename_fixture_bytes(fixture$root)
+  rename_pdb("data_old", "data_old", type = "data", pdb = fixture$pdb)
+  expect_identical(rename_fixture_bytes(fixture$root), before)
+})
+
+test_that("rename refuses to move a reference used by an unaffected posterior", {
+  fixture <- make_rename_fixture()
+  other <- jsonlite::read_json(file.path(fixture$root, "posteriors/data_old-model_old.json"))
+  other$name <- "data_other-model_old"
+  other$data_name <- "data_other"
+  jsonlite::write_json(other, file.path(fixture$root, "posteriors/data_other-model_old.json"),
+    pretty = TRUE, auto_unbox = TRUE)
+  before <- rename_fixture_bytes(fixture$root)
+  expect_error(rename_pdb("data_old", "data_new", type = "data", pdb = fixture$pdb),
+    "shared with an unaffected posterior")
+  expect_identical(rename_fixture_bytes(fixture$root), before)
+})
+
+test_that("info objects need an explicit connection to be renamed", {
+  fixture <- make_rename_fixture()
+  before <- rename_fixture_bytes(fixture$root)
+  expect_error(rename_pdb(model_info("model_old", pdb = fixture$pdb), "model_new"), "pdb_local")
+  expect_identical(rename_fixture_bytes(fixture$root), before)
+  rename_pdb(model_info("model_old", pdb = fixture$pdb), "model_new", pdb = fixture$pdb)
+  expect_true(file.exists(file.path(fixture$root, "models/info/model_new.info.json")))
 })
