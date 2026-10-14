@@ -50,5 +50,5 @@ With \code{backend = "rstan"} the model is compiled but not sampled. With
 read off the parameter names; its draws are discarded.
 }
 \seealso{
-\code{\link[=infer_unconstrained_parameter_counts_from_fit]{infer_unconstrained_parameter_counts_from_fit()}}
+\code{\link[=infer_unconstrained_parameter_counts_from_fit]{infer_unconstrained_parameter_counts_from_fit()}}, \code{\link[=create_pdb_bundle]{create_pdb_bundle()}}
 }

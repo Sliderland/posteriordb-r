@@ -25,7 +25,7 @@
 #' With `backend = "rstan"` the model is compiled but not sampled. With
 #' `backend = "cmdstanr"` a very short fit of `iter` iterations is run to
 #' read off the parameter names; its draws are discarded.
-#' @seealso [infer_unconstrained_parameter_counts_from_fit()]
+#' @seealso [infer_unconstrained_parameter_counts_from_fit()], [create_pdb_bundle()]
 #' @md
 #' @export
 infer_posterior_dimensions <- function(

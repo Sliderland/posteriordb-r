@@ -105,6 +105,30 @@ stan_bundle_case <- function(case) {
   )
 }
 
+stan_bundle_rstan_fit <- local({
+  fits <- list()
+  function(case) {
+    skip_stan_integration()
+    skip_if_not_installed("rstan")
+    if (is.null(fits[[case]])) {
+      spec <- stan_bundle_case(case)
+      fits[[case]] <<- suppressWarnings(rstan::sampling(
+        rstan::stan_model(model_code = spec$code),
+        data = spec$data,
+        chains = 10,
+        cores = 1L,
+        warmup = 10000,
+        iter = 20000,
+        thin = 10,
+        seed = 4711,
+        refresh = 0,
+        control = list(adapt_delta = spec$adapt_delta)
+      ))
+    }
+    fits[[case]]
+  }
+})
+
 stan_bundle_cmdstan_fit <- local({
   fits <- list()
   function(case) {
@@ -143,6 +167,17 @@ stan_bundle_cmdstan_fit <- local({
     fits[[case]]
   }
 })
+
+stan_bundle_create <- function(fit, case, ...) {
+  spec <- stan_bundle_case(case)
+  create_pdb_bundle(
+    fit,
+    data = spec$data,
+    data_info = list(name = spec$data_name, title = "Inputs"),
+    model_info = list(name = spec$model, title = "Model"),
+    ...
+  )
+}
 
 stan_bundle_import <- function(fit, case) {
   object <- structure(

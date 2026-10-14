@@ -7,8 +7,10 @@
 #' @param ... further arguments supplied to methods.
 #'
 #' @seealso framework()
-#' @details Character-code construction preserves the requested framework
-#'   (default `stan`) and requires a matching non-NULL implementation in `info`.
+#' @details A posterior with embedded code returns it for the matching
+#'   framework. Other frameworks use the attached database, if available.
+#'   Character-code construction preserves the requested framework (default
+#'   `stan`) and requires a matching non-NULL implementation in `info`.
 #'   Construction keeps the code unchanged; it does not compile or translate it.
 #'   Stored code is read from the selected implementation's `model_code`
 #'   path. Model info that does not record a path uses the
@@ -32,6 +34,20 @@ as.model_code <- function(x, info, ...) {
 #' @rdname model_code
 #' @export
 model_code.pdb_posterior <- function(x, framework, ...) {
+  if (!is.null(x$embedded_model_code)) {
+    checkmate::assert_choice(framework, supported_frameworks())
+    if (identical(attr(x$embedded_model_code, "framework"), framework)) {
+      return(x$embedded_model_code)
+    }
+    if (is.null(pdb(x))) {
+      stop(
+        "No embedded model code for framework `",
+        framework,
+        "`; attach a database to load another implementation.",
+        call. = FALSE
+      )
+    }
+  }
   if (is.null(x$model_info$model_implementations[[framework]])) {
     return(model_code(x$model_name, framework, pdb = pdb(x), ...))
   }
@@ -99,6 +115,21 @@ model_code_file_path <- function(x, ...) {
 #' @rdname model_code
 #' @export
 model_code_file_path.pdb_posterior <- function(x, framework, ...) {
+  if (
+    !is.null(x$embedded_model_code) &&
+      identical(framework(x$embedded_model_code), framework)
+  ) {
+    stop(
+      "This in-memory posterior is not persisted; its embedded model code has no database file path.",
+      call. = FALSE
+    )
+  }
+  if (is.null(pdb(x))) {
+    stop(
+      "No database file path is available for this in-memory posterior.",
+      call. = FALSE
+    )
+  }
   if (is.null(x$model_info$model_implementations[[framework]])) {
     return(model_code_file_path(x$model_name, framework, pdb = pdb(x), ...))
   }

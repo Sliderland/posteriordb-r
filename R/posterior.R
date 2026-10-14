@@ -1,14 +1,29 @@
 #' Access a posterior in the posterior database
 #'
-#' @param x a posterior name that exist in the posterior database or a
-#'          list used to construct a posterior object.
+#' @param x For `posterior()`, a saved posterior name. For `as.posterior()`,
+#'   a named list used to construct a posterior object.
 #' @param pdb a \code{pdb} posterior database object.
-#' @param ... currently not in use.
+#' @param ... currently unused; posterior name lookups warn when extra arguments
+#'   are supplied and continue the lookup.
 #'
 #' @details
-#' To setup a posterior object from a list, a minimum och a `pdb_model`,
-#' `pdb_data`, and a `dimension` element need to be included. See
-#' `posterior("eight_schools")$dimensions` for an example.
+#' Use `posterior(name, pdb)` to look up a saved record. Use `as.posterior()`
+#' for list construction: provide `pdb_model_code`, `pdb_data`, and
+#' `dimensions` (named unconstrained parameter counts), or the complete
+#' posterior metadata fields. If dimensions are omitted, supplied Stan code
+#' and data are used to infer them, which can require compilation.
+#' Construction does not write files. `pdb_posterior()` is the lookup alias;
+#' `as.pdb_posterior()` is the construction alias.
+#'
+#' Posteriors returned by [create_pdb_bundle()] embed their data, model
+#' code, and reference draws. Their normal getters work without a database.
+#' A NULL connection is valid only with all three embedded objects; embedded
+#' names are checked even when a connection is attached. `dimensions` stores
+#' one unconstrained parameter count per parameter, not output shapes.
+#'
+#' List-based posterior construction preserves the optional character fields
+#' `urls`, `references`, and `keywords` when they are supplied. When writing a
+#' posterior, an omitted `keywords` field is serialized as `null`.
 #'
 #' @export
 posterior <- function(x, pdb = pdb_default(), ...) {
@@ -96,6 +111,11 @@ as.posterior.list <- function(x, pdb = pdb_default(), ...) {
       backend = "rstan"
     )
   }
+  embedded_fields <- intersect(
+    names(x),
+    c("embedded_data", "embedded_model_code", "embedded_reference_draws")
+  )
+  embedded_content <- x[embedded_fields]
   retained_fields <- c(
     pdb_posterior_must_include(),
     "urls",
@@ -103,6 +123,7 @@ as.posterior.list <- function(x, pdb = pdb_default(), ...) {
     "keywords"
   )
   x <- x[intersect(names(x), retained_fields)]
+  x[embedded_fields] <- embedded_content
 
   pdb(x) <- pdb
   class(x) <- "pdb_posterior"
@@ -163,6 +184,72 @@ assert_pdb_posterior <- function(x) {
   checkmate::assert_character(x$references, null.ok = TRUE)
   checkmate::assert_character(x$keywords, null.ok = TRUE)
 
-  checkmate::assert_class(pdb(x), "pdb")
+  embedded <- c(
+    "embedded_data",
+    "embedded_model_code",
+    "embedded_reference_draws"
+  )
+  if (
+    is.null(pdb(x)) &&
+      any(vapply(embedded, function(key) is.null(x[[key]]), logical(1)))
+  ) {
+    stop(
+      "A posterior without `pdb` requires embedded data, model code, and reference draws.",
+      call. = FALSE
+    )
+  }
+  if (!is.null(pdb(x))) {
+    checkmate::assert_class(pdb(x), "pdb")
+  }
+  # A connection supplies fallback content; it must not bypass validation of
+  # the in-memory objects that getters prefer over that connection.
+  if (!is.null(x$embedded_data)) {
+    assert_data(x$embedded_data)
+    if (
+      !identical(info(x$embedded_data), x$data_info) ||
+        !identical(info(x$embedded_data)$name, x$data_name)
+    ) {
+      stop(
+        "Embedded data metadata conflicts with the posterior's data link.",
+        call. = FALSE
+      )
+    }
+  }
+  if (!is.null(x$embedded_model_code)) {
+    assert_model_code(x$embedded_model_code)
+    if (
+      !identical(info(x$embedded_model_code), x$model_info) ||
+        !identical(info(x$embedded_model_code)$name, x$model_name) ||
+        !framework(x$embedded_model_code) %in%
+          names(x$model_info$model_implementations)
+    ) {
+      stop(
+        "Embedded model metadata conflicts with the posterior's model link.",
+        call. = FALSE
+      )
+    }
+  }
+  if (!is.null(x$embedded_reference_draws)) {
+    assert_reference_posterior_draws(x$embedded_reference_draws)
+    if (
+      !identical(
+        info(x$embedded_reference_draws)$name,
+        x$reference_posterior_name
+      )
+    ) {
+      stop(
+        "Embedded reference draws conflict with the posterior's reference link.",
+        call. = FALSE
+      )
+    }
+    embedded_variables <- posterior::variables(x$embedded_reference_draws)
+    present_bases <- unique(sub("\\[.*$", "", embedded_variables))
+    if (length(setdiff(names(x$dimensions), present_bases))) {
+      stop(
+        "Embedded reference draws are missing parameter variables declared by the posterior.",
+        call. = FALSE
+      )
+    }
+  }
   invisible(x)
 }

@@ -19,6 +19,36 @@ structural_constants <- c(
   "Omega[1,1]"
 )
 
+test_that("structural constants alone reject a well-sampled RStan fit", {
+  fit <- stan_bundle_rstan_fit("constrained")
+  constant <- stan_bundle_constant_variables(fit)
+  report <- suppressWarnings(reference_draw_diagnostics(fit))
+
+  expect_identical(
+    names(Filter(isFALSE, report$status)),
+    c("mean_lag1_ac", "r_hat")
+  )
+  for (check in c("mean_lag1_ac", "r_hat")) {
+    expect_true(all(structural_constants %in% report$failures[[check]]))
+    # No variable that actually varies fails either check.
+    expect_true(all(report$failures[[check]] %in% constant))
+  }
+  # The correlation diagonal is constant only up to rounding, so its metrics
+  # are computed on noise and it passes or fails by chance.
+  expect_true(all(c("Omega[2,2]", "Omega[3,3]") %in% constant))
+
+  bundle <- stan_bundle_create(fit, "constrained")
+  expect_identical(
+    info(bundle$reference_draws)$checks_made$check_failed,
+    "mean_lag1_ac, r_hat"
+  )
+  # The user cannot work around it: the parameter cannot be left out.
+  expect_error(
+    stan_bundle_create(fit, "constrained", exclude = "L_Omega"),
+    "Cannot exclude"
+  )
+})
+
 ###
 # CmdStanR tests kept for when CmdStanR bundle support is implemented
 #

@@ -1,3 +1,56 @@
+#Helpers: helper-diagnostics.R
+
+test_that("diagnostic labels must identify the retained variables and chains", {
+  x <- alignment_reference_draws()
+  expect_silent(check_reference_posterior_draws(x))
+  for (field in c(
+    "mean_lag1_ac",
+    "r_hat",
+    "expected_fraction_of_missing_information",
+    "divergent_transitions"
+  )) {
+    malformed <- x
+    metadata <- info(x)
+    names(metadata$diagnostics[[field]])[1] <- "unrelated"
+    info(malformed) <- metadata
+    expect_error(check_reference_posterior_draws(malformed), field)
+    expect_error(check_summary_statistics_draws(malformed), field)
+    metadata$checks_made <- bundle_acceptance_flags()
+    info(malformed) <- metadata
+    expect_error(assert_checked_reference_posterior_draws(malformed), field)
+  }
+  metadata <- info(x)
+  metadata$diagnostics$diagnostic_information$names <- c("wrong", "beta")
+  info(x) <- metadata
+  expect_error(check_reference_posterior_draws(x), "diagnostic_information")
+})
+
+test_that("diagnostic labels cannot repeat variables or chains", {
+  x <- alignment_reference_draws()
+  expect_silent(check_reference_posterior_draws(x))
+  for (field in c(
+    "mean_lag1_ac",
+    "r_hat",
+    "expected_fraction_of_missing_information",
+    "divergent_transitions"
+  )) {
+    malformed <- x
+    metadata <- info(x)
+    labels <- names(metadata$diagnostics[[field]])
+    names(metadata$diagnostics[[field]])[1L] <- labels[2L]
+    info(malformed) <- metadata
+    expect_error(check_reference_posterior_draws(malformed), field)
+    expect_error(check_summary_statistics_draws(malformed), field)
+    metadata$checks_made <- bundle_acceptance_flags()
+    info(malformed) <- metadata
+    expect_error(assert_checked_reference_posterior_draws(malformed), field)
+  }
+  metadata <- info(x)
+  metadata$diagnostics$diagnostic_information$names <- c("alpha", "alpha")
+  info(x) <- metadata
+  expect_error(check_reference_posterior_draws(x), "diagnostic_information")
+})
+
 test_that("legacy positional metrics and reordered named metrics remain supported", {
   x <- alignment_reference_draws()
   metadata <- info(x)

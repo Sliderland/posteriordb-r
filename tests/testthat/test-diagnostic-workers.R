@@ -1,3 +1,78 @@
+test_that("stored and report diagnostics agree on the same retained arrays", {
+  set.seed(123)
+  draws <- posterior::as_draws_array(array(
+    rnorm(800),
+    c(100, 4, 2),
+    dimnames = list(NULL, NULL, c("alpha", "beta"))
+  ))
+  sampler <- posterior::as_draws_array(array(
+    0,
+    c(100, 4, 3),
+    dimnames = list(NULL, NULL, c("energy__", "divergent__", "treedepth__"))
+  ))
+  sampler[,, "energy__"] <- matrix(rnorm(400), 100, 4)
+  sampler[1:3, 2, "divergent__"] <- 1
+  sampler[,, "treedepth__"] <- 5
+  sampler[1:2, 3, "treedepth__"] <- 10
+  sampler[1, 4, "treedepth__"] <- 7
+  metadata <- list(
+    expected_fraction_of_missing_information = rep(.5, 4),
+    max_treedepth = 10
+  )
+  extracted <- list(
+    draws = draws,
+    sampler_diagnostics = sampler,
+    metadata = metadata
+  )
+  report <- bundle_full_diagnostic_report(extracted)
+  stored <- compute_stan_sampling_diagnostics(
+    draws,
+    c("alpha", "beta"),
+    sampler,
+    metadata$expected_fraction_of_missing_information,
+    metadata$max_treedepth
+  )
+  for (field in c(
+    "mean_lag1_ac",
+    "r_hat",
+    "effective_sample_size_bulk",
+    "effective_sample_size_tail"
+  )) {
+    expect_equal(stored[[field]], report$metrics[[field]])
+  }
+  expect_equal(stored$divergent_transitions, c(0, 3, 0, 0))
+  expect_equal(
+    unname(report$metrics$divergent_transitions),
+    stored$divergent_transitions
+  )
+  expect_equal(
+    stored$expected_fraction_of_missing_information,
+    unname(report$metrics$efmi)
+  )
+  expect_equal(stored$max_treedepth_exceeded, c(0, 0, 2, 0))
+  expect_equal(
+    unname(report$metrics$max_treedepth_observed_by_chain),
+    c(5, 5, 10, 7)
+  )
+
+  for (variable in posterior::variables(draws)) {
+    values <- matrix(
+      draws[,, variable],
+      nrow = posterior::niterations(draws),
+      ncol = posterior::nchains(draws)
+    )
+
+    expect_equal(
+      stored$effective_sample_size_bulk[[variable]],
+      posterior::ess_bulk(values)
+    )
+    expect_equal(
+      stored$effective_sample_size_tail[[variable]],
+      posterior::ess_tail(values)
+    )
+  }
+})
+
 test_that("missing sampler diagnostics are stored as NA", {
   set.seed(123)
   draws <- posterior::as_draws_array(array(

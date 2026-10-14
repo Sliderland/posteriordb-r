@@ -111,3 +111,59 @@ create_draws_arr <- function(n = 20L * 4L * 3L, size = c(20L, 4L, 3L)) {
   draws <- posterior::as_draws_array(arr)
   draws
 }
+create_transformed_ref_draws <- function(.local_envir = parent.frame()) {
+  # Accepted two-variable reference draws with sampler diagnostics, a stale
+  # report and a throwaway database, for tests that transform draws in memory.
+  withr::local_seed(123)
+  values <- posterior::as_draws_array(array(
+    rnorm(20000),
+    c(2500, 4, 2),
+    dimnames = list(NULL, NULL, c("alpha", "beta"))
+  ))
+  sampler <- posterior::as_draws_array(array(
+    0,
+    c(2500, 4, 2),
+    dimnames = list(NULL, NULL, c("divergent__", "energy__"))
+  ))
+  sampler[,, "energy__"] <- matrix(rnorm(10000), 2500, 4)
+  diagnostics <- compute_stan_sampling_diagnostics(
+    values,
+    c("alpha", "beta"),
+    sampler_diagnostics = sampler,
+    expected_fraction_of_missing_information = rep(.5, 4)
+  )
+  ri <- as.reference_posterior_info(list(
+    name = "transform-reference",
+    inference = list(method = "stan_sampling", method_arguments = list()),
+    diagnostics = diagnostics,
+    checks_made = bundle_acceptance_flags(),
+    comments = "Preserve",
+    added_by = "Test",
+    added_date = Sys.Date(),
+    versions = NULL
+  ))
+  root <- withr::local_tempdir("transform-db-", .local_envir = .local_envir)
+  writeLines("unchanged", file.path(root, "sentinel"))
+  connection <- structure(
+    list(pdb_local_endpoint = root),
+    class = c("pdb_local", "pdb")
+  )
+  x <- as.reference_posterior_draws(
+    posterior::as_draws_list(values),
+    ri,
+    pdb = connection
+  )
+  attr(x, "sampler_diagnostics") <- sampler
+  attr(x, "sampling_metadata") <- list(
+    expected_fraction_of_missing_information = rep(.5, 4)
+  )
+  attr(x, "diagnostic_report") <- list(obsolete = TRUE)
+  list(
+    x = x,
+    values = values,
+    sampler = sampler,
+    diagnostics = diagnostics,
+    connection = connection,
+    root = root
+  )
+}
