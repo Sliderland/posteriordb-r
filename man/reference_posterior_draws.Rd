@@ -13,7 +13,7 @@
 \alias{reference_posterior_draws.pdb_reference_posterior_info}
 \alias{as.reference_posterior_draws.draws_list}
 \alias{assert_reference_posterior_draws}
-\title{Reference Posterior draws and summary statistics}
+\title{Read or wrap reference posterior draws}
 \usage{
 \method{as.reference_posterior_draws}{stanfit}(x, info, pdb = pdb_default(), ...)
 
@@ -31,22 +31,38 @@ as.pdb_reference_posterior_draws(x, ...)
 
 \method{reference_posterior_draws}{pdb_reference_posterior_info}(x, pdb = pdb_default(), ...)
 
-\method{as.reference_posterior_draws}{draws_list}(x, info, ...)
+\method{as.reference_posterior_draws}{draws_list}(x, info, pdb = NULL, ...)
 
 assert_reference_posterior_draws(x)
 }
 \arguments{
-\item{x}{a [posterior] object or a posterior name.}
+\item{x}{A posterior name, posterior object or reference-info object for
+reading; a `draws_list` or completed `stanfit` for coercion.}
 
 \item{info}{a [pdb_reference_posterior_info] object}
 
-\item{pdb}{a [pdb] object (if [x] is a posterior name)}
+\item{pdb}{a [pdb] connection for name lookup or to attach during coercion.
+Draws-list coercion defaults to \code{NULL}, creating a standalone object.}
 
 \item{...}{further arguments supplied to specific methods.}
 }
 \value{
-a [pdb_reference_posterior] object.
+A `pdb_reference_posterior_draws` object.
 }
 \description{
-Reference Posterior draws and summary statistics
+Read or wrap reference posterior draws
+}
+\details{
+`reference_posterior_draws()` reads the reference draws of a
+  posterior.
+
+  `as.reference_posterior_draws()` (with dots) attaches the metadata in
+  `info` to draws you prepared yourself. It runs no checks and writes
+  nothing, and it drops `lp__`. Variable names must be unique and the same
+  in every chain, and every variable must have the same number of draws.
+  `as.pdb_reference_posterior_draws()` is an alias.
+
+  To convert a completed Stan fit and check it, use
+  [as_reference_posterior_draws()] (with underscores) or
+  [import_reference_posterior_draws()].
 }

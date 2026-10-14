@@ -45,8 +45,16 @@ pdb_reference_posterior_summary_statistics(x, ...)
 \item{info}{a [pdb_reference_posterior_info] object}
 }
 \value{
-a [pdb_reference_posterior_summary_statistic] object.
+A [pdb_reference_posterior_summary_statistic] object for singular
+  access; a named list of available types for plural access.
 }
 \description{
 Reference posterior summary statistics
+}
+\details{
+Summaries are looked up through the posterior's
+  `reference_posterior_name`, which may differ from the posterior's own
+  name. `reference_posterior_summary_statistics()` returns the types that
+  are stored, and an empty list when the posterior has no reference
+  posterior. A summary that is listed but cannot be read is an error.
 }

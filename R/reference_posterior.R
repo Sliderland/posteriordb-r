@@ -45,6 +45,15 @@ pdb_reference_posterior_draws_info <- reference_posterior_draws_info
 #' @rdname reference_posterior_info
 #' @export
 reference_posterior_info.pdb_posterior <- function(x, type, ...) {
+  if (identical(type, "draws") && !is.null(x$embedded_reference_draws)) {
+    return(info(x$embedded_reference_draws))
+  }
+  if (is.null(pdb(x))) {
+    stop(
+      "Only embedded reference draws are available; attach a database to read reference summaries.",
+      call. = FALSE
+    )
+  }
   read_reference_posterior_info(
     x = x$reference_posterior_name,
     type = type,
@@ -82,10 +91,7 @@ read_reference_posterior_info <- function(x, type, pdb = NULL, ...) {
   if (is.null(x)) {
     stop("There is currently no reference posterior for this posterior.")
   }
-  type_path <- type
-  if (type %in% supported_summary_statistic_types()) {
-    type_path <- paste("summary_statistics", type, sep = "/")
-  }
+  type_path <- reference_posterior_type_path(type)
   reference_posterior_info <- read_info_json(
     x,
     path = paste0("reference_posteriors/", type_path, "/info"),
@@ -123,7 +129,9 @@ read_reference_posterior_draws <- function(x, pdb, ...) {
   rpd <- lapply(rpd, FUN = function(X) lapply(X, as.numeric))
   rpd <- posterior::as_draws_list(rpd)
   names(rpd) <- NULL
-  info(rpd) <- reference_posterior_draws_info(x, pdb)
+  # A reference-posterior name need not also be a posterior name while an
+  # imported fit is being staged, so read its info directly.
+  info(rpd) <- read_reference_posterior_info(x, type = "draws", pdb = pdb)
   pdb(rpd) <- pdb
   class(rpd) <- c("pdb_reference_posterior_draws", class(rpd))
   assert_reference_posterior_draws(rpd)
@@ -141,6 +149,12 @@ reference_posterior_draws_file_path <- function(x, ...) {
 #' @rdname reference_posterior_draws_file_path
 #' @export
 reference_posterior_draws_file_path.pdb_posterior <- function(x, ...) {
+  if (!is.null(x$embedded_reference_draws)) {
+    stop(
+      "This in-memory posterior is not persisted; its embedded reference draws have no database file path.",
+      call. = FALSE
+    )
+  }
   if (is.null(x$reference_posterior_name)) {
     stop2("There is currently no gold standard for this posterior.")
   }
@@ -172,12 +186,26 @@ reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(
 }
 
 
-#' Reference Posterior draws and summary statistics
-#' @param x a [posterior] object or a posterior name.
-#' @param pdb a [pdb] object (if [x] is a posterior name)
+#' Read or wrap reference posterior draws
+#' @param x A posterior name, posterior object or reference-info object for
+#'   reading; a `draws_list` or completed `stanfit` for coercion.
+#' @param pdb a [pdb] connection for name lookup or to attach during coercion.
+#'   Draws-list coercion defaults to \code{NULL}, creating a standalone object.
 #' @param info a [pdb_reference_posterior_info] object
 #' @param ... further arguments supplied to specific methods.
-#' @return a [pdb_reference_posterior] object.
+#' @details `reference_posterior_draws()` reads the reference draws of a
+#'   posterior.
+#'
+#'   `as.reference_posterior_draws()` (with dots) attaches the metadata in
+#'   `info` to draws you prepared yourself. It runs no checks and writes
+#'   nothing, and it drops `lp__`. Variable names must be unique and the same
+#'   in every chain, and every variable must have the same number of draws.
+#'   `as.pdb_reference_posterior_draws()` is an alias.
+#'
+#'   To convert a completed Stan fit and check it, use
+#'   [as_reference_posterior_draws()] (with underscores) or
+#'   [import_reference_posterior_draws()].
+#' @return A `pdb_reference_posterior_draws` object.
 #' @export
 reference_posterior_draws <- function(x, ...) {
   UseMethod("reference_posterior_draws")
@@ -206,6 +234,9 @@ reference_posterior_draws.character <- function(x, pdb = pdb_default(), ...) {
 #' @rdname reference_posterior_draws
 #' @export
 reference_posterior_draws.pdb_posterior <- function(x, ...) {
+  if (!is.null(x$embedded_reference_draws)) {
+    return(x$embedded_reference_draws)
+  }
   read_reference_posterior_draws(x = x$reference_posterior_name, pdb = pdb(x))
 }
 
@@ -221,7 +252,7 @@ reference_posterior_draws.pdb_reference_posterior_info <- function(
 
 #' @rdname reference_posterior_draws
 #' @export
-as.reference_posterior_draws.draws_list <- function(x, info, ...) {
+as.reference_posterior_draws.draws_list <- function(x, info, pdb = NULL, ...) {
   checkmate::assert_class(info, "pdb_reference_posterior_info")
   x <- posterior::as_draws_list(posterior::as_draws(x))
   names(x) <- NULL
@@ -230,6 +261,7 @@ as.reference_posterior_draws.draws_list <- function(x, info, ...) {
   }
 
   attr(x, "info") <- info
+  pdb(x) <- pdb
   class(x) <- c("pdb_reference_posterior_draws", class(x))
   assert_reference_posterior_draws(x)
   x
@@ -246,7 +278,14 @@ assert_reference_posterior_draws <- function(x) {
   # Assert named chains has the same parameter names
   par_names <- lapply(x, names)
   for (i in seq_along(par_names)) {
+    checkmate::assert_names(par_names[[i]], type = "unique")
     checkmate::assert_true(identical(par_names[[1]], par_names[[i]]))
+    for (variable in x[[i]]) {
+      checkmate::assert_true(
+        length(variable) == length(x[[1]][[1]]),
+        .var.name = "draw variable lengths"
+      )
+    }
   }
 
   # Assert chains don't have names
@@ -350,12 +389,50 @@ assert_reference_posterior_info <- function(x) {
 #' @param x a [pdb_reference_posterior_draws] to subest
 #' @param variable parameter names to subset.
 #' @param ... Further arguments (not used).
+#' @details The recorded diagnostics are kept for the selected variables.
+#'   If the selection changes, the recorded check results are cleared, so
+#'   check the draws again before writing them.
 #' @export
 subset.pdb_reference_posterior_draws <- function(x, variable, ...) {
   requireNamespace("posterior")
   attrs <- attributes(x)
-  class(x) <- class(x)[-1]
+  previous_variables <- posterior::variables(x)
+  class(x) <- class(x)[
+    -seq_len(match("pdb_reference_posterior_draws", class(x)))
+  ]
   x <- subset(x, variable = variable, regex = FALSE)
+  selected_variables <- posterior::variables(x)
+  if (!identical(selected_variables, previous_variables)) {
+    diagnostics <- attrs$info$diagnostics
+    if (!is.null(diagnostics)) {
+      for (key in c(
+        "effective_sample_size_bulk",
+        "effective_sample_size_tail",
+        "r_hat",
+        "mean_lag1_ac"
+      )) {
+        values <- diagnostics[[key]]
+        if (!is.null(values)) {
+          indices <- if (is.null(names(values))) {
+            match(
+              selected_variables,
+              diagnostics$diagnostic_information$names %||% previous_variables
+            )
+          } else {
+            selected_variables
+          }
+          diagnostics[[key]] <- stats::setNames(
+            values[indices],
+            selected_variables
+          )
+        }
+      }
+      diagnostics$diagnostic_information$names <- selected_variables
+      attrs$info$diagnostics <- diagnostics
+    }
+    attrs$info["checks_made"] <- list(NULL)
+    attrs$diagnostic_report <- NULL
+  }
   attributes(x) <- attrs
   x
 }
@@ -401,13 +478,44 @@ reference_posterior_type_path <- function(type) {
 #'
 #' @return
 #' A thinned [pdb_reference_posterior_draws] object.
+#' @details Thinning updates the recorded draw counts and clears the
+#'   recorded diagnostics and check results, so check the draws again before
+#'   writing them. `thin = 1` leaves the object unchanged.
 #'
-#' @export
+#' @exportS3Method posterior::thin_draws
 thin_draws.pdb_reference_posterior_draws <- function(x, thin, ...) {
+  checkmate::assert_int(thin, lower = 1L)
+  original <- x
   rpdi <- info(x)
-  class(x) <- class(x)[-1]
+  connection <- pdb(x)
+  class(x) <- class(x)[
+    -seq_len(match("pdb_reference_posterior_draws", class(x)))
+  ]
   x <- posterior::thin_draws(x, thin, ...)
-  x <- as.pdb_reference_posterior_draws(x, rpdi)
+  if (posterior::ndraws(x) == posterior::ndraws(original)) {
+    return(original)
+  }
+  rpdi$diagnostics <- bundle_reference_diagnostic_info(
+    list(),
+    posterior::ndraws(x),
+    posterior::nchains(x),
+    posterior::variables(x)
+  )
+  rpdi["checks_made"] <- list(NULL)
+  x <- as.pdb_reference_posterior_draws(x, rpdi, pdb = connection)
+  class(x) <- class(original)
+  attr(x, "diagnostic_report") <- NULL
+  sampler <- attr(original, "sampler_diagnostics")
+  if (!is.null(sampler)) {
+    attr(x, "sampler_diagnostics") <- posterior::thin_draws(sampler, thin, ...)
+  }
+  metadata <- attr(original, "sampling_metadata")
+  if (!is.null(metadata)) {
+    metadata$expected_fraction_of_missing_information <- NULL
+    metadata$ndraws <- posterior::ndraws(x)
+    metadata$nchains <- posterior::nchains(x)
+    attr(x, "sampling_metadata") <- metadata
+  }
   checkmate::assert_class(x, "pdb_reference_posterior_draws")
   x
 }

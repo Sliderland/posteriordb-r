@@ -2,6 +2,7 @@ context("test-pdb-reference_posterior")
 
 test_that("Check that reference_posterior works as expected", {
   local_test_database()
+
   expect_silent(pdb_test <- pdb_local())
   expect_silent(
     po <- posterior("eight_schools-eight_schools_centered", pdb_test)
@@ -73,12 +74,7 @@ test_that("Check that reference_posterior works as expected", {
   )
   expect_equal(posterior::ndraws(pd1thin), posterior::ndraws(pd1) / 2)
 
-  skip("LDA model will work from version 0.4")
-  expect_silent(po <- posterior("prideprejustice_chapter-ldaK5", pdb_test))
-  expect_error(
-    gs <- reference_posterior_draws(po),
-    regexp = "There is currently no reference posterior for this posterior."
-  )
+  expect_silent(po <- posterior("prideprejudice_chapter-ldaK5", pdb_test))
   expect_error(
     gs <- reference_posterior_draws(po),
     regexp = "There is currently no reference posterior for this posterior."

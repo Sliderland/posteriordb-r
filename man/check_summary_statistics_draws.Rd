@@ -25,3 +25,8 @@ check_summary_statistics_draws(x, ...)
 Check that reference posterior draws follows the
 reference posterior summary definition.
 }
+\details{
+The requirements are those of
+  [check_reference_posterior_draws()], except that at least 10,000
+  retained draws are required rather than exactly 10,000.
+}

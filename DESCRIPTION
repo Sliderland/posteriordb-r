@@ -22,6 +22,7 @@ Imports:
   gh,
   jsonlite,
   methods,
+  posterior,
   tibble
 Suggests:
     bibtex,
@@ -31,7 +32,6 @@ Suggests:
     dplyr,
     httr,
     git2r,
-    posterior,
     remotes,
     rmarkdown,
     rstan,
