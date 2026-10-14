@@ -619,7 +619,7 @@ reference_draw_posterior_paths <- function(pdb, reference_posterior_name,
           }
           matches
         },
-        error = function(error) FALSE
+       error = function(error) stop(paste("Error while linking:", error)) 
       )
     },
     logical(1)
