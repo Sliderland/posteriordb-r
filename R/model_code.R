@@ -36,13 +36,21 @@ as.model_code <- function(x, info, ...) {
 model_code.pdb_posterior <- function(x, framework, ...) {
   if (!is.null(x$embedded_model_code)) {
     checkmate::assert_choice(framework, supported_frameworks())
-    if (identical(attr(x$embedded_model_code, "framework"), framework))
+    if (identical(attr(x$embedded_model_code, "framework"), framework)) {
       return(x$embedded_model_code)
-    if (is.null(pdb(x))) stop("No embedded model code for framework `", framework,
-                             "`; attach a database to load another implementation.", call. = FALSE)
+    }
+    if (is.null(pdb(x))) {
+      stop(
+        "No embedded model code for framework `",
+        framework,
+        "`; attach a database to load another implementation.",
+        call. = FALSE
+      )
+    }
   }
-  if (is.null(x$model_info$model_implementations[[framework]]))
+  if (is.null(x$model_info$model_implementations[[framework]])) {
     return(model_code(x$model_name, framework, pdb = pdb(x), ...))
+  }
   model_code(x$model_info, framework, pdb = pdb(x), ...)
 }
 
@@ -57,7 +65,14 @@ model_code.character <- function(x, framework, pdb = pdb_default(), ...) {
 #' @export
 model_code.pdb_model_info <- function(x, framework, pdb = pdb_default(), ...) {
   scfp <- model_code_file_path(x, framework, pdb, ...)
-  out <- paste0(readLines(scfp), collapse = "\n")
+  out <- paste0(
+    withCallingHandlers(readLines(scfp), warning = function(w) {
+      if (grepl("incomplete final line", conditionMessage(w), fixed = TRUE)) {
+        invokeRestart("muffleWarning")
+      }
+    }),
+    collapse = "\n"
+  )
   class(out) <- c("pdb_model_code", "character")
   framework(out) <- framework
   info(out) <- x
@@ -68,13 +83,13 @@ model_code.pdb_model_info <- function(x, framework, pdb = pdb_default(), ...) {
 
 #' @rdname model_code
 #' @export
-as.model_code.stanmodel <- function(x, info, ...){
+as.model_code.stanmodel <- function(x, info, ...) {
   as.model_code(x@model_code, info = info, framework = "stan")
 }
 
 #' @rdname model_code
 #' @export
-as.model_code.character <- function(x, info, framework = "stan", ...){
+as.model_code.character <- function(x, info, framework = "stan", ...) {
   class(x) <- "pdb_model_code"
   framework(x) <- framework
   info(x) <- info
@@ -100,23 +115,50 @@ model_code_file_path <- function(x, ...) {
 #' @rdname model_code
 #' @export
 model_code_file_path.pdb_posterior <- function(x, framework, ...) {
-  if (!is.null(x$embedded_model_code) && identical(framework(x$embedded_model_code), framework))
-    stop("This in-memory posterior is not persisted; its embedded model code has no database file path.", call. = FALSE)
-  if (is.null(pdb(x))) stop("No database file path is available for this in-memory posterior.", call. = FALSE)
-  if (is.null(x$model_info$model_implementations[[framework]]))
+  if (
+    !is.null(x$embedded_model_code) &&
+      identical(framework(x$embedded_model_code), framework)
+  ) {
+    stop(
+      "This in-memory posterior is not persisted; its embedded model code has no database file path.",
+      call. = FALSE
+    )
+  }
+  if (is.null(pdb(x))) {
+    stop(
+      "No database file path is available for this in-memory posterior.",
+      call. = FALSE
+    )
+  }
+  if (is.null(x$model_info$model_implementations[[framework]])) {
     return(model_code_file_path(x$model_name, framework, pdb = pdb(x), ...))
+  }
   model_code_file_path(x$model_info, framework, pdb = pdb(x), ...)
 }
 
 #' @rdname model_code
 #' @export
-model_code_file_path.pdb_model_info <- function(x, framework, pdb = pdb_default(), ...) {
-  pdb_cached_local_file_path(pdb, model_implementation_file_path(x, framework), unzip = FALSE)
+model_code_file_path.pdb_model_info <- function(
+  x,
+  framework,
+  pdb = pdb_default(),
+  ...
+) {
+  pdb_cached_local_file_path(
+    pdb,
+    model_implementation_file_path(x, framework),
+    unzip = FALSE
+  )
 }
 
 #' @rdname model_code
 #' @export
-model_code_file_path.character <- function(x, framework, pdb = pdb_default(), ...) {
+model_code_file_path.character <- function(
+  x,
+  framework,
+  pdb = pdb_default(),
+  ...
+) {
   model_code_file_path(model_info(x, pdb = pdb), framework, pdb = pdb, ...)
 }
 
@@ -125,8 +167,12 @@ model_implementation_file_path <- function(x, framework) {
   checkmate::assert_choice(framework, supported_frameworks())
   implementation <- x$model_implementations[[framework]]
   checkmate::assert_list(implementation)
-  path <- implementation$model_code %||% file.path("models", framework,
-    paste0(x$name, ".", supported_frameworks_file_extension(framework)))
+  path <- implementation$model_code %||%
+    file.path(
+      "models",
+      framework,
+      paste0(x$name, ".", supported_frameworks_file_extension(framework))
+    )
   checkmate::assert_string(path)
   path
 }
@@ -161,7 +207,7 @@ as.stan_code <- function(x, info, ...) {
 pdb_stan_code <- stan_code
 
 
-assert_model_code <- function(x){
+assert_model_code <- function(x) {
   checkmate::assert_class(x, "pdb_model_code")
   checkmate::assert_string(x)
   checkmate::assert_choice(framework(x), choices = supported_frameworks())
@@ -175,25 +221,25 @@ assert_model_code <- function(x){
 #' @param value a supported framework.
 #'
 #' @export
-framework <- function(x){
+framework <- function(x) {
   UseMethod("framework")
 }
 
 #' @rdname framework
 #' @export
-framework.pdb_model_code <- function(x){
+framework.pdb_model_code <- function(x) {
   attr(x, which = "framework")
 }
 
 #' @rdname framework
 #' @export
-`framework<-` <- function(x, value){
+`framework<-` <- function(x, value) {
   UseMethod("framework<-")
 }
 
 #' @rdname framework
 #' @export
-`framework<-.character` <- function(x, value){
+`framework<-.character` <- function(x, value) {
   checkmate::assert_choice(value, supported_frameworks())
   attr(x, "framework") <- value
   x
@@ -201,14 +247,20 @@ framework.pdb_model_code <- function(x){
 
 #' @rdname framework
 #' @export
-`framework<-.pdb_model_code` <- function(x, value){
+`framework<-.pdb_model_code` <- function(x, value) {
   `framework<-.character`(x, value)
 }
 
 supported_frameworks <- function() c("stan", "pymc3", "pymc", "tfp", "pyro")
 
-supported_frameworks_file_extension <- function(x){
+supported_frameworks_file_extension <- function(x) {
   checkmate::assert_choice(x, choices = supported_frameworks())
-  sffe <- c("stan"="stan", "pymc3"="py", "pymc"="py", "tfp"="py", "pyro"="py")
+  sffe <- c(
+    "stan" = "stan",
+    "pymc3" = "py",
+    "pymc" = "py",
+    "tfp" = "py",
+    "pyro" = "py"
+  )
   sffe[x]
 }
