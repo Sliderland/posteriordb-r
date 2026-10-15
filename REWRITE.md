@@ -10,12 +10,22 @@ see what was meant to be implemented. That comparison is in
 
 The rewrite reads and writes the same database format, and it keeps almost
 the whole exported API: 87 of the original 94 exports, plus one new one. It
-is about a third of the size.
+is about 40% of the fork's size.
+
+The fork is formatted with Air, which puts many arguments on lines of their
+own, and the rewrite is not. Raw line counts therefore flatter the rewrite.
+Parse tokens (from `getParseData()`, comments excluded) don't depend on
+formatting, so the token rows are the fair comparison.
+`tools/code-size.R` computes all of these.
 
 | | Pre-fork (stan-dev) | Fork (original) | Rewrite |
 |---|---|---|---|
-| R code | 3,212 lines in 26 files | 9,206 lines in 35 files | 3,245 lines in 16 files |
-| Tests | 18 files | 6,009 lines | 768 lines, plus a 100 KB fixture |
+| R code, parse tokens | 15,088 | 46,578 | 19,645 |
+| R code, lines with code | 1,843 | 6,698 | 2,008 |
+| R code, raw lines (files) | 3,212 (26) | 9,206 (35) | 3,245 (16) |
+| Roxygen lines | 870 | 1,722 | 864 |
+| Tests, parse tokens | 5,293 | 48,338 | 6,916 |
+| Tests, raw lines (files) | 934 (18) | 6,009 (55) | 768 (8), plus a 100 KB fixture |
 | Hard dependencies | bibtex, checkmate, gh, jsonlite, methods, posterior, tibble | same | bibtex, checkmate, jsonlite, posterior, tibble |
 
 ## Design
@@ -146,6 +156,44 @@ that cmdstanr isn't installed here.
 - The cmdstanr path has only been tested with a mocked fit, because
   cmdstanr and CmdStan aren't installed in this environment.
 - `reconstruct_stan_output()` has only been run on rstan.
+
+## Feature parity with the fork
+
+The rewrite doesn't have full parity with the fork. It covers every
+workflow the fork has, with the same function names:
+- reading a database;
+- reference checks;
+- writing, removing and renaming;
+- fit import from rstan and cmdstanr;
+- bundles, output reconstruction and the batch workflow.
+
+These fork options and behaviours are missing:
+
+- `infer_posterior_dimensions()` has no `backend = "cmdstanr"`, `iter`,
+  `include` or `exclude`. It always compiles with rstan.
+  `infer_unconstrained_parameter_counts_from_fit()` has no `include` or
+  `exclude`.
+- `reconstruct_stan_output()` and `reconstruct_posterior_output()` have no
+  `include_unconstrained`, and don't return timings.
+- `link_reference_posterior()` has no `verify` argument.
+- There are no `"all"` or `"none"` shortcuts for `include`.
+- The fork records a `sampling_timestamp` field and forces
+  `sig_figs = 18` on short cmdstanr runs. The rewrite has neither.
+- `as.reference_posterior_draws()` has no `stanfit` method, `write_pdb()`
+  has no `stanmodel` method, and `remove_pdb()` can't remove a file by path.
+- The fork's hardening is gone: symlink checks and staged, transactional
+  writes. Plan-then-write covers conflicts and partial failures, but not a
+  symlinked path inside the database.
+- The `policy` argument, the `_from_stanfit` and `_from_cmdstanr` aliases,
+  the `assert_checked_*` helpers, `check_summary_statistics_draws()` and
+  `pdb_compare_stan_models()` were dropped on purpose.
+
+How this list was made: it compares exports and arguments
+(`tools/compare-api.R`) and the fork's roxygen docs. I haven't read the
+fork's design documents in `doc/`, which run to about 2,700 lines, or run
+the fork's own test suite against the rewrite. Its tests are about seven
+times the rewrite's by tokens, so running them would be the real parity
+test, and it would likely turn up behaviour differences this list misses.
 
 ## The pre-fork package: what was meant and what was built
 

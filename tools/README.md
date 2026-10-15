@@ -19,7 +19,7 @@ These scripts rerun every test, end-to-end run and comparison reported in
 | `github` | Reading over the GitHub API (`test-github.R`). Set `PDB_TEST_GITHUB_REPO=sliderland/posteriordb` where `stan-dev` is unreachable, as it was here. |
 | `check` | `roxygen2` and `R CMD check --no-manual`. |
 | `vignette` | The non-Stan steps of upstream's contributing vignette (`tools/vignette-flow.R`). |
-| `compare` | Exports and arguments compared with the pre-fork package and the fork (`tools/compare-api.R`). |
+| `compare` | Exports and arguments compared with the pre-fork package and the fork (`tools/compare-api.R`), and formatter-independent code size (`tools/code-size.R`). |
 | `all` | Everything above, with Stan last. |
 
 The test fixture database is built from the real database by

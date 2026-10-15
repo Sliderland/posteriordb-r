@@ -30,7 +30,8 @@ case "${1:-offline}" in
   vignette) Rscript tools/vignette-flow.R ;;
   compare)
     Rscript tools/compare-api.R "$UPSTREAM" .
-    Rscript tools/compare-api.R "$FORK" . ;;
+    Rscript tools/compare-api.R "$FORK" .
+    Rscript tools/code-size.R "$UPSTREAM" "$FORK" . ;;
   all) for step in offline corpus github check vignette compare stan; do sh "$0" "$step"; done ;;
   *) echo "Unknown step: $1" >&2; exit 1 ;;
 esac
