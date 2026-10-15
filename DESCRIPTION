@@ -1,0 +1,41 @@
+Package: posteriordb
+Type: Package
+Title: R Interface to the Posterior Database
+Version: 0.4.0
+Authors@R: c(person("Mans", "Magnusson", email = "mans.magnusson@gmail.com",
+                    role = c("cre", "aut")),
+             person("Jakob", "Torgander", email = "jakob.torgander@statistik.uu.se",
+                    role = c("aut")),
+             person("Paul-Christian", "Bürkner", email = "paul.buerkner@gmail.com",
+                    role = c("aut")),
+             person("Aki", "Vehtari", email = "aki.vehtari@aalto.fi",
+                    role = c("aut")))
+Description: Read posteriors, models, data and reference posterior draws from
+    a local or GitHub-hosted posteriordb, and prepare, check and write new
+    reference posteriors computed with Stan.
+License: BSD_3_clause + file LICENSE
+URL: https://github.com/stan-dev/posteriordb-r
+BugReports: https://github.com/stan-dev/posteriordb-r/issues
+Encoding: UTF-8
+Depends:
+    R (>= 4.1.0)
+Imports:
+    bibtex,
+    checkmate,
+    jsonlite,
+    posterior,
+    stats,
+    tibble,
+    utils
+Suggests:
+    cmdstanr,
+    dplyr,
+    gh,
+    rstan,
+    testthat (>= 3.0.0),
+    withr,
+    yaml
+Additional_repositories: https://stan-dev.r-universe.dev
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
