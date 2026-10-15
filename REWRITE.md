@@ -26,7 +26,7 @@ formatting, so the token rows are the fair comparison.
 | Roxygen lines | 870 | 1,722 | 864 |
 | Tests, parse tokens | 5,293 | 48,338 | 6,916 |
 | Tests, raw lines (files) | 934 (18) | 6,009 (55) | 768 (8), plus a 100 KB fixture |
-| Hard dependencies | bibtex, checkmate, gh, jsonlite, methods, posterior, tibble | same | bibtex, checkmate, jsonlite, posterior, tibble |
+| Hard dependencies (Imports) | checkmate, gh, jsonlite | bibtex, checkmate, gh, jsonlite, methods, posterior, tibble | bibtex, checkmate, jsonlite, posterior, tibble |
 
 ## Design
 
@@ -48,8 +48,8 @@ Three ideas carry most of the weight:
 1. **One boundary to Stan.** `extract_fit()` turns an rstan or cmdstanr fit
    into a plain list with the draws, sampler diagnostics, parameter names,
    unconstrained counts, sampling arguments, versions and code. Everything
-   after that point is backend-neutral. Adding a backend means adding one
-   method.
+   after that point is backend-neutral. A new backend needs an
+   `extract_fit()` method, plus its sampling and evaluation code in `stan.R`.
 2. **Checks are recomputed, never trusted.** The reference checks are
    recomputed from the draws whenever draws are checked or written. Stored
    `checks_made` flags are output only. The policy (10,000 draws, at least
@@ -61,7 +61,8 @@ Three ideas carry most of the weight:
    JSON, so formatting doesn't matter):
    - Identical files are skipped.
    - A file whose content differs is an error unless `overwrite = TRUE`, and then nothing is written at all.
-   - If a write fails partway through, the files that call created are removed.
+   - If a write fails partway through, the files that call created are removed. Files it had already replaced (with `overwrite = TRUE`) are not restored.
+   - Numbers count as equal when they agree to about 12 significant digits. That absorbs JSON formatting differences, but not real changes.
 
    Renames work the same way: they collect every move first, check for
    collisions, then apply the moves.
@@ -70,7 +71,10 @@ Three ideas carry most of the weight:
 
 - The database layout and JSON schemas. The rewrite reads the full
   posteriordb unchanged and writes files in the same format.
-- The user-facing functions with their names and arguments. This includes
+- The user-facing function names. Most arguments match too. The
+  differences are listed under
+  [Feature parity with the fork](#feature-parity-with-the-fork). The kept
+  functions include
   `posterior()`, `stan_code()`, `get_data()`, `reference_posterior_draws()`,
   the summary statistics, `posteriors_tbl_df()`, `filter_posteriors()`,
   `search_posteriors()`, `write_pdb()`, `remove_pdb()`, `rename_pdb()`,
@@ -88,8 +92,9 @@ Three ideas carry most of the weight:
   read straight from `.git`, and GitHub goes through `gh` only. `gh` is now
   a suggested package rather than a hard dependency.
 - Symlink hardening and the transactional staging directory for writes.
-  Plan-then-write with cleanup gives the same guarantee for the realistic
-  failure modes, in much less code.
+  Plan-then-write with cleanup covers conflicts and partial failures in much
+  less code. It doesn't protect against symlinks inside the database or
+  restore replaced files.
 - The hand-written BibTeX tokenizer. The `bibtex` package does the parsing.
 - The `policy` argument. There is one policy.
 - The `_from_stanfit` and `_from_cmdstanr` variants of
@@ -103,23 +108,25 @@ Three ideas carry most of the weight:
 
 ## Changed
 
-- **Checks are recomputed from the draws** rather than read from stored
-  flags. Against the full database, all 57 stored reference posteriors pass.
-  The original's check fails all 57 because of a stored flag none of them
-  has.
+- **Checks are recomputed from the draws.** The fork's
+  `check_reference_posterior_draws()` evaluates the diagnostic values
+  stored in the info file. Only lag-1 autocorrelation is computed when it's
+  missing. The rewrite computes every metric from the draws and the sampler
+  diagnostics.
+  - Both pass all 57 stored reference posteriors in the full database.
+  - The fork's `assert_checked_reference_posterior_draws()` rejects all 57,
+    because none of them has a `no_divergent_transitions` flag.
 - **Legacy dimensions are accepted.** Three posteriors store a shape such as
   `[3, 2]` instead of a count. These are accepted and compared by their
   product.
-- **Identical writes are skipped**, so re-running a workflow is a no-op
-  instead of an error.
-- **Subsetting and thinning** keep the reference class and clear
-  `checks_made`, so modified draws must be checked again before they can be
-  written. Thinning keeps the sampler diagnostics, so E-FMI can still be
-  computed.
+- **Identical writes are skipped**, so re-running a workflow is a no-op.
+  The fork raises "File at path already exists" instead.
 - **Tables use `NA`** rather than the string `"NULL"` for posteriors without
   a reference.
-- **`pdb_clear_cache()`** is new. Zipped files are re-extracted
-  automatically when the zip is newer than the cache.
+- **`pdb_clear_cache()`** is exported. It was internal in the fork and
+  upstream.
+- **Zipped files are re-extracted** automatically when the zip is newer than
+  the cached copy.
 
 ## Tests and checks
 
@@ -127,13 +134,13 @@ Everything in this section, plus the vignette run and API comparison
 below, can be rerun with `tools/run-all.sh`. `tools/README.md` explains the
 setup and each step.
 
-The offline suite has 250 expectations and runs against a small
+The offline suite has 251 expectations and runs against a small
 eight-schools fixture database. The fixture is cut from the real files and
 can be rebuilt with `tests/testthat/fixtures/make_fixture.R`. It covers
 reading, checks, writing and renaming. Fit import and bundles use a mocked
 cmdstanr fit. **All pass.**
 
-Opt-in tests, each run once here:
+The opt-in tests below were run on the final code, the Stan test twice:
 
 - **Real rstan run** (`PDB_TEST_STAN=true`): eight schools, 4 chains, thinned
   to 2,500 draws each. It covers parameter counts, import, bundle writing,
@@ -214,13 +221,16 @@ session, so open feature requests aren't covered.
   the stored diagnostics instead of recomputing them. The fork added the
   two missing checks, and the rewrite keeps all five, recomputed from the
   draws.
-- **ESS bounds** are a hard check upstream (ESS within 10,000 ± 4·√(7·10,000)),
-  but the spec doesn't ask for them. In the rewrite they're reported but
-  don't fail draws, because the band rejects independent draws often enough
-  that the tests had to exclude it. This is the one place the rewrite
-  knowingly differs from upstream's implemented behaviour.
-- **Unused bibliography entries** never fail upstream's `check_pdb()`,
-  because the result of that check isn't stored. The rewrite enforces it.
+- **ESS bounds** are a hard check upstream: bulk and tail ESS must lie
+  within 10,000 ± 4·√(7·10,000), about ±1,058. The spec doesn't ask for
+  this. The band is too tight for tail ESS: it rejected 13 of 60 sets of
+  independent normal draws (4 × 2,500 draws, 10 variables), all 13 on tail
+  ESS and one also on bulk ESS. The fork already made the check informational, and so does
+  the rewrite. It is the only upstream check the rewrite relaxes.
+- **Unused bibliography entries** don't fail upstream's `check_pdb()`,
+  because the result of that check isn't stored. I confirmed this by adding
+  an uncited entry to the fixture database. Upstream returns status 0 and
+  the rewrite returns 1.
 - **E-FMI wording.** The spec says "below 0.2" but means at least 0.2, which
   is what upstream, the stored flags and the rewrite all use.
 
@@ -229,12 +239,16 @@ session, so open feature requests aren't covered.
 - Only Stan sampling can compute reference draws. Upstream stops with
   "Currently not implemented" for anything else. The rewrite is the same,
   but adds cmdstanr next to rstan.
-- Upstream had a half-written `sd` summary statistic that wasn't among its
-  supported types. The rewrite keeps the two types the database stores,
-  `mean_value` and `mean_squared_value`.
-- Upstream's tests skip posteriors without reference draws ("LDA model will
-  work from version 0.4"). The rewrite reads those posteriors and gives a
-  clear error only when reference draws are asked for.
+- Upstream's summary statistic types are `mean_value` and `sd`, but the
+  database stores `mean_value` and `mean_squared_value`. So upstream can't
+  read the `mean_squared_value` files, and it writes `sd` files that the
+  database doesn't use. The rewrite supports the two types the database
+  stores and has no `sd`.
+- Two upstream tests have been skipped since 2022 with "LDA model will work
+  from version 0.4". They expect a clear error when asking for reference
+  draws of an LDA posterior that has none. Upstream gives that error when
+  the posterior name is spelled right; the tests misspell it as
+  `prideprejustice`. The rewrite behaves the same way.
 - The database docs say JSON schemas are "currently not included". Upstream
   enforced closed field lists for data and model info instead.
 
@@ -251,7 +265,9 @@ session, so open feature requests aren't covered.
   hasn't been written yet, which the contributing vignette relies on.
 - I ran the non-Stan steps of upstream's contributing vignette against the
   rewrite: data, model, posterior, check and reference info. They work
-  unchanged.
+  unchanged. The one exception is the inline Stan code, which uses
+  pre-2.33 array syntax, so the script takes the same model from the
+  fixture instead.
 - One upstream vignette bug is left as it is. The vignette calls
   `check_pdb_posterior(po, pdbl)`, which passes the database as
   `run_stan_code_checks` and fails in upstream too.

@@ -222,7 +222,7 @@ same_file_content <- function(file, path) {
   if (grepl("[.]json$", file$path)) {
     parsed <- tryCatch(list(jsonlite::fromJSON(existing), jsonlite::fromJSON(file$text)),
                        error = function(e) NULL)
-    if (!is.null(parsed)) return(isTRUE(all.equal(canonical(parsed[[1]]), canonical(parsed[[2]]))))
+    if (!is.null(parsed)) return(isTRUE(all.equal(canonical(parsed[[1]]), canonical(parsed[[2]]), tolerance = 1e-12)))
   }
   identical(trimws(existing), trimws(file$text))
 }
