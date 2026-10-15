@@ -6,8 +6,10 @@ test_that("a local connection finds the database and prints", {
   file.copy(p$path, clone, recursive = TRUE)
   file.rename(file.path(clone, "pdb"), file.path(clone, "posterior_database"))
   expect_match(pdb_local(clone)$path, "posteriordb/posterior_database$")
+  expect_identical(pdb_local(file.path(clone, "posterior_database", "data", "data"))$path,
+                   pdb_local(clone)$path)
   expect_output(print(p), "Posterior Database \\(local\\)")
-  expect_error(pdb_local(tempdir()), "No posterior database")
+  expect_error(pdb_local(withr::local_tempdir()), "No posterior database")
   expect_error(pdb_local(""), "No database path")
 })
 

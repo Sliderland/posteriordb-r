@@ -123,13 +123,24 @@ new_pdb <- function(fields, type, cache_path) {
   x
 }
 
+# The database root is `path`, its `posterior_database` subfolder, or the
+# nearest folder above `path` that is a root (so a path inside the database
+# works too).
 find_local_root <- function(path) {
-  for (candidate in c(path, file.path(path, "posterior_database"))) {
-    if (all(dir.exists(file.path(candidate, c("data", "models", "posteriors"))))) {
-      return(normalizePath(candidate, winslash = "/"))
+  is_root <- function(dir) all(dir.exists(file.path(dir, c("data", "models", "posteriors"))))
+  if (dir.exists(path)) {
+    for (candidate in c(path, file.path(path, "posterior_database"))) {
+      if (is_root(candidate)) return(normalizePath(candidate, winslash = "/"))
+    }
+    dir <- normalizePath(path, winslash = "/")
+    repeat {
+      parent <- dirname(dir)
+      if (identical(parent, dir)) break
+      dir <- parent
+      if (is_root(dir)) return(dir)
     }
   }
-  stop2("No posterior database in '", path, "'. The folder (or its ",
+  stop2("No posterior database at or above '", path, "'. The database folder (or its ",
         "`posterior_database` subfolder) must contain data/, models/ and posteriors/.")
 }
 
