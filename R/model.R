@@ -80,7 +80,22 @@ assert_model_info <- function(x) {
                          .var.name = "model_implementations")
   checkmate::assert_subset(names(x$model_implementations), supported_frameworks(),
                            .var.name = "model_implementations")
+  assert_known_fields(x, c("name", "model_implementations", "title", "prior", "licence"), "model info")
+  for (framework in names(x$model_implementations)) {
+    impl <- x$model_implementations[[framework]]
+    checkmate::assert_string(impl$model_code, .var.name = paste0(framework, " model_code"))
+    assert_known_fields(impl, c("model_code", "likelihood_code", "stan_version", "pymc_version"),
+                        paste(framework, "model implementation"), common = FALSE)
+  }
   assert_common_info(x)
+}
+
+# The info schema is closed, so a misspelled field is an error rather than
+# silently stored.
+assert_known_fields <- function(x, allowed, what, common = TRUE) {
+  if (common) allowed <- c(allowed, "added_by", "added_date", "description", "keywords", "references", "urls")
+  unknown <- setdiff(names(x), allowed)
+  if (length(unknown)) stop2("Unknown field(s) in ", what, ": ", paste(unknown, collapse = ", "))
 }
 
 assert_common_info <- function(x) {

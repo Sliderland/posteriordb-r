@@ -54,6 +54,7 @@ assert_data_info <- function(x) {
   if (!identical(x$data_file, default_data_path(x$name))) {
     stop2("`data_file` must be '", default_data_path(x$name), "'.")
   }
+  assert_known_fields(x, c("name", "data_file", "title"), "data info")
   assert_common_info(x)
 }
 
