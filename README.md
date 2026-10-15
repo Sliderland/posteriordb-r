@@ -48,3 +48,6 @@ tests:
 - `PDB_TEST_STAN=true`: one real rstan run of eight schools.
 - `PDB_PATH=<checkout>`: `check_pdb()` and every reference posterior's checks on a full database.
 - `PDB_TEST_GITHUB=true` (and optionally `PDB_TEST_GITHUB_REPO=owner/repo`): reading over the GitHub API.
+
+`tools/README.md` describes how to set up a machine and rerun every test,
+end-to-end run and comparison reported in `REWRITE.md`.

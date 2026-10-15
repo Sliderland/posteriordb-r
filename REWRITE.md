@@ -113,6 +113,10 @@ Three ideas carry most of the weight:
 
 ## Tests and checks
 
+Everything in this section, plus the vignette run and API comparison
+below, can be rerun with `tools/run-all.sh`. `tools/README.md` explains the
+setup and each step.
+
 The offline suite has 250 expectations and runs against a small
 eight-schools fixture database. The fixture is cut from the real files and
 can be rebuilt with `tests/testthat/fixtures/make_fixture.R`. It covers
