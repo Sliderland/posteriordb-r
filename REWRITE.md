@@ -3,17 +3,20 @@
 This is a rewrite of the posteriordb R package, done as an exercise. It is
 not a pull request, and nothing in `sliderland/posteriordb-r` or
 `sliderland/posteriordb` was changed. The reference was a read-only clone of
-`sliderland/posteriordb-r` at commit `8f475e2`.
+`sliderland/posteriordb-r` at commit `8f475e2` (called "the fork" below). I
+also read the pre-fork package, `stan-dev/posteriordb-r` at `8aeef19`, to
+see what was meant to be implemented. That comparison is in
+[the last section](#the-pre-fork-package-what-was-meant-and-what-was-built).
 
 The rewrite reads and writes the same database format, and it keeps almost
 the whole exported API: 87 of the original 94 exports, plus one new one. It
 is about a third of the size.
 
-| | Original | Rewrite |
-|---|---|---|
-| R code | 9,206 lines in 35 files | 3,214 lines in 16 files |
-| Tests | 6,009 lines | 749 lines, plus a 100 KB fixture |
-| Hard dependencies | bibtex, checkmate, gh, jsonlite, methods, posterior, tibble | bibtex, checkmate, jsonlite, posterior, tibble |
+| | Pre-fork (stan-dev) | Fork (original) | Rewrite |
+|---|---|---|---|
+| R code | 3,212 lines in 26 files | 9,206 lines in 35 files | 3,245 lines in 16 files |
+| Tests | 18 files | 6,009 lines | 768 lines, plus a 100 KB fixture |
+| Hard dependencies | bibtex, checkmate, gh, jsonlite, methods, posterior, tibble | same | bibtex, checkmate, jsonlite, posterior, tibble |
 
 ## Design
 
@@ -84,7 +87,7 @@ Three ideas carry most of the weight:
 - The `assert_checked_*` and `check_summary_statistics_draws` exports. Use
   `check_reference_posterior_draws()`.
 - `pdb_compare_stan_models()`, the `"all"` and `"none"` selector aliases,
-  searching parent directories for a database, and the cmdstanr backend for
+  and the cmdstanr backend for
   `infer_posterior_dimensions()`. That one still uses rstan, and counts
   can also be read from a cmdstanr fit.
 
@@ -110,7 +113,7 @@ Three ideas carry most of the weight:
 
 ## Tests and checks
 
-The offline suite has 244 expectations and runs against a small
+The offline suite has 250 expectations and runs against a small
 eight-schools fixture database. The fixture is cut from the real files and
 can be rebuilt with `tests/testthat/fixtures/make_fixture.R`. It covers
 reading, checks, writing and renaming. Fit import and bundles use a mocked
@@ -139,3 +142,71 @@ that cmdstanr isn't installed here.
 - The cmdstanr path has only been tested with a mocked fit, because
   cmdstanr and CmdStan aren't installed in this environment.
 - `reconstruct_stan_output()` has only been run on rstan.
+
+## The pre-fork package: what was meant and what was built
+
+The fork's history doesn't share commits with `stan-dev/posteriordb-r`, so
+this comparison is by content. I compared against upstream `main` at
+`8aeef19` (2026-08-06) and the database's own docs (`doc/DATABASE_CONTENT.md`
+and `doc/REFERENCE_POSTERIOR_DEFINITION.md`). Upstream's other branches have
+nothing unmerged. Upstream's GitHub issues can't be reached from this
+session, so open feature requests aren't covered.
+
+**Upstream fell short of its own spec in a few places:**
+
+- **Reference checks.** The definition asks for 10,000 draws, R-hat below
+  1.01, lag-1 autocorrelation below 0.05, E-FMI of at least 0.2 and no
+  divergent transitions. Upstream checks the draw count, at least 4 chains,
+  ESS bounds, R-hat and E-FMI. It never checks lag-1 autocorrelation or
+  divergences, even though it stores the divergence counts. It also reads
+  the stored diagnostics instead of recomputing them. The fork added the
+  two missing checks, and the rewrite keeps all five, recomputed from the
+  draws.
+- **ESS bounds** are a hard check upstream (ESS within 10,000 ± 4·√(7·10,000)),
+  but the spec doesn't ask for them. In the rewrite they're reported but
+  don't fail draws, because the band rejects independent draws often enough
+  that the tests had to exclude it. This is the one place the rewrite
+  knowingly differs from upstream's implemented behaviour.
+- **Unused bibliography entries** never fail upstream's `check_pdb()`,
+  because the result of that check isn't stored. The rewrite enforces it.
+- **E-FMI wording.** The spec says "below 0.2" but means at least 0.2, which
+  is what upstream, the stored flags and the rewrite all use.
+
+**Upstream left a few things unfinished, and the rewrite treats them as follows:**
+
+- Only Stan sampling can compute reference draws. Upstream stops with
+  "Currently not implemented" for anything else. The rewrite is the same,
+  but adds cmdstanr next to rstan.
+- Upstream had a half-written `sd` summary statistic that wasn't among its
+  supported types. The rewrite keeps the two types the database stores,
+  `mean_value` and `mean_squared_value`.
+- Upstream's tests skip posteriors without reference draws ("LDA model will
+  work from version 0.4"). The rewrite reads those posteriors and gives a
+  clear error only when reference draws are asked for.
+- The database docs say JSON schemas are "currently not included". Upstream
+  enforced closed field lists for data and model info instead.
+
+**What reading upstream changed in the rewrite:**
+
+- `pdb_local()` again accepts a path inside the database, such as
+  `.../posterior_database/data/data`, and finds the root above it. Upstream
+  tests this. I had dropped it, following the fork.
+- Data and model info reject unknown fields, using upstream's field lists,
+  so a typo like `keyword` is an error instead of being stored. The full
+  database passes.
+- `check_pdb_posterior()` reads the reference draws, not just their info,
+  as upstream does. It also works on a posterior built in memory that
+  hasn't been written yet, which the contributing vignette relies on.
+- I ran the non-Stan steps of upstream's contributing vignette against the
+  rewrite: data, model, posterior, check and reference info. They work
+  unchanged.
+- One upstream vignette bug is left as it is. The vignette calls
+  `check_pdb_posterior(po, pdbl)`, which passes the database as
+  `run_stan_code_checks` and fails in upstream too.
+
+**API compatibility with upstream:** every upstream export exists in the
+rewrite except the `assert_checked_*`, `assert_reference_posterior_draws`
+and `check_summary_statistics_draws` helpers, which
+`check_reference_posterior_draws()` replaces. `thin_draws` remains an S3
+method for reference draws. The fork's additions are all kept: fit import,
+bundles, renaming, output reconstruction, cmdstanr, and the batch workflow.
