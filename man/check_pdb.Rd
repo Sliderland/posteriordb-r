@@ -12,10 +12,16 @@ check_pdb(
   verbose = TRUE
 )
 
-check_pdb_posterior(po, run_stan_code_checks = FALSE, verbose = TRUE)
+check_pdb_posterior(
+  po,
+  run_stan_code_checks = FALSE,
+  verbose = TRUE,
+  pdb = NULL
+)
 }
 \arguments{
-\item{pdb}{A \link[=pdb_local]{pdb} connection.}
+\item{pdb}{The database whose bibliography \code{check_pdb_posterior()} checks
+against: the posterior's own, else this one, else \code{\link[=pdb_default]{pdb_default()}}.}
 
 \item{posterior_names_to_check}{Posterior names to check; \code{NULL} checks all.}
 
@@ -33,7 +39,7 @@ error.
 }
 \description{
 \code{check_pdb()} checks that every posterior (or those named) can be read
-with its model code, data and reference posterior info, that aliases
+with its model code, data and reference posterior draws, that aliases
 point at posteriors, that every model, data set and reference posterior
 is used by a posterior, and that cited references and bibliography
 entries match. \code{check_pdb_posterior()} checks one posterior, and can also

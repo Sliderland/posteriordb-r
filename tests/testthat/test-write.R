@@ -174,3 +174,20 @@ test_that("renaming a model moves its code; posteriors can be renamed", {
   expect_error(rename_pdb("es", "eight_schools-centered", pdb = p), "already exists")
   expect_error(rename_pdb("nothing", "x", pdb = p), "Give `type`")
 })
+
+test_that("info fields outside the schema are rejected", {
+  expect_error(as.data_info(list(name = "d", title = "D", keyword = "x")), "Unknown field.*keyword")
+  info <- list(name = "m", title = "M", framework = "stan", licence = "BSD")
+  expect_s3_class(as.model_info(info), "pdb_model_info")
+  info$model_implementations <- list(stan = list(model_code = "models/stan/m.stan", version = "1"))
+  expect_error(as.model_info(info), "Unknown field.*stan model implementation: version")
+})
+
+test_that("a posterior built in memory is checked before it is written", {
+  p <- local_pdb()
+  po <- as.posterior(list(pdb_model_code = new_model(), pdb_data = new_data(),
+                          dimensions = list(mu = 1), references = "rubin1981estimation"))
+  expect_true(check_pdb_posterior(po, verbose = FALSE, pdb = p))
+  po$references <- "unknown2026"
+  expect_error(check_pdb_posterior(po, verbose = FALSE, pdb = p), "unknown2026")
+})

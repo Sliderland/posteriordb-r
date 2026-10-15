@@ -1,7 +1,7 @@
 #' Check the content of a posterior database
 #'
 #' `check_pdb()` checks that every posterior (or those named) can be read
-#' with its model code, data and reference posterior info, that aliases
+#' with its model code, data and reference posterior draws, that aliases
 #' point at posteriors, that every model, data set and reference posterior
 #' is used by a posterior, and that cited references and bibliography
 #' entries match. `check_pdb_posterior()` checks one posterior, and can also
@@ -13,6 +13,8 @@
 #'   rstan.
 #' @param verbose Print progress?
 #' @param po A posterior.
+#' @param pdb The database whose bibliography `check_pdb_posterior()` checks
+#'   against: the posterior's own, else this one, else [pdb_default()].
 #' @return `check_pdb()` returns `0L` when everything passed and `1L`
 #'   otherwise, invisibly. `check_pdb_posterior()` returns `TRUE` or raises an
 #'   error.
@@ -56,8 +58,10 @@ check_pdb <- function(pdb = pdb_default(), posterior_names_to_check = NULL,
 
 #' @rdname check_pdb
 #' @export
-check_pdb_posterior <- function(po, run_stan_code_checks = FALSE, verbose = TRUE) {
+check_pdb_posterior <- function(po, run_stan_code_checks = FALSE, verbose = TRUE, pdb = NULL) {
   checkmate::assert_class(po, "pdb_posterior")
+  # A posterior built in memory from model code and data has no database yet.
+  pdb <- pdb(po) %||% pdb %||% pdb_default()
   say <- function(...) if (verbose) message(...)
   assert_posterior(po)
   for (framework in names(po$model_info$model_implementations)) model_code(po, framework)
@@ -65,12 +69,12 @@ check_pdb_posterior <- function(po, run_stan_code_checks = FALSE, verbose = TRUE
   get_data(po)
   say("- data can be read")
   if (!is.null(po$reference_posterior_name)) {
-    reference_posterior_info(po)
-    say("- reference posterior info can be read")
+    reference_posterior_draws(po)
+    say("- reference posterior draws can be read")
   }
   cited <- c(po$references, po$model_info$references, po$data_info$references)
   if (length(cited)) {
-    missing <- setdiff(cited, bibliography_keys(posterior_pdb(po)))
+    missing <- setdiff(cited, bibliography_keys(pdb))
     if (length(missing)) stop2("Reference(s) not in the bibliography: ", paste(missing, collapse = ", "))
     say("- references are in the bibliography")
   }
