@@ -20,6 +20,7 @@ These scripts rerun every test, end-to-end run and comparison reported in
 | `check` | `roxygen2` and `R CMD check --no-manual`. |
 | `vignette` | The non-Stan steps of upstream's contributing vignette (`tools/vignette-flow.R`). |
 | `compare` | Exports and arguments compared with the pre-fork package and the fork (`tools/compare-api.R`), and formatter-independent code size (`tools/code-size.R`). |
+| `differential` | Reads every posterior, data set, model, reference posterior, summary and check verdict in the full database with both the fork and the rewrite, and lists every difference (`tools/differential-dump.R`, `tools/differential-compare.R`). |
 | `all` | Everything above, with Stan last. |
 
 The test fixture database is built from the real database by

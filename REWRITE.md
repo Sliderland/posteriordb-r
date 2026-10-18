@@ -20,12 +20,12 @@ formatting, so the token rows are the fair comparison.
 
 | | Pre-fork (stan-dev) | Fork (original) | Rewrite |
 |---|---|---|---|
-| R code, parse tokens | 15,088 | 46,578 | 19,645 |
+| R code, parse tokens | 15,088 | 46,578 | 19,649 |
 | R code, lines with code | 1,843 | 6,698 | 2,008 |
 | R code, raw lines (files) | 3,212 (26) | 9,206 (35) | 3,245 (16) |
 | Roxygen lines | 870 | 1,722 | 864 |
-| Tests, parse tokens | 5,293 | 48,338 | 6,916 |
-| Tests, raw lines (files) | 934 (18) | 6,009 (55) | 768 (8), plus a 100 KB fixture |
+| Tests, parse tokens | 5,293 | 48,338 | 6,945 |
+| Tests, raw lines (files) | 934 (18) | 6,009 (55) | 771 (8), plus a 100 KB fixture |
 | Hard dependencies (Imports) | checkmate, gh, jsonlite | bibtex, checkmate, gh, jsonlite, methods, posterior, tibble | bibtex, checkmate, jsonlite, posterior, tibble |
 
 ## Design
@@ -163,6 +163,106 @@ that cmdstanr isn't installed here.
 - The cmdstanr path has only been tested with a mocked fit, because
   cmdstanr and CmdStan aren't installed in this environment.
 - `reconstruct_stan_output()` has only been run on rstan.
+
+## Does it do the same thing as the fork?
+
+The reading side is checked by running both packages on the full database
+and comparing what comes back. The writing side is checked with a smaller
+example. Run both with `sh tools/run-all.sh differential`.
+
+**Reading: the full database through both packages.**
+`tools/differential-dump.R` loads one package and reads everything in the
+database through its public functions. That covers, for all 148
+posteriors:
+- the posterior record, model info, data info and data;
+- Stan and other model code;
+- for the 58 posteriors linked to a reference posterior: the reference info,
+  every draw, both summary statistics and the verdict of
+  `check_reference_posterior_draws()`;
+- for the database: name lists, bibliography keys, `posteriors_tbl_df()`
+  and `check_pdb()`.
+
+`tools/differential-compare.R` compares the two results with zero numeric
+tolerance. A planted change of one part in 10¹⁵ in one draw is reported, so
+the comparison is strict enough to catch a real difference.
+
+Everything matches exactly except four differences, all explained:
+
+| Difference | Fork | Rewrite |
+|---|---|---|
+| 3 posteriors whose dimensions are stored as shapes (`hmm_gaussian_simulated-hmm_gaussian`, `iohmm_reg_simulated-iohmm_reg`, `state_wide_presidential_votes-hierarchical_gp`) | `posterior()` errors | Reads them. None has a reference posterior. |
+| `check_pdb()` on the full database | Returns 1, failing on those 3 | Returns 0 |
+| `posteriors_tbl_df()` for posteriors without a reference | The string `"NULL"` | `NA` |
+| `stan_code()` for a model with no Stan code | Error from `checkmate` | Error naming the model |
+
+One API difference showed up while writing the harness. The fork's
+`reference_posterior_info(po)` requires `type`, and the rewrite defaults it
+to `"draws"`.
+
+**Writing: the same objects through both packages.**
+`tools/differential-write.R` writes a new data set, model and posterior
+into fresh copies of the test fixture database, using upstream's vignette
+objects. All written files have identical content. Two JSON files list the
+same fields in a different order, and the zip archives differ only in their
+timestamps.
+
+**What this doesn't cover yet:**
+- Importing fits, bundles, renaming, removing and writing reference draws
+  aren't compared between the two packages. They're covered only by the
+  rewrite's own tests.
+- The rewrite's mock cmdstanr fit doesn't satisfy the fork's extraction
+  code, so comparing imports needs real fits.
+- The strongest remaining check is to run the fork's 55 test files against
+  the rewrite. Where they test the same public behaviour, they should pass.
+  Where they fail, each failure is either a parity gap or a deliberate
+  change.
+
+## Why the rewrite is smaller
+
+Parse tokens by area (formatting doesn't affect these):
+
+| Area | Fork | Rewrite |
+|---|---|---|
+| Fit import, sampling, diagnostics, reconstruction, batch workflow | 16,114 | 5,510 |
+| Connections, cache, GitHub | 5,847 | 2,012 |
+| Bundles | 4,467 | 893 |
+| Writing, removing, linking | 4,008 | 2,252 |
+| Renaming | 3,735 | 1,658 |
+| Bibliography | 1,833 | 422 |
+| Everything else (objects, checks, tables, helpers) | 10,574 | 6,902 |
+| **Total** | **46,578** | **19,649** |
+
+The fork has 403 top-level functions and the rewrite has 269. The
+difference comes from five patterns:
+
+1. **Validation layers.** The fork has 63 `validate_*`, `assert_*`,
+   `resolve_*` and `check_*` helpers, and the rewrite has 20. The fork
+   checks arguments again at each layer: a bundle call passes through
+   `validate_bundle_call_dots`, `validate_bundle_metadata`,
+   `assert_bundle_required_metadata`, `validate_variable_selections` and
+   `resolve_variable_selection`. The rewrite validates once where data
+   enters, through the object constructors, and relies on the write plan to
+   refuse conflicts.
+2. **Backend duplication.** The fork has 29 functions specific to rstan or
+   cmdstanr, such as `rstan_sampler_bfmi` next to `cmdstanr_bfmi`, and the
+   rewrite has 4. In the rewrite, the fit becomes a plain list once, in
+   `extract_fit()`, and diagnostics are computed from that list one way for
+   both backends.
+3. **Parallel pipelines.** Fork bundles have their own rstan extraction
+   (`extract_rstan_fit_for_bundle`) and their own info and diagnostic
+   builders. Rewrite bundles reuse the import path (`draws_from_fit()`).
+4. **Defensive file machinery.** The fork has symlink checks, staging
+   folders, preflight checks and an atomic bibliography append. The rewrite
+   has one plan-then-write step. This is a real trade-off, not just
+   trimming: the fork restores replaced files and resists symlinks, and the
+   rewrite doesn't.
+5. **Reimplemented parsing.** The fork's hand-written BibTeX key scanner
+   sits next to `bibtex::read.bib`. The rewrite uses only the latter.
+
+Part of the difference is missing features rather than simpler code. The
+items under [Feature parity with the fork](#feature-parity-with-the-fork)
+are examples. I haven't measured how much of the size gap each accounts
+for.
 
 ## Feature parity with the fork
 

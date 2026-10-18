@@ -1,6 +1,6 @@
 #!/bin/sh
 # Reruns everything reported in REWRITE.md, from the package root:
-#   sh tools/run-all.sh [offline|stan|corpus|github|check|vignette|compare|all]
+#   sh tools/run-all.sh [offline|stan|corpus|github|check|vignette|compare|differential|all]
 # Defaults to "offline". Paths can be overridden with the variables below.
 set -e
 PDB_CHECKOUT="${PDB_CHECKOUT:-../posteriordb}"
@@ -32,6 +32,12 @@ case "${1:-offline}" in
     Rscript tools/compare-api.R "$UPSTREAM" .
     Rscript tools/compare-api.R "$FORK" .
     Rscript tools/code-size.R "$UPSTREAM" "$FORK" . ;;
-  all) for step in offline corpus github check vignette compare stan; do sh "$0" "$step"; done ;;
+  # Reads the whole database with the fork and with the rewrite and diffs the results.
+  differential)
+    out=$(mktemp -d); db="$(cd "$PDB_CHECKOUT" && pwd)/posterior_database"
+    Rscript tools/differential-dump.R "$FORK" "$db" "$out/fork"
+    Rscript tools/differential-dump.R . "$db" "$out/rewrite"
+    Rscript tools/differential-compare.R "$out/fork" "$out/rewrite" ;;
+  all) for step in offline corpus github check vignette compare differential stan; do sh "$0" "$step"; done ;;
   *) echo "Unknown step: $1" >&2; exit 1 ;;
 esac
