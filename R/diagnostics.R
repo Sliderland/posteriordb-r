@@ -16,10 +16,11 @@ check_flag_names <- function(summary = FALSE) {
 all_checks <- function() names(check_flag_names())
 
 # Diagnostics of a set of draws, in the format stored in reference posterior
-# info files. Chain-level sampler diagnostics (divergences, E-FMI) come from
-# `sampler` (a draws_array of sampler parameters) when given, otherwise they
-# are carried over from `previous` diagnostics.
-compute_draw_diagnostics <- function(draws, method = "stan_sampling", sampler = NULL,
+# info files. Chain-level sampler diagnostics (divergences, tree depth hits,
+# sampler parameter summaries, E-FMI) come from `fit` (the list from
+# extract_fit()) when it has sampler diagnostics, otherwise they are carried
+# over from `previous` diagnostics.
+compute_draw_diagnostics <- function(draws, method = "stan_sampling", fit = NULL,
                                      previous = NULL) {
   draws <- posterior::as_draws_array(draws)
   vars <- posterior::variables(draws)
@@ -27,23 +28,39 @@ compute_draw_diagnostics <- function(draws, method = "stan_sampling", sampler = 
             ndraws = posterior::ndraws(draws), nchains = posterior::nchains(draws))
   if (method != "stan_sampling") return(d)
   per_variable <- function(fun) {
-    unname(vapply(vars, function(v) {
+    vapply(vars, function(v) {
       tryCatch(as.numeric(fun(posterior::extract_variable_matrix(draws, v))),
                error = function(e) NA_real_)
-    }, numeric(1)))
+    }, numeric(1))
   }
   d$effective_sample_size_bulk <- per_variable(posterior::ess_bulk)
   d$effective_sample_size_tail <- per_variable(posterior::ess_tail)
   d$r_hat <- per_variable(posterior::rhat)
   d$mean_lag1_ac <- per_variable(mean_lag1_autocorrelation)
+  sampler <- fit$sampler
+  if (!is.null(sampler) && !identical(dim(sampler)[1:2], dim(draws)[1:2])) {
+    stop2("The sampler diagnostics have inconsistent dimensions with the draws.")
+  }
   if (!is.null(sampler)) {
     d$divergent_transitions <- sampler_divergences(sampler)
-    d$expected_fraction_of_missing_information <- sampler_efmi(sampler)
+    if ("treedepth__" %in% posterior::variables(sampler) && !is.null(fit$max_treedepth)) {
+      depth <- posterior::extract_variable_matrix(sampler, "treedepth__")
+      d$max_treedepth_exceeded <- unname(colSums(depth >= fit$max_treedepth))
+    }
+    d$sampler_parameter_summaries <- sampler_summaries(sampler)
+    d$expected_fraction_of_missing_information <- sampler_efmi(sampler, fit$efmi_divisor)
   } else {
-    d$divergent_transitions <- previous$divergent_transitions
-    d$expected_fraction_of_missing_information <- previous$expected_fraction_of_missing_information
+    chain_level <- c("divergent_transitions", "max_treedepth_exceeded",
+                     "sampler_parameter_summaries", "expected_fraction_of_missing_information")
+    d[chain_level] <- previous[chain_level]
   }
-  d
+  drop_nulls(d)
+}
+
+# posterior::summarise_draws() of each sampler parameter.
+sampler_summaries <- function(sampler) {
+  rows <- posterior::summarise_draws(sampler)
+  stats::setNames(lapply(seq_len(nrow(rows)), function(i) as.list(rows[i, ])), rows$variable)
 }
 
 # Mean over chains of the lag-1 autocorrelation of one variable
@@ -65,12 +82,14 @@ sampler_divergences <- function(sampler) {
   unname(colSums(m))
 }
 
-# E-FMI per chain, with the normalisation used by rstan::get_bfmi() and the
-# values stored in posteriordb.
-sampler_efmi <- function(sampler) {
+# E-FMI per chain, normalised like each backend reports it: rstan::get_bfmi()
+# divides the squared energy differences by the number of draws, CmdStan by
+# the number of differences.
+sampler_efmi <- function(sampler, divisor = "draws") {
   if (!"energy__" %in% posterior::variables(sampler)) return(NULL)
   m <- posterior::extract_variable_matrix(sampler, "energy__")
-  unname(apply(m, 2, function(e) sum(diff(e)^2) / length(e) / stats::var(e)))
+  n <- if (identical(divisor, "differences")) nrow(m) - 1 else nrow(m)
+  unname(apply(m, 2, function(e) sum(diff(e)^2) / n / stats::var(e)))
 }
 
 # Named metrics for each check, from stored-format diagnostics.
@@ -154,13 +173,15 @@ format_failures <- function(failures) {
 #' draws is recorded as `ess_within_bounds` but does not decide the check.
 #'
 #' R-hat, ESS and autocorrelation are recomputed from the draws.
-#' Divergences and E-FMI come from the sampler diagnostics kept when the draws
-#' were made from a fit, or from the stored diagnostics otherwise.
+#' Chain-level diagnostics (divergences, tree depth hits, E-FMI) are kept from
+#' the stored diagnostics, or computed from the sampler diagnostics kept with
+#' draws made from a fit when none are stored.
 #'
 #' @param x Reference posterior draws, a posterior, a posterior name, or a
 #'   bundle from [create_pdb_bundle()].
 #' @param error If `TRUE`, failed checks raise an error. If `FALSE`, the
-#'   object is returned with the failures recorded.
+#'   object is returned with the failures recorded. For a bundle the default
+#'   is `FALSE`, as in [create_pdb_bundle()].
 #' @param ... Passed to [posterior()] for a posterior name.
 #' @return `x` with updated `diagnostics` and `checks_made` in its info,
 #'   invisibly. With `error = FALSE`, failures are in the `check_failures`
@@ -189,8 +210,12 @@ check_reference_posterior_draws.pdb_reference_posterior_draws <- function(x, err
 check_draws <- function(x, error = TRUE, summary = FALSE) {
   rpi <- info(x)
   if (posterior::nvariables(x) == 0L) stop2("The reference draws have no variables.")
-  rpi$diagnostics <- compute_draw_diagnostics(x, rpi$inference$method,
-                                              sampler = attr(x, "sampler_diagnostics"),
+  # Chain-level diagnostics computed at import are kept; the sampler
+  # diagnostics are used only when there are none.
+  fit <- if (is.null(rpi$diagnostics$divergent_transitions)) {
+    list(sampler = attr(x, "sampler_diagnostics"))
+  }
+  rpi$diagnostics <- compute_draw_diagnostics(x, rpi$inference$method, fit = fit,
                                               previous = rpi$diagnostics)
   result <- evaluate_reference_checks(rpi$diagnostics, rpi$inference$method, summary = summary)
   rpi$checks_made <- result$checks_made
@@ -231,7 +256,7 @@ reference_draw_diagnostics <- function(fit, checks = "all", include = NULL, excl
   checkmate::assert_subset(checks, all_checks(), empty.ok = FALSE)
   fit_parts <- extract_fit(fit)
   draws <- select_variables(fit_parts$draws, required = character(), include, exclude)
-  d <- compute_draw_diagnostics(draws, sampler = fit_parts$sampler)
+  d <- compute_draw_diagnostics(draws, fit = fit_parts)
   result <- evaluate_reference_checks(d, checks = checks)
   list(metrics = diagnostic_metrics(d)[checks], thresholds = reference_policy()[checks],
        status = result$status, failures = result$failures)

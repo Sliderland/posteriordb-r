@@ -104,7 +104,7 @@ reference_name <- function(x) {
 
 #' @export
 print.pdb_reference_posterior_info <- function(x, ...) {
-  cat0("Reference posterior: ", x$name, "\n")
+  cat0("Posterior: ", x$name, "\n")
   cat0("Method: ", x$inference$method, "\n")
   args <- x$inference$method_arguments
   if (length(args)) {
@@ -192,6 +192,12 @@ reference_posterior_draws_file_path <- function(x, ...) {
 #' @export
 reference_posterior_draws_file_path.pdb_posterior <- function(x, ...) {
   reference_posterior_draws_file_path(reference_name(x), pdb = posterior_pdb(x))
+}
+
+#' @rdname reference_posterior_draws
+#' @export
+reference_posterior_draws_file_path.pdb_reference_posterior_info <- function(x, pdb = pdb_default(), ...) {
+  reference_posterior_draws_file_path(x$name, pdb = pdb)
 }
 
 #' @rdname reference_posterior_draws

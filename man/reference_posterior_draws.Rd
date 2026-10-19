@@ -10,6 +10,7 @@
 \alias{as.pdb_reference_posterior_draws}
 \alias{reference_posterior_draws_file_path}
 \alias{reference_posterior_draws_file_path.pdb_posterior}
+\alias{reference_posterior_draws_file_path.pdb_reference_posterior_info}
 \alias{reference_posterior_draws_file_path.character}
 \title{Reference posterior draws}
 \usage{
@@ -30,6 +31,8 @@ as.pdb_reference_posterior_draws(x, info, pdb = NULL, ...)
 reference_posterior_draws_file_path(x, ...)
 
 \method{reference_posterior_draws_file_path}{pdb_posterior}(x, ...)
+
+\method{reference_posterior_draws_file_path}{pdb_reference_posterior_info}(x, pdb = pdb_default(), ...)
 
 \method{reference_posterior_draws_file_path}{character}(x, pdb = pdb_default(), ...)
 }

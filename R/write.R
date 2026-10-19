@@ -124,12 +124,21 @@ plan_file <- function(path, text, zip = FALSE) list(path = path, text = text, zi
 
 info_json <- function(x) json_text(plain_list(x))
 
+# Optional fields that are written as null when missing, as in the database.
+with_null_fields <- function(x, fields) {
+  missing <- setdiff(fields, names(x))
+  x[missing] <- rep(list(NULL), length(missing))
+  x
+}
+
 plan_info <- function(x) {
   if (inherits(x, "pdb_model_info")) {
     assert_model_info(x)
+    x <- with_null_fields(x, "keywords")
     return(list(plan_file(file.path("models", "info", paste0(x$name, ".info.json")), info_json(x))))
   }
   assert_data_info(x)
+  x <- with_null_fields(x, c("references", "description", "urls", "keywords"))
   list(plan_file(file.path("data", "info", paste0(x$name, ".info.json")), info_json(x)))
 }
 
@@ -145,7 +154,8 @@ plan_model_code <- function(x) {
 
 plan_posterior <- function(x, link = TRUE) {
   assert_posterior(x)
-  record <- plain_list(x, drop = c("model_info", "data_info", "embedded"))
+  record <- with_null_fields(plain_list(x, drop = c("model_info", "data_info", "embedded")),
+                             "keywords")
   if (!link) record["reference_posterior_name"] <- list(NULL)
   list(plan_file(file.path("posteriors", paste0(x$name, ".json")), json_text(record)))
 }

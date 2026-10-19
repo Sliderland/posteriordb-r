@@ -7,7 +7,7 @@ test_that("a fit becomes checked reference draws for an existing posterior", {
   rpi <- info(rpd)
   expect_identical(rpi$name, "eight_schools-eight_schools_noncentered")
   expect_identical(rpi$comments, "mock")
-  expect_identical(rpi$inference$method_arguments$iter, 3500)
+  expect_identical(rpi$inference$method_arguments$iter, 3500L)
   expect_identical(rpi$inference$method_arguments$control$adapt_delta, 0.8)
   expect_true(rpi$checks_made$no_divergent_transitions)
   expect_false("lp__" %in% posterior::variables(rpd))

@@ -20,8 +20,10 @@
 #' @param pdb A [pdb][pdb_local] connection. Must be local to write.
 #' @param dimensions Unconstrained parameter counts, if the posterior does
 #'   not have them.
-#' @param include Base names of extra variables to keep; `NULL` keeps all.
-#' @param exclude Base names of variables to drop.
+#' @param include Base names of extra variables to keep; `NULL` or `"all"`
+#'   keeps all, `"none"` only the parameters and posterior dimensions.
+#' @param exclude Base names of variables to drop; `"all"` drops everything
+#'   except the parameters and posterior dimensions.
 #' @param write Write the draws if they pass the checks?
 #' @param overwrite Replace existing reference posterior files?
 #' @param write_summary_statistics Also write the summary statistics?
@@ -39,7 +41,7 @@ as_reference_posterior_draws <- function(fit, posterior, pdb = pdb_default(), di
   checkmate::assert_subset(names(fields), c("comments", "added_by", "added_date"))
   fields$name <- po$reference_posterior_name %||% po$name
   rpd <- draws_from_fit(fit, as.list(dimensions %||% po$dimensions), fields, include, exclude,
-                        pdb = pdb(po) %||% pdb)
+                        pdb = posteriordb::pdb(po) %||% pdb)
   check_reference_posterior_draws(rpd, error = FALSE)
 }
 
@@ -85,7 +87,7 @@ draws_from_fit <- function(fit, dimensions, fields, include = NULL, exclude = NU
   fields$inference <- list(method = "stan_sampling",
                            method_arguments = method_arguments %||% parts$method_arguments)
   fields$versions <- parts$versions
-  fields$diagnostics <- compute_draw_diagnostics(draws, sampler = parts$sampler)
+  fields$diagnostics <- compute_draw_diagnostics(draws, fit = parts)
   rpd <- as.reference_posterior_draws(draws, info = fields, pdb = pdb)
   attr(rpd, "sampler_diagnostics") <- parts$sampler
   rpd

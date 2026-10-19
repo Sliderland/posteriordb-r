@@ -7,7 +7,11 @@
 \usage{
 infer_posterior_dimensions(model_code, data)
 
-infer_unconstrained_parameter_counts_from_fit(fit)
+infer_unconstrained_parameter_counts_from_fit(
+  fit,
+  include = NULL,
+  exclude = NULL
+)
 }
 \arguments{
 \item{model_code}{Stan code, a path to a \code{.stan} file, or a
@@ -17,6 +21,9 @@ infer_unconstrained_parameter_counts_from_fit(fit)
 
 \item{fit}{An \code{rstan::stanfit} (or a \code{cmdstanr::CmdStanMCMC} whose
 compiled model methods are available).}
+
+\item{include, exclude}{Optional parameter names to keep or leave out of
+the counts (\code{"all"} and \code{"none"} alone mean everything and nothing).}
 }
 \value{
 A named list of positive integers.

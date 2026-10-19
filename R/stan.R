@@ -6,6 +6,7 @@
 #   sampler     draws_array of sampler diagnostics (divergent__, energy__, ...)
 #   parameters  base names of parameter-block variables (NULL if unknown)
 #   upar_counts named list of unconstrained parameter counts (NULL if unknown)
+#   max_treedepth, efmi_divisor  for the chain-level diagnostics
 #   method_arguments, versions, model_code
 extract_fit <- function(fit) UseMethod("extract_fit")
 
@@ -32,9 +33,12 @@ extract_fit.stanfit <- function(fit) {
   method_arguments <- drop_nulls(list(
     chains = length(fit@stan_args), iter = args$iter, warmup = args$warmup,
     thin = args$thin, seed = args$seed, control = if (length(control)) control))
+  stan_version <- tryCatch(paste("Stan", rstan::stan_version()), error = function(e) NULL)
   list(draws = draws, sampler = sampler, parameters = parameters, upar_counts = upar_counts,
-       method_arguments = method_arguments,
-       versions = environment_versions(rstan_version = package_version_string("rstan")),
+       method_arguments = method_arguments, max_treedepth = args$control$max_treedepth %||% 10,
+       efmi_divisor = "draws",
+       versions = environment_versions(rstan_version = package_version_string("rstan"),
+                                       stan_version = stan_version),
        model_code = fit@stanmodel@model_code[1])
 }
 
@@ -54,14 +58,18 @@ extract_fit.CmdStanMCMC <- function(fit) {
   }, error = function(e) NULL)
   warmup <- meta$iter_warmup %||% 0
   method_arguments <- drop_nulls(list(
-    chains = posterior::nchains(draws), iter = (meta$iter_sampling %||% NA) + warmup,
-    warmup = warmup, thin = meta$thin, seed = meta$seed,
+    chains = posterior::nchains(draws), iter = as.integer((meta$iter_sampling %||% NA) + warmup),
+    warmup = as.integer(warmup), thin = as.integer(meta$thin), seed = meta$seed,
     control = drop_nulls(list(adapt_delta = meta$adapt_delta, max_treedepth = meta$max_treedepth))))
+  stan_parts <- c(meta$stan_version_major, meta$stan_version_minor, meta$stan_version_patch)
   versions <- environment_versions(
     cmdstanr_version = package_version_string("cmdstanr"),
-    cmdstan_version = if (!is.null(meta$cmdstan_version)) paste("CmdStan", meta$cmdstan_version))
+    cmdstan_version = if (!is.null(meta$cmdstan_version)) paste("CmdStan", meta$cmdstan_version),
+    stan_version = if (length(stan_parts) == 3) paste("Stan", paste(stan_parts, collapse = ".")))
   list(draws = draws, sampler = sampler, parameters = parameters, upar_counts = upar_counts,
        method_arguments = method_arguments, versions = versions,
+       max_treedepth = meta$max_treedepth %||% meta$max_depth %||% 10,
+       efmi_divisor = "differences",
        model_code = tryCatch(paste(fit$code(), collapse = "\n"), error = function(e) NULL))
 }
 
@@ -99,7 +107,8 @@ environment_versions <- function(...) {
                         if (.Platform$OS.type == "windows") "Makevars.win" else "Makevars")
   c(list(...)[!vapply(list(...), is.null, logical(1))],
     list(posterior_version = paste("posterior", utils::packageVersion("posterior")),
-         r_Makevars = if (file.exists(makevars)) paste(readLines(makevars), collapse = "\n") else "",
+         r_Makevars = if (file.exists(makevars)) paste(readLines(makevars), collapse = "\n")
+                      else "[Could not find Makevar file]",
          r_version = R.version$version.string,
          r_session = paste(utils::capture.output(print(utils::sessionInfo())), collapse = "\n")))
 }
@@ -109,6 +118,13 @@ environment_versions <- function(...) {
 select_variables <- function(draws, required, include = NULL, exclude = NULL) {
   checkmate::assert_character(include, null.ok = TRUE, any.missing = FALSE)
   checkmate::assert_character(exclude, null.ok = TRUE, any.missing = FALSE)
+  # "all" and "none" alone are shorthands, as in the fork.
+  if (identical(include, "all")) include <- NULL
+  if (identical(include, "none")) include <- character()
+  if (identical(exclude, "none")) exclude <- NULL
+  if (identical(exclude, "all")) {
+    exclude <- setdiff(unique(base_variable(posterior::variables(draws))), required)
+  }
   vars <- posterior::variables(draws)
   bases <- base_variable(vars)
   available <- unique(bases)
@@ -183,6 +199,8 @@ cmdstanr_args <- function(args) {
 #' @param data The data, a named list or `pdb_data` object.
 #' @param fit An `rstan::stanfit` (or a `cmdstanr::CmdStanMCMC` whose
 #'   compiled model methods are available).
+#' @param include,exclude Optional parameter names to keep or leave out of
+#'   the counts (`"all"` and `"none"` alone mean everything and nothing).
 #' @return A named list of positive integers.
 #' @export
 infer_posterior_dimensions <- function(model_code, data) {
@@ -198,15 +216,21 @@ infer_posterior_dimensions <- function(model_code, data) {
 
 #' @rdname infer_posterior_dimensions
 #' @export
-infer_unconstrained_parameter_counts_from_fit <- function(fit) {
+infer_unconstrained_parameter_counts_from_fit <- function(fit, include = NULL, exclude = NULL) {
   counts <- if (inherits(fit, "stanfit")) {
     tryCatch(count_by_base(fit@.MISC$stan_fit_instance$unconstrained_param_names(FALSE, FALSE)),
              error = function(e) NULL)
   } else {
     extract_fit(fit)$upar_counts
   }
-  counts %||% stop2("The unconstrained parameter names are not available from this fit. ",
-                    "Use infer_posterior_dimensions() with the model code and data.")
+  counts <- counts %||% stop2("The unconstrained parameter names are not available from this fit. ",
+                              "Use infer_posterior_dimensions() with the model code and data.")
+  if (identical(include, "all")) include <- NULL
+  if (identical(exclude, "none")) exclude <- NULL
+  unknown <- setdiff(c(include, exclude), names(counts))
+  if (length(unknown)) stop2("Unknown parameter(s) in include/exclude: ", paste(unknown, collapse = ", "))
+  keep <- setdiff(if (is.null(include)) names(counts) else include, exclude)
+  counts[names(counts) %in% keep]
 }
 
 # Reconstruction --------------------------------------------------------------
@@ -306,8 +330,14 @@ stan_evaluator <- function(model, data, seed) {
 }
 
 cmdstanr_evaluator <- function(fit) {
+  # The skeleton gives scalars dimension 1, like one-element arrays; the
+  # output names ("mu" versus "x[1]") tell them apart.
+  scalars <- fit$metadata()$variables
   skeleton_dims <- function(...) {
-    lapply(fit$variable_skeleton(...), function(x) dim(x) %||% (if (length(x) > 1) length(x)))
+    skeleton <- fit$variable_skeleton(...)
+    stats::setNames(lapply(names(skeleton), function(n) {
+      if (!n %in% scalars) dim(skeleton[[n]]) %||% length(skeleton[[n]])
+    }), names(skeleton))
   }
   parameter_dims <- skeleton_dims(transformed_parameters = FALSE, generated_quantities = FALSE)
   structure(list(

@@ -8,7 +8,7 @@
 \alias{check_reference_posterior_draws.pdb_reference_posterior_draws}
 \title{Check reference posterior draws}
 \usage{
-\method{check_reference_posterior_draws}{pdb_reference_bundle}(x, error = TRUE, ...)
+\method{check_reference_posterior_draws}{pdb_reference_bundle}(x, error = FALSE, ...)
 
 check_reference_posterior_draws(x, ...)
 
@@ -23,7 +23,8 @@ check_reference_posterior_draws(x, ...)
 bundle from \code{\link[=create_pdb_bundle]{create_pdb_bundle()}}.}
 
 \item{error}{If \code{TRUE}, failed checks raise an error. If \code{FALSE}, the
-object is returned with the failures recorded.}
+object is returned with the failures recorded. For a bundle the default
+is \code{FALSE}, as in \code{\link[=create_pdb_bundle]{create_pdb_bundle()}}.}
 
 \item{...}{Passed to \code{\link[=posterior]{posterior()}} for a posterior name.}
 }
@@ -44,6 +45,7 @@ draws is recorded as \code{ess_within_bounds} but does not decide the check.
 }
 \details{
 R-hat, ESS and autocorrelation are recomputed from the draws.
-Divergences and E-FMI come from the sampler diagnostics kept when the draws
-were made from a fit, or from the stored diagnostics otherwise.
+Chain-level diagnostics (divergences, tree depth hits, E-FMI) are kept from
+the stored diagnostics, or computed from the sampler diagnostics kept with
+draws made from a fit when none are stored.
 }

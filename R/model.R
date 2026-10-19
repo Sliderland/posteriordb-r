@@ -84,8 +84,11 @@ assert_model_info <- function(x) {
   for (framework in names(x$model_implementations)) {
     impl <- x$model_implementations[[framework]]
     checkmate::assert_string(impl$model_code, .var.name = paste0(framework, " model_code"))
-    assert_known_fields(impl, c("model_code", "likelihood_code", "stan_version", "pymc_version"),
-                        paste(framework, "model implementation"), common = FALSE)
+    # Only the Stan implementation is used here; others are kept as they are.
+    if (framework == "stan") {
+      assert_known_fields(impl, c("model_code", "likelihood_code", "stan_version"),
+                          "stan model implementation", common = FALSE)
+    }
   }
   assert_common_info(x)
 }

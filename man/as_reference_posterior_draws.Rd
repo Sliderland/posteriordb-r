@@ -39,9 +39,11 @@ For cmdstanr, sample with \code{sig_figs = 18} to keep full precision.}
 \item{dimensions}{Unconstrained parameter counts, if the posterior does
 not have them.}
 
-\item{include}{Base names of extra variables to keep; \code{NULL} keeps all.}
+\item{include}{Base names of extra variables to keep; \code{NULL} or \code{"all"}
+keeps all, \code{"none"} only the parameters and posterior dimensions.}
 
-\item{exclude}{Base names of variables to drop.}
+\item{exclude}{Base names of variables to drop; \code{"all"} drops everything
+except the parameters and posterior dimensions.}
 
 \item{...}{Reference info fields: \code{comments}, \code{added_by}, \code{added_date}.}
 

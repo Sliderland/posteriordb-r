@@ -207,6 +207,7 @@ search_posteriors <- function(pdb = pdb_default(), query,
                               match = c("any", "all")) {
   checkmate::assert_string(query, min.chars = 1)
   checkmate::assert_subset(fields, c("posterior", "data", "model"), empty.ok = FALSE)
+  checkmate::assert_character(fields, unique = TRUE)
   match <- match.arg(match)
   hits_in <- function(keywords) {
     keywords <- unique(as.character(unlist(keywords)))
