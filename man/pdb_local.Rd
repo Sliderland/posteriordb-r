@@ -8,6 +8,7 @@
 \alias{pdb}
 \alias{pdb.default}
 \alias{pdb.pdb}
+\alias{pdb.pdb_model_code}
 \alias{pdb.character}
 \title{Connect to a posterior database}
 \usage{
@@ -34,6 +35,8 @@ pdb(x, ...)
 \method{pdb}{default}(x, ...)
 
 \method{pdb}{pdb}(x, ...)
+
+\method{pdb}{pdb_model_code}(x, ...)
 
 \method{pdb}{character}(x, pdb_type = c("local", "github"), ...)
 }

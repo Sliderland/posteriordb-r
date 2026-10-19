@@ -14,7 +14,8 @@
 #'   when the name is used by more than one type.
 #' @param pdb A local [pdb][pdb_local] connection; defaults to the object's.
 #' @param ... Not used.
-#' @return The new name, invisibly.
+#' @return The renamed object, read back from the database (for a name, the
+#'   object it names).
 #' @export
 rename_pdb <- function(x, new_name, ...) UseMethod("rename_pdb")
 
@@ -29,36 +30,43 @@ rename_pdb.character <- function(x, new_name, type = NULL, pdb = pdb_default(), 
   }
   checkmate::assert_choice(type, c("data", "model", "posterior"))
   rename_in_pdb(x, new_name, type, pdb)
+  switch(type, data = data_info(new_name, pdb = pdb), model = model_info(new_name, pdb = pdb),
+         posterior = posterior(new_name, pdb = pdb))
 }
 
 #' @rdname rename_pdb
 #' @export
-rename_pdb.pdb_posterior <- function(x, new_name, pdb = pdb(x), ...) {
+rename_pdb.pdb_posterior <- function(x, new_name, pdb = posteriordb::pdb(x), ...) {
   rename_in_pdb(x$name, new_name, "posterior", pdb)
+  posterior(new_name, pdb = pdb)
 }
 
 #' @rdname rename_pdb
 #' @export
-rename_pdb.pdb_data <- function(x, new_name, pdb = pdb(x), ...) {
+rename_pdb.pdb_data <- function(x, new_name, pdb = posteriordb::pdb(x), ...) {
   rename_in_pdb(info(x)$name, new_name, "data", pdb)
+  get_data(new_name, pdb = pdb)
 }
 
 #' @rdname rename_pdb
 #' @export
 rename_pdb.pdb_data_info <- function(x, new_name, pdb = pdb_default(), ...) {
   rename_in_pdb(x$name, new_name, "data", pdb)
+  data_info(new_name, pdb = pdb)
 }
 
 #' @rdname rename_pdb
 #' @export
-rename_pdb.pdb_model_code <- function(x, new_name, pdb = pdb(x), ...) {
+rename_pdb.pdb_model_code <- function(x, new_name, pdb = posteriordb::pdb(x), ...) {
   rename_in_pdb(info(x)$name, new_name, "model", pdb)
+  model_code(new_name, framework = framework(x), pdb = pdb)
 }
 
 #' @rdname rename_pdb
 #' @export
 rename_pdb.pdb_model_info <- function(x, new_name, pdb = pdb_default(), ...) {
   rename_in_pdb(x$name, new_name, "model", pdb)
+  model_info(new_name, pdb = pdb)
 }
 
 rename_in_pdb <- function(old, new, type, pdb) {

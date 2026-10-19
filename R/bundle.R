@@ -109,7 +109,7 @@ set_bundle_draws <- function(bundle, draws) {
 
 #' @rdname check_reference_posterior_draws
 #' @export
-check_reference_posterior_draws.pdb_reference_bundle <- function(x, error = TRUE, ...) {
+check_reference_posterior_draws.pdb_reference_bundle <- function(x, error = FALSE, ...) {
   draws <- check_draws(x$reference_draws, error = error)
   x$summary_statistics <- if (passed_checks(draws)) compute_all_summary_statistics(draws)
   set_bundle_draws(x, draws)

@@ -101,6 +101,11 @@ pdb.default <- function(x, ...) attr(x, "pdb")
 #' @export
 pdb.pdb <- function(x, ...) x
 
+# Model code is a character vector too; its database is an attribute.
+#' @rdname pdb_local
+#' @export
+pdb.pdb_model_code <- function(x, ...) attr(x, "pdb")
+
 #' @rdname pdb_local
 #' @export
 pdb.character <- function(x, pdb_type = c("local", "github"), ...) {

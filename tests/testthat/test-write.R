@@ -171,7 +171,7 @@ test_that("renaming a model moves its code; posteriors can be renamed", {
   expect_true(file.exists(file.path(p$path, "models", "stan", "centered.stan")))
   expect_true(file.exists(file.path(p$path, "models", "pymc", "centered.py")))
   expect_match(stan_code(posterior("eight_schools-centered", p)), "theta")
-  rename_pdb("eight_schools-eight_schools_noncentered", "es", pdb = p)
+  expect_identical(rename_pdb("eight_schools-eight_schools_noncentered", "es", pdb = p)$name, "es")
   expect_identical(posterior("8schools", p)$reference_posterior_name, "es")
   expect_identical(check_pdb(p, verbose = FALSE), 0L)
   expect_error(rename_pdb("es", "eight_schools-centered", pdb = p), "already exists")

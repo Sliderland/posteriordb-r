@@ -14,13 +14,13 @@ rename_pdb(x, new_name, ...)
 
 \method{rename_pdb}{character}(x, new_name, type = NULL, pdb = pdb_default(), ...)
 
-\method{rename_pdb}{pdb_posterior}(x, new_name, pdb = pdb(x), ...)
+\method{rename_pdb}{pdb_posterior}(x, new_name, pdb = posteriordb::pdb(x), ...)
 
-\method{rename_pdb}{pdb_data}(x, new_name, pdb = pdb(x), ...)
+\method{rename_pdb}{pdb_data}(x, new_name, pdb = posteriordb::pdb(x), ...)
 
 \method{rename_pdb}{pdb_data_info}(x, new_name, pdb = pdb_default(), ...)
 
-\method{rename_pdb}{pdb_model_code}(x, new_name, pdb = pdb(x), ...)
+\method{rename_pdb}{pdb_model_code}(x, new_name, pdb = posteriordb::pdb(x), ...)
 
 \method{rename_pdb}{pdb_model_info}(x, new_name, pdb = pdb_default(), ...)
 }
@@ -37,7 +37,8 @@ when the name is used by more than one type.}
 \item{pdb}{A local \link[=pdb_local]{pdb} connection; defaults to the object's.}
 }
 \value{
-The new name, invisibly.
+The renamed object, read back from the database (for a name, the
+object it names).
 }
 \description{
 Renames the object's files and updates everything that refers to it:
