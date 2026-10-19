@@ -10,7 +10,7 @@ see what was meant to be implemented. That comparison is in
 
 The rewrite reads and writes the same database format, and it keeps almost
 the whole exported API: 87 of the original 94 exports, plus one new one. It
-is about 40% of the fork's size.
+is about 44% of the fork's size.
 
 The fork is formatted with Air, which puts many arguments on lines of their
 own, and the rewrite is not. Raw line counts therefore flatter the rewrite.
@@ -20,12 +20,12 @@ formatting, so the token rows are the fair comparison.
 
 | | Pre-fork (stan-dev) | Fork (original) | Rewrite |
 |---|---|---|---|
-| R code, parse tokens | 15,088 | 46,578 | 19,649 |
-| R code, lines with code | 1,843 | 6,698 | 2,008 |
-| R code, raw lines (files) | 3,212 (26) | 9,206 (35) | 3,245 (16) |
-| Roxygen lines | 870 | 1,722 | 864 |
-| Tests, parse tokens | 5,293 | 48,338 | 6,945 |
-| Tests, raw lines (files) | 934 (18) | 6,009 (55) | 771 (8), plus a 100 KB fixture |
+| R code, parse tokens | 15,088 | 46,578 | 20,362 |
+| R code, lines with code | 1,843 | 6,698 | 2,071 |
+| R code, raw lines (files) | 3,212 (26) | 9,206 (35) | 3,335 (16) |
+| Roxygen lines | 870 | 1,722 | 875 |
+| Tests, parse tokens | 5,293 | 48,338 | 7,254 |
+| Tests, raw lines (files) | 934 (18) | 6,009 (55) | 805 (9), plus a 100 KB fixture |
 | Hard dependencies (Imports) | checkmate, gh, jsonlite | bibtex, checkmate, gh, jsonlite, methods, posterior, tibble | bibtex, checkmate, jsonlite, posterior, tibble |
 
 ## Design
@@ -101,8 +101,7 @@ Three ideas carry most of the weight:
   `as_reference_posterior_draws()`. The generic dispatches on the fit.
 - The `assert_checked_*` and `check_summary_statistics_draws` exports. Use
   `check_reference_posterior_draws()`.
-- `pdb_compare_stan_models()`, the `"all"` and `"none"` selector aliases,
-  and the cmdstanr backend for
+- `pdb_compare_stan_models()` and the cmdstanr backend for
   `infer_posterior_dimensions()`. That one still uses rstan, and counts
   can also be read from a cmdstanr fit.
 
@@ -120,7 +119,25 @@ Three ideas carry most of the weight:
   `[3, 2]` instead of a count. These are accepted and compared by their
   product.
 - **Identical writes are skipped**, so re-running a workflow is a no-op.
-  The fork raises "File at path already exists" instead.
+  The fork and upstream raise "File at path already exists" instead, and
+  upstream's own `write data` tests expect that error.
+- **Mean lag-1 autocorrelation is the signed mean over chains**, as the
+  stored diagnostics in the database are. The fork changed this to the mean
+  of the absolute values per chain. Recomputing three stored references
+  (eight schools, diamonds, mesquite) gives the stored values exactly with
+  the signed mean and not with the fork's version. The fork's version is
+  larger, so it rejects more draws.
+- **Values that are not finite are written as JSON `null`.** The fork
+  writes the strings `"NA"` and `"Inf"` (`jsonlite`'s default), which read
+  back as text. No file in the database has either string.
+- **Renaming a posterior whose reference posterior is shared** renames the
+  reference too and repoints the other posteriors that use it. The fork
+  refuses. The fork's data rename, on the other hand, renames a shared
+  reference but leaves the other posterior pointing at the old name, which
+  no longer exists.
+- **Failed checks are stored as one flag per check**, with the offending
+  variables or chains in the `check_failures` attribute. The fork stores a
+  single `check_failed` message.
 - **Tables use `NA`** rather than the string `"NULL"` for posteriors without
   a reference.
 - **`pdb_clear_cache()`** is exported. It was internal in the fork and
@@ -134,7 +151,7 @@ Everything in this section, plus the vignette run and API comparison
 below, can be rerun with `tools/run-all.sh`. `tools/README.md` explains the
 setup and each step.
 
-The offline suite has 251 expectations and runs against a small
+The offline suite has 247 expectations and runs against a small
 eight-schools fixture database. The fixture is cut from the real files and
 can be rebuilt with `tests/testthat/fixtures/make_fixture.R`. It covers
 reading, checks, writing and renaming. Fit import and bundles use a mocked
@@ -148,6 +165,12 @@ The opt-in tests below were run on the final code, the Stan test twice:
   batch workflow. **Passes.** Unthinned NUTS draws of this model fail the
   lag-1 autocorrelation check because they are anticorrelated. That matches
   why the stored references are thinned by 10.
+- **Real CmdStanR run** (`PDB_TEST_STAN=true`, `CMDSTAN` set;
+  `tests/testthat/test-cmdstanr.R`, run on its own because loading rstan
+  and cmdstanr in one R process crashed): the same model with cmdstanr
+  0.9.0 and CmdStan 2.36.0. It covers parameter counts, import, the stored
+  Stan version and tree-depth counts, and output reconstruction.
+  **Passes.**
 - **Full database** (`PDB_PATH=<posteriordb>/posterior_database`):
   `check_pdb()` plus a recomputed check of every stored reference posterior.
   **Passes.**
@@ -155,20 +178,26 @@ The opt-in tests below were run on the final code, the Stan test twice:
   reference draws over the API. **Passes** against `sliderland/posteriordb`.
   This session can't reach `stan-dev/posteriordb`.
 
-`R CMD check --no-manual` gives **0 errors, 0 warnings, 1 note**. The note is
-that cmdstanr isn't installed here.
+`R CMD check --no-manual` gives **Status: OK** (0 errors, 0 warnings,
+0 notes), now that cmdstanr is installed.
 
 ## Not verified
 
-- The cmdstanr path has only been tested with a mocked fit, because
-  cmdstanr and CmdStan aren't installed in this environment.
-- `reconstruct_stan_output()` has only been run on rstan.
+- Reading over GitHub from `stan-dev/posteriordb`, which this session
+  can't reach. `sliderland/posteriordb` works.
+- The fork's tests that fail only because they use the fork's internal
+  functions or object layout (below) say nothing either way about the
+  behaviour they test.
 
 ## Does it do the same thing as the fork?
 
-The reading side is checked by running both packages on the full database
-and comparing what comes back. The writing side is checked with a smaller
-example. Run both with `sh tools/run-all.sh differential`.
+Three comparisons answer this. Reading is checked by running both packages
+on the full database and comparing what comes back. The workflows that
+write (fit import, bundles, renaming, removing, linking, sampling) are run
+by both packages on copies of the same database, with the same fits, and
+their results and files are compared. Finally the fork's own test suite is
+run against the rewrite. The reading and basic writing comparisons run with
+`sh tools/run-all.sh differential`.
 
 **Reading: the full database through both packages.**
 `tools/differential-dump.R` loads one package and reads everything in the
@@ -206,16 +235,108 @@ objects. All written files have identical content. Two JSON files list the
 same fields in a different order, and the zip archives differ only in their
 timestamps.
 
-**What this doesn't cover yet:**
-- Importing fits, bundles, renaming, removing and writing reference draws
-  aren't compared between the two packages. They're covered only by the
-  rewrite's own tests.
-- The rewrite's mock cmdstanr fit doesn't satisfy the fork's extraction
-  code, so comparing imports needs real fits.
-- The strongest remaining check is to run the fork's 55 test files against
-  the rewrite. Where they test the same public behaviour, they should pass.
-  Where they fail, each failure is either a parity gap or a deliberate
-  change.
+**Workflows: fits, bundles, renaming and the rest through both packages.**
+Run with `sh tools/run-all.sh workflows`. `tools/workflow-run.R` runs 32
+scenarios with one package, each on a fresh copy of the fixture database,
+and saves what each call returns (or its error) plus every file left in
+the database afterwards. Each package runs once per backend, in its own R
+process:
+
+- **Fit import** of an rstan and a cmdstanr fit of eight schools (4 chains,
+  thinned to 2,500 draws each): `as_reference_posterior_draws()`,
+  `import_reference_posterior_draws()` with `write` and `overwrite`, with
+  `include` and `exclude`, with wrong `dimensions`, and with a 2-chain fit
+  that fails the checks.
+- **Diagnostics**: `reference_draw_diagnostics()`,
+  `passes_reference_draw_checks()` and
+  `infer_unconstrained_parameter_counts_from_fit()`.
+- **Output reconstruction** with `reconstruct_stan_output()` on both backends.
+- **Bundles**: a new posterior from a fit, a failing bundle, and one built
+  from data and a model already in the database.
+- **Renaming** data, a model, a posterior with its reference posterior, a
+  posterior that links to another's reference, and onto an existing name.
+- **Removing** a posterior with its reference draws and summaries, and
+  **linking** a new posterior to an existing reference posterior.
+- **Sampling**: `infer_posterior_dimensions()` and
+  `sequential_batch_workflow()` with `write = TRUE`, which samples, checks
+  and writes, on both backends.
+
+Each process refits from the same compiled model with the same seed. The
+fork's and the rewrite's processes got identical draws for both backends,
+so both packages work on the same fits. A saved fit can't be reused, because it loses its compiled model.
+
+**The results.** The draws match exactly in every scenario: imported,
+written, bundled, reconstructed and sampled. So do the results of every
+renaming, removing and linking scenario apart from the two below, and the
+parameter counts, the check verdicts and the inferred dimensions. Every
+remaining difference is one of these:
+
+| Difference | Fork | Rewrite |
+|---|---|---|
+| Mean lag-1 autocorrelation | Mean of absolute values per chain | Signed mean, which matches the stored database values (see [Changed](#changed)) |
+| Not-finite numbers in sampler summaries | Written as `"NA"`, `"Inf"` | Written as `null` |
+| `ess_within_bounds` in summary statistic info files | Left out | Written, as in 92 of the 114 stored summary info files |
+| `method_arguments` of a cmdstanr fit | `sampling_timestamp`, no seed or control | `seed` and `control` (adapt delta, max tree depth), as for rstan |
+| Bundle reference info | Lacks `stan_version`, `posterior_version`, tree-depth counts, sampler summaries and `ess_within_bounds`, which the fork's own import writes | The same fields as an import |
+| A bundle from data and a model already in the database | Errors when the model also has a PyMC implementation | Works |
+| A failing fit | Info holds one `check_failed` message | One flag per check, failures in an attribute. Both refuse to write. |
+| Renaming data whose posterior's reference is shared | Leaves `eight_schools-eight_schools_centered` linked to a reference that no longer exists | Repoints it |
+| Renaming a posterior whose reference is shared | Refuses | Renames both and repoints the other posterior |
+| Error messages for wrong dimensions, excluded parameters and existing names | Fork's wording | Rewrite's wording. Both refuse. |
+| `r_session` in versions | Lists the fork and its imports | Lists the rewrite and its imports |
+| The batch workflow's result per posterior | Also has `stage`, `sampling` and `linked` | Has `status`, `draws`, `written` and `error` only |
+
+The comparison first found gaps in the rewrite, which are now fixed: the
+stored Stan version, tree-depth counts and sampler parameter summaries
+were missing; E-FMI used rstan's normalisation for cmdstanr fits too
+(a 0.04% difference); the Makevars placeholder text differed; and missing
+optional info fields weren't written as `null`. It also found a bug:
+`reconstruct_stan_output()` failed on every cmdstanr fit with a scalar
+parameter, because cmdstanr gives scalars dimension 1. A cmdstanr test
+now covers it.
+
+**The fork's own test suite against the rewrite.** Run with
+`sh tools/run-all.sh fork-suite`. `tools/fork-suite.R` runs each of the
+fork's 53 test files in its own R process, against the fork and then
+against the rewrite. `tools/fork-suite-compare.R` lists every test whose
+outcome differs.
+
+Against the fork itself, 188 of 199 tests pass, 8 are skipped (6 need
+live GitHub access, 2 are upstream's long-skipped LDA tests), and 3 fail:
+`check_pdb()` on the full database returns 1, and two caching tests call
+a function the fork no longer has.
+
+Against the rewrite, 167 tests have a different outcome. They split like
+this:
+
+| Kind | Tests | Examples |
+|---|---|---|
+| Call or mock one of the fork's internal functions | 95 | `assert_pdb_path_exists`, `extract_rstan_fit_for_bundle`, `write_json_to_path`, `local_mocked_bindings()` on fork helpers |
+| Build their fixtures from the fork's internal object layout | 42 | `structure(list(pdb_local_endpoint = ...), class = "pdb_local")`, fixtures that call `:::` |
+| Deliberate changes listed in [Dropped](#dropped) and [Changed](#changed) | 16 | Checks recomputed from the draws (4), identical writes skipped (3), the dropped `assert_checked_*` and `check_summary_statistics_draws` exports (4), no transactional rename rollback (3), no symlink checks (2) |
+| Wording only | 5 | Error messages, the order of check names, print layout in upstream's two skipped tests |
+| Remaining gaps, listed under [Feature parity](#feature-parity-with-the-fork) | 9 | Checking a posterior that isn't in a database, `posterior()` warning about unused arguments |
+
+The first two kinds don't test the rewrite's behaviour at all. Making
+them run would mean reimplementing the fork's internals.
+
+The suite found four bugs in the rewrite, now fixed:
+- `pdb()` on model code read the code as a database path, because model
+  code is also a character vector.
+- `rename_pdb()` on an object without `pdb` failed with "promise already
+  under evaluation".
+- Checking a bundle raised an error when its draws failed. The fork
+  records the failure, and the rewrite now does too.
+- `rename_pdb()` returned the new name rather than the renamed object.
+
+It also led to small additions:
+- `"all"` and `"none"` as selectors.
+- `include` and `exclude` for `infer_unconstrained_parameter_counts_from_fit()`.
+- `reference_posterior_draws_file_path()` for a reference info.
+- A check that sampler diagnostics match the draws' shape.
+- Free-form fields in non-Stan model implementations.
+- An error for duplicate `search_posteriors()` fields.
+- The fork's "Posterior:" heading when printing a reference info.
 
 ## Why the rewrite is smaller
 
@@ -223,16 +344,16 @@ Parse tokens by area (formatting doesn't affect these):
 
 | Area | Fork | Rewrite |
 |---|---|---|
-| Fit import, sampling, diagnostics, reconstruction, batch workflow | 16,114 | 5,510 |
-| Connections, cache, GitHub | 5,847 | 2,012 |
+| Fit import, sampling, diagnostics, reconstruction, batch workflow | 16,114 | 6,013 |
+| Connections, cache, GitHub | 5,847 | 2,026 |
 | Bundles | 4,467 | 893 |
-| Writing, removing, linking | 4,008 | 2,252 |
-| Renaming | 3,735 | 1,658 |
+| Writing, removing, linking | 4,008 | 2,321 |
+| Renaming | 3,735 | 1,748 |
 | Bibliography | 1,833 | 422 |
-| Everything else (objects, checks, tables, helpers) | 10,574 | 6,902 |
-| **Total** | **46,578** | **19,649** |
+| Everything else (objects, checks, tables, helpers) | 10,574 | 6,939 |
+| **Total** | **46,578** | **20,362** |
 
-The fork has 403 top-level functions and the rewrite has 269. The
+The fork has 403 top-level functions and the rewrite has 273. The
 difference comes from five patterns:
 
 1. **Validation layers.** The fork has 63 `validate_*`, `assert_*`,
@@ -266,8 +387,10 @@ for.
 
 ## Feature parity with the fork
 
-The rewrite doesn't have full parity with the fork. It covers every
-workflow the fork has, with the same function names:
+The rewrite doesn't have full parity with the fork, but the gaps are now
+measured rather than guessed. It covers every workflow the fork has, with
+the same function names, and the workflow comparison above shows the same
+results for them:
 - reading a database;
 - reference checks;
 - writing, removing and renaming;
@@ -278,12 +401,9 @@ These fork options and behaviours are missing:
 
 - `infer_posterior_dimensions()` has no `backend = "cmdstanr"`, `iter`,
   `include` or `exclude`. It always compiles with rstan.
-  `infer_unconstrained_parameter_counts_from_fit()` has no `include` or
-  `exclude`.
 - `reconstruct_stan_output()` and `reconstruct_posterior_output()` have no
   `include_unconstrained`, and don't return timings.
 - `link_reference_posterior()` has no `verify` argument.
-- There are no `"all"` or `"none"` shortcuts for `include`.
 - The fork records a `sampling_timestamp` field and forces
   `sig_figs = 18` on short cmdstanr runs. The rewrite has neither.
 - `as.reference_posterior_draws()` has no `stanfit` method, `write_pdb()`
@@ -295,12 +415,27 @@ These fork options and behaviours are missing:
   the `assert_checked_*` helpers, `check_summary_statistics_draws()` and
   `pdb_compare_stan_models()` were dropped on purpose.
 
-How this list was made: it compares exports and arguments
-(`tools/compare-api.R`) and the fork's roxygen docs. I haven't read the
-fork's design documents in `doc/`, which run to about 2,700 lines, or run
-the fork's own test suite against the rewrite. Its tests are about seven
-times the rewrite's by tokens, so running them would be the real parity
-test, and it would likely turn up behaviour differences this list misses.
+The fork's test suite found these further gaps, one test each:
+- Checking a posterior that was built in memory with embedded data, code
+  and draws, without a database (2 tests).
+- A bundle whose draws fail the checks is written by the fork without a
+  reference link. The rewrite refuses to write the posterior, because it
+  links to draws that weren't written.
+- `posterior()` warns about unused arguments, and `as.posterior()` reports
+  what it did, in the fork. The rewrite is silent.
+- `reference_posterior_summary_statistic()` can't build a summary from a
+  plain list.
+- PyMC code can't be read from model info that isn't in a database, and
+  renaming in-memory model code uses the database's info rather than the
+  object's.
+- A user-defined subclass of reference draws has `thin_draws()` applied
+  twice instead of once.
+
+How this list was made: exports and arguments (`tools/compare-api.R`), the
+fork's roxygen docs, the workflow comparison and the fork's test suite. I
+haven't read the fork's design documents in `doc/`, about 2,700 lines.
+The 137 fork tests that use its internals can't show gaps in behaviour
+those internals implement.
 
 ## The pre-fork package: what was meant and what was built
 
