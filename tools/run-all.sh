@@ -1,11 +1,12 @@
 #!/bin/sh
 # Reruns everything reported in REWRITE.md, from the package root:
-#   sh tools/run-all.sh [offline|stan|corpus|github|check|vignette|compare|differential|all]
+#   sh tools/run-all.sh [offline|stan|cmdstanr|corpus|github|check|vignette|compare|differential|workflows|fork-suite|all]
 # Defaults to "offline". Paths can be overridden with the variables below.
 set -e
 PDB_CHECKOUT="${PDB_CHECKOUT:-../posteriordb}"
 UPSTREAM="${UPSTREAM:-../upstream-r}"
 FORK="${FORK:-../posteriordb-r}"
+CMDSTAN="${CMDSTAN:-../cmdstan-2.36.0}"
 # Debian's rstan finds Boost headers only with this option set.
 RSTAN_SETUP='if (requireNamespace("rstan", quietly = TRUE)) rstan::rstan_options(boost_lib = "/usr/include")'
 # The containers' GitHub token variables held placeholders, which gh rejects.
@@ -17,6 +18,10 @@ case "${1:-offline}" in
   offline)  Rscript -e "devtools::test(reporter = 'summary', stop_on_failure = TRUE)" ;;
   # One real rstan run of eight schools (4 chains x 26,000 iterations, thinned by 10).
   stan)     (export PDB_TEST_STAN=true; run_tests "'stan'") ;;
+  # One real CmdStanR run, in its own process (rstan and cmdstanr together crashed).
+  cmdstanr)
+    (export PDB_TEST_STAN=true CMDSTAN="$(cd "$CMDSTAN" && pwd)"
+     Rscript -e "devtools::load_all(quiet = TRUE); testthat::test_file('tests/testthat/test-cmdstanr.R', stop_on_failure = TRUE)") ;;
   # check_pdb() and recomputed checks for every reference posterior.
   # testthat runs from tests/testthat, so the path is made absolute.
   corpus)   (export PDB_PATH="$(cd "$PDB_CHECKOUT" && pwd)/posterior_database"; run_tests "'corpus'") ;;
@@ -38,6 +43,28 @@ case "${1:-offline}" in
     Rscript tools/differential-dump.R "$FORK" "$db" "$out/fork"
     Rscript tools/differential-dump.R . "$db" "$out/rewrite"
     Rscript tools/differential-compare.R "$out/fork" "$out/rewrite" ;;
-  all) for step in offline corpus github check vignette compare differential stan; do sh "$0" "$step"; done ;;
+  # Fit import, bundles, renaming, removing, linking, reconstruction and the
+  # batch sampling workflow, run with the fork and with the rewrite on fresh
+  # copies of the fixture database, with both backends; lists every difference.
+  workflows)
+    out=$(mktemp -d); cmdstan="$(cd "$CMDSTAN" && pwd)"
+    Rscript tools/workflow-fits.R "$out/fits" rstan
+    for b in rstan cmdstanr; do
+      for p in fork rewrite; do
+        tree=$([ "$p" = fork ] && echo "$FORK" || echo .)
+        $GH_ENV Rscript tools/workflow-run.R "$tree" "$out/fits" "$out/$p-$b" "$b" "$cmdstan" sampling
+      done
+      Rscript tools/differential-compare.R "$out/fork-$b" "$out/rewrite-$b" scenarios
+    done ;;
+  # The fork's own test suite, run against the fork and against the rewrite.
+  fork-suite)
+    out=$(mktemp -d); db="$(cd "$PDB_CHECKOUT" && pwd)"; cmdstan="$(cd "$CMDSTAN" && pwd)"
+    sh tools/fork-suite.sh "$(cd "$FORK" && pwd)" "$FORK" "$db" "$cmdstan" "$out/fork.rds"
+    sh tools/fork-suite.sh "$(pwd)" "$FORK" "$db" "$cmdstan" "$out/rewrite.rds"
+    Rscript tools/fork-suite-compare.R "$out/fork.rds" "$out/rewrite.rds" "$FORK" ;;
+  all)
+    for step in offline corpus github check vignette compare differential stan cmdstanr workflows fork-suite; do
+      sh "$0" "$step"
+    done ;;
   *) echo "Unknown step: $1" >&2; exit 1 ;;
 esac

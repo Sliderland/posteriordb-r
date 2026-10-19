@@ -1,7 +1,10 @@
 # Differential test, step 2: compare two dumps from tools/differential-dump.R
 # and print every difference, grouped by kind.
 #   Rscript tools/differential-compare.R <fork-dir> <rewrite-dir>
+# With a third argument "scenarios", the folders hold one file per workflow
+# scenario (tools/workflow-run.R) and every difference is listed.
 args <- commandArgs(TRUE)
+scenarios <- identical(args[3], "scenarios")
 diffs <- list()
 walk <- function(x, y, path) {
   if (is.list(x) && is.list(y) && !is.null(names(x)) && !is.null(names(y))) {
@@ -20,7 +23,8 @@ walk <- function(x, y, path) {
 }
 files <- union(list.files(args[1]), list.files(args[2]))
 for (f in files) {
-  key <- if (f == "_database.rds") "" else paste0("/posteriors/", sub("[.]rds$", "", f))
+  key <- if (scenarios) paste0("/", sub("[.]rds$", "", f))
+    else if (f == "_database.rds") "" else paste0("/posteriors/", sub("[.]rds$", "", f))
   fa <- file.path(args[1], f); fb <- file.path(args[2], f)
   if (!file.exists(fa)) { diffs[[length(diffs) + 1]] <- c(path = key, what = "only in rewrite"); next }
   if (!file.exists(fb)) { diffs[[length(diffs) + 1]] <- c(path = key, what = "only in fork"); next }
@@ -28,6 +32,10 @@ for (f in files) {
 }
 if (!length(diffs)) {
   cat("No differences.\n")
+} else if (scenarios) {
+  d <- do.call(rbind, diffs)
+  cat(sprintf("%s\n    %s\n", d[, "path"], d[, "what"]), sep = "")
+  cat("\nTotal differences:", nrow(d), "\n")
 } else {
   d <- do.call(rbind, diffs)
   # Group by the path with posterior names removed, so one kind of difference shows once.

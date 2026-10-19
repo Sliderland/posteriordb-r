@@ -18,3 +18,18 @@ apt-get install -y zip git r-base-core r-base-dev \
 (cd "$dest/upstream-r" && git checkout -q 8aeef19)
 [ -d "$dest/posteriordb-r" ] || git clone https://github.com/sliderland/posteriordb-r "$dest/posteriordb-r"
 (cd "$dest/posteriordb-r" && git checkout -q 8f475e2)
+# CmdStanR and CmdStan, for the cmdstanr workflows and the fork's test suite
+# (tools/workflow-run.R, tools/fork-suite.sh). cmdstanr comes from its git tag
+# because CRAN and r-universe were blocked; v0.9.0 works with the apt
+# data.table. CmdStan is built from its release tarball.
+apt-get install -y r-cran-data.table r-cran-processx r-cran-r6 r-cran-rlang
+if ! Rscript -e 'quit(status = !requireNamespace("cmdstanr", quietly = TRUE))'; then
+  [ -d "$dest/cmdstanr-src" ] || git clone https://github.com/stan-dev/cmdstanr "$dest/cmdstanr-src"
+  (cd "$dest/cmdstanr-src" && git checkout -q v0.9.0)
+  R CMD INSTALL "$dest/cmdstanr-src"
+fi
+if [ ! -d "$dest/cmdstan-2.36.0" ]; then
+  curl -sSL -o "$dest/cmdstan.tar.gz" \
+    https://github.com/stan-dev/cmdstan/releases/download/v2.36.0/cmdstan-2.36.0.tar.gz
+  (cd "$dest" && tar xzf cmdstan.tar.gz && cd cmdstan-2.36.0 && make -j4 build)
+fi
