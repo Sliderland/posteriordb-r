@@ -94,7 +94,7 @@ test_that("legacy PyMC metadata uses its conventional path and unlisted framewor
   expect_identical(as.character(code), "# legacy fixture")
   expect_error(
     model_code_file_path(metadata, "pyro", connection),
-    "implementation.+Must be of type 'list'"
+    "Model 'legacy' has no pyro implementation."
   )
   remove_pdb(code, connection, remove_info = FALSE)
   expect_false(file.exists(source))

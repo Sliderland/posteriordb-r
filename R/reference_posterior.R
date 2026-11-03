@@ -313,7 +313,7 @@ assert_reference_posterior_info <- function(x) {
   assert_pdb_resource_name(x$name)
 
   checkmate::assert_true(
-    x$inference$method %in% c("stan_sampling", "analytical")
+    x$inference$method %in% c("stan_sampling", "analytical", "mcmc")
   )
   checkmate::assert_list(x$inference$method_arguments)
 

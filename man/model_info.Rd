@@ -51,7 +51,9 @@ For list input, `framework = "stan"` creates the Stan entry in
 `model_implementations` using the conventional model-code path and the
 default `stan_version = ">=2.26.0"`. A caller-supplied
 `model_implementations` list is retained as provided; if `framework` is
-also supplied, that implementation must be present in the list.}
+also supplied, that implementation must be present in the list. An empty
+`model_implementations` list describes a model with no code, such as one
+whose reference draws are analytical or come from other MCMC software.}
 
 \item{...}{further arguments to methods.}
 

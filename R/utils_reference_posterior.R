@@ -45,7 +45,8 @@ check_summary_statistics_draws.pdb_reference_posterior_draws <- function(
 #'   lag-1 autocorrelation across chains of at most 0.05 for every variable,
 #'   an R-hat of at most 1.01 for every variable, an E-FMI of at least 0.2
 #'   for every chain, and no divergent transitions. ESS is recorded but does
-#'   not decide the result. Analytical draws only need the draw count.
+#'   not decide the result. Analytical draws, and MCMC draws from other
+#'   software (`"mcmc"`), only need the draw count for now.
 #'
 #'   The checks use the diagnostics recorded with the draws. Named
 #'   diagnostics must be named by variable, or `chain1`, `chain2`, and so on

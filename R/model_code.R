@@ -166,6 +166,12 @@ model_implementation_file_path <- function(x, framework) {
   checkmate::assert_class(x, "pdb_model_info")
   checkmate::assert_choice(framework, supported_frameworks())
   implementation <- x$model_implementations[[framework]]
+  if (is.null(implementation)) {
+    stop(
+      "Model '", x$name, "' has no ", framework, " implementation.",
+      call. = FALSE
+    )
+  }
   checkmate::assert_list(implementation)
   path <- implementation$model_code %||%
     file.path(

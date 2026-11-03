@@ -8,7 +8,8 @@
 #' data references are supplied; no bibliography is needed without citations.
 #'
 #' @param po a [pdb_posterior] to check.
-#' @param run_stan_code_checks should checks using Stan be run?
+#' @param run_stan_code_checks should checks using Stan be run? They are
+#'   skipped for models without Stan code.
 #' @param verbose should check results be printed?
 #'
 #' @export
@@ -50,7 +51,11 @@ check_pdb_posterior <- function(
     message("- The posterior references exist in the bibliography.")
   }
 
-  if (run_stan_code_checks) {
+  has_stan_code <- !is.null(po$model_info$model_implementations$stan)
+  if (run_stan_code_checks && !has_stan_code && verbose) {
+    message("- No Stan code; Stan checks skipped.")
+  }
+  if (run_stan_code_checks && has_stan_code) {
     check_posterior_stan_syntax(po)
     if (verbose) {
       message("- Stan syntax is ok.")

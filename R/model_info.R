@@ -5,7 +5,9 @@
 #'   `model_implementations` using the conventional model-code path and the
 #'   default `stan_version = ">=2.26.0"`. A caller-supplied
 #'   `model_implementations` list is retained as provided; if `framework` is
-#'   also supplied, that implementation must be present in the list.
+#'   also supplied, that implementation must be present in the list. An empty
+#'   `model_implementations` list describes a model with no code, such as one
+#'   whose reference draws are analytical or come from other MCMC software.
 #' @param pdb a \code{pdb} object.
 #' @param ... further arguments to methods.
 #'
@@ -104,7 +106,11 @@ print.pdb_model_info <- function(x, ...) {
       logical(1)
     )
   ]
-  cat0("Frameworks: '", paste(frameworks, collapse = "', '"), "'\n")
+  if (length(frameworks) == 0L) {
+    cat0("Frameworks: none (no model code)\n")
+  } else {
+    cat0("Frameworks: '", paste(frameworks, collapse = "', '"), "'\n")
+  }
   invisible(x)
 }
 
@@ -133,13 +139,15 @@ assert_model_info <- function(x) {
     )
   )
   assert_pdb_resource_name(x$name)
-  checkmate::assert_names(
-    names(x$model_implementations),
-    subset.of = supported_frameworks()
-  )
-  checkmate::assert_true(any(
-    !vapply(x$model_implementations, is.null, logical(1))
-  ))
+  # A model may have no code at all, e.g. when its reference posterior is
+  # analytical or from other MCMC software. Then it is empty.
+  checkmate::assert_list(x$model_implementations)
+  if (length(x$model_implementations) > 0L) {
+    checkmate::assert_names(
+      names(x$model_implementations),
+      subset.of = supported_frameworks()
+    )
+  }
   for (implementation_name in names(x$model_implementations)) {
     implementation <- x$model_implementations[[implementation_name]]
     if (is.null(implementation)) {
