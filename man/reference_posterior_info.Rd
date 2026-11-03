@@ -46,5 +46,7 @@ A \code{pdb_reference_posterior_info} object.
 \description{
 The record that describes how a reference posterior was computed: the
 inference method and its arguments, diagnostics, the checks it passed,
-and software versions.
+and software versions. The method is \code{"stan_sampling"}, \code{"analytical"}, or
+\code{"mcmc"} for MCMC draws from other software; for now only Stan draws get
+the full quality checks, the others only the draw count.
 }

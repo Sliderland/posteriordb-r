@@ -21,7 +21,9 @@ info <- function(x) attr(x, "info")
 #'
 #' The record that describes how a reference posterior was computed: the
 #' inference method and its arguments, diagnostics, the checks it passed,
-#' and software versions.
+#' and software versions. The method is `"stan_sampling"`, `"analytical"`, or
+#' `"mcmc"` for MCMC draws from other software; for now only Stan draws get
+#' the full quality checks, the others only the draw count.
 #'
 #' @param x A posterior, a posterior name, or (for
 #'   `as.reference_posterior_info()`) a named list.
@@ -83,7 +85,7 @@ as.reference_posterior_info.list <- function(x, ...) {
   for (f in setdiff(fields, names(x))) x[f] <- list(NULL)
   x <- structure(x[fields], class = "pdb_reference_posterior_info")
   assert_name(x$name, "reference posterior name")
-  checkmate::assert_choice(x$inference$method, c("stan_sampling", "analytical"),
+  checkmate::assert_choice(x$inference$method, c("stan_sampling", "analytical", "mcmc"),
                            .var.name = "inference$method")
   checkmate::assert_list(x$inference$method_arguments, null.ok = TRUE,
                          .var.name = "inference$method_arguments")

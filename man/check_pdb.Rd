@@ -26,7 +26,7 @@ against: the posterior's own, else this one, else \code{\link[=pdb_default]{pdb_
 \item{posterior_names_to_check}{Posterior names to check; \code{NULL} checks all.}
 
 \item{run_stan_code_checks}{Compile and briefly run the Stan code? Needs
-rstan.}
+rstan. Skipped for models without Stan code.}
 
 \item{verbose}{Print progress?}
 

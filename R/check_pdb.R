@@ -10,7 +10,7 @@
 #' @param pdb A [pdb][pdb_local] connection.
 #' @param posterior_names_to_check Posterior names to check; `NULL` checks all.
 #' @param run_stan_code_checks Compile and briefly run the Stan code? Needs
-#'   rstan.
+#'   rstan. Skipped for models without Stan code.
 #' @param verbose Print progress?
 #' @param po A posterior.
 #' @param pdb The database whose bibliography `check_pdb_posterior()` checks
@@ -78,7 +78,9 @@ check_pdb_posterior <- function(po, run_stan_code_checks = FALSE, verbose = TRUE
     if (length(missing)) stop2("Reference(s) not in the bibliography: ", paste(missing, collapse = ", "))
     say("- references are in the bibliography")
   }
-  if (run_stan_code_checks) {
+  if (run_stan_code_checks && is.null(po$model_info$model_implementations$stan)) {
+    say("- no Stan code; Stan checks skipped")
+  } else if (run_stan_code_checks) {
     require_package("rstan", "for Stan code checks")
     utils::capture.output(suppressWarnings(
       run_stan(po, list(iter = 2, warmup = 0, chains = 1, refresh = 0))))

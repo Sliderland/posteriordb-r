@@ -70,6 +70,8 @@ list, for example before writing a new model or data set.
 \details{
 For \code{as.model_info()}, \code{framework = "stan"} is shorthand for a Stan
 implementation stored at the conventional \verb{models/stan/<name>.stan} path.
+An empty \code{model_implementations} list is a model with no code, such as one
+whose reference draws are analytical or come from other MCMC software.
 \code{as.data_info()} sets \code{data_file} to \verb{data/data/<name>.json} when missing.
 \code{added_by} and \code{added_date} default to the current user and date.
 }

@@ -7,6 +7,8 @@
 #'
 #' For `as.model_info()`, `framework = "stan"` is shorthand for a Stan
 #' implementation stored at the conventional `models/stan/<name>.stan` path.
+#' An empty `model_implementations` list is a model with no code, such as one
+#' whose reference draws are analytical or come from other MCMC software.
 #' `as.data_info()` sets `data_file` to `data/data/<name>.json` when missing.
 #' `added_by` and `added_date` default to the current user and date.
 #'
@@ -76,7 +78,10 @@ default_model_path <- function(name, framework) {
 assert_model_info <- function(x) {
   assert_name(x$name, "model name")
   checkmate::assert_string(x$title, .var.name = "title")
-  checkmate::assert_list(x$model_implementations, min.len = 1, names = "unique",
+  # An empty list is a model with no code, e.g. one whose reference draws
+  # are analytical or come from other MCMC software.
+  checkmate::assert_list(x$model_implementations,
+                         names = if (length(x$model_implementations)) "unique",
                          .var.name = "model_implementations")
   checkmate::assert_subset(names(x$model_implementations), supported_frameworks(),
                            .var.name = "model_implementations")
@@ -114,7 +119,9 @@ assert_common_info <- function(x) {
 #' @export
 print.pdb_model_info <- function(x, ...) {
   cat0("Model: ", x$name, "\n", x$title, "\n")
-  cat0("Frameworks: '", paste(names(x$model_implementations), collapse = "', '"), "'\n")
+  frameworks <- names(x$model_implementations)
+  cat0("Frameworks: ", if (length(frameworks)) paste0("'", paste(frameworks, collapse = "', '"), "'")
+       else "none (no model code)", "\n")
   invisible(x)
 }
 
